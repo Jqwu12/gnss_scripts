@@ -50,7 +50,8 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-f_config_tmp = os.path.join(base_dir, 'scripts', 'ppp_config.ini')
+#f_config_tmp = os.path.join(base_dir, 'scripts', 'ppp_config.ini')
+f_config_tmp = 'ppp_config.ini'
 config = GNSSconfig(f_config_tmp)
 config.update_pathinfo(sys_data, gns_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
