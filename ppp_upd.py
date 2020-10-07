@@ -39,7 +39,7 @@ if platform.system() == 'Windows':
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin', 'RelWithDebInfo')
     sys_data = r"C:\Users\jiaqi\GNSS_Project\sys_data"
     gns_data = r"C:\Users\jiaqi\GNSS_Project\gns_data"
-    base_dir = os.getcwd()
+    base_dir = r"C:\Users\jiaqi\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
@@ -50,7 +50,7 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-f_config_tmp = os.path.join(base_dir, 'scripts', 'upd_config.ini')
+f_config_tmp = 'upd_config.ini'
 config = GNSSconfig(f_config_tmp)
 config.update_pathinfo(sys_data, gns_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
