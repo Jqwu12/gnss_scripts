@@ -42,11 +42,14 @@ class GNSSconfig:
         self.config.set('process_scheme', 'time_end', time_end.datetime())
         self.config.set('process_scheme', 'intv', f"{intv:d}")
 
-    def update_gnssinfo(self, sys='G', freq=2, obs_model='IF', est='LSQ', sat_rm=''):
+    def update_gnssinfo(self, sys=None, freq=None, obs_model=None, est=None, sat_rm=None):
         """ update the gnss settings in config file """
-        self.config.set('process_scheme', 'sys', sys)
-        self.config.set('process_scheme', 'frequency', f"{freq:d}")
-        self.config.set('process_scheme', 'lsq_mode', est)
+        if sys:
+            self.config.set('process_scheme', 'sys', sys)
+        if freq:
+            self.config.set('process_scheme', 'frequency', f"{freq:d}")
+        if est:
+            self.config.set('process_scheme', 'lsq_mode', est)
         if obs_model == 'IF':
             self.config.set('process_scheme', 'obs_comb', "IF")
             self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
@@ -55,8 +58,8 @@ class GNSSconfig:
             self.config.set('process_scheme', 'obs_comb', "UDUC")
             self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
             self.config.set('process_scheme', 'ion_model', "SION")
-
-        self.config.set('process_scheme', 'sat_rm', sat_rm)  # currently not used
+        if sat_rm:
+            self.config.set('process_scheme', 'sat_rm', sat_rm)  # currently not used
 
     def update_prodinfo(self, cen='grm', bia=''):
         """ update the IGS product settings in config file """

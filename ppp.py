@@ -123,11 +123,25 @@ while count > 0:
         continue
 
     # Run Precise Point Positioning
+    config.update_gnssinfo(obs_model='UDUC', freq=3)
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
                  out=os.path.join('tmp', 'ppplsq'))
-    config.update_process(frequency='2')
+
+    config.update_gnssinfo(obs_model='UDUC', freq=2)
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+                 out=os.path.join('tmp', 'ppplsq'))
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+                 out=os.path.join('tmp', 'ppplsq'))
+
+    config.update_gnssinfo(obs_model='IF', freq=3)
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+                 out=os.path.join('tmp', 'ppplsq'))
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+                 out=os.path.join('tmp', 'ppplsq'))
+
+    config.update_gnssinfo(obs_model='IF', freq=2)
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
