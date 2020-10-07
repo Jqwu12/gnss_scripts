@@ -39,12 +39,14 @@ if platform.system() == 'Windows':
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin', 'RelWithDebInfo')
     sys_data = r"C:\Users\jiaqi\GNSS_Project\sys_data"
     gns_data = r"C:\Users\jiaqi\GNSS_Project\gns_data"
+    upd_data = r"C:\Users\jiaqi\GNSS_Project\UPD"
     base_dir = r"C:\Users\jiaqi\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
     sys_data = "/home/jqwu/projects/sys_data"
     gns_data = "/home/jqwu/gns_data"
+    upd_data = "/home/jqwu/projects/UPD"
     base_dir = "/home/jqwu/projects"
 
 # ------ Init config file --------
@@ -52,7 +54,7 @@ sta_list = read_site_list(args.f_list)
 sta_list.sort()
 f_config_tmp = 'ppp_config.ini'
 config = GNSSconfig(f_config_tmp)
-config.update_pathinfo(sys_data, gns_data)
+config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
 if sta_list:
     config.update_stalist(sta_list)
@@ -96,8 +98,7 @@ while count > 0:
 
     # ---------- Basic check ---------
     config.copy_sys_data()
-    isok = config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern'])
-    if isok:
+    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed ! skip to next day")
@@ -113,6 +114,14 @@ while count > 0:
     config.update_process(frequency='3')
     nthread = min(len(config.all_receiver().split()), 8)
     gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    if config.basic_check(files=['ambflag']):
+        logging.info("Ambflag is ok ^_^")
+    else:
+        logging.critical("NO ambflag files ! skip to next day")
+        t_beg = t_beg.time_increase(86400)
+        count -= 1
+        continue
+
     # Run Precise Point Positioning
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))

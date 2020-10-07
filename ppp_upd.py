@@ -111,6 +111,14 @@ while count > 0:
         config.update_process(sys='EC')
     nthread = min(len(config.all_receiver().split()), 10)
     gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    isok = config.basic_check(files=['ambflag'])
+    if isok:
+        logging.info("Ambflag is ok ^_^")
+    else:
+        logging.critical("NO ambflag files ! skip to next day")
+        t_beg = t_beg.time_increase(86400)
+        count -= 1
+        continue
     # get ifcb for GPS
     # if args.freq > 2 and "G" in args.sys:
     #     config.update_process(sys='G')

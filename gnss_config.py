@@ -89,7 +89,7 @@ class GNSSconfig:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
     
-    def update_pathinfo(self, sys_data, gns_data):
+    def update_pathinfo(self, sys_data, gns_data, upd_data=""):
         """ update the path information in config according to different OS """
         if os.path.isdir(sys_data):
             self.config.set('common', 'sys_data', os.path.abspath(sys_data))
@@ -100,6 +100,12 @@ class GNSSconfig:
             self.config.set('common', 'gns_data', os.path.abspath(gns_data))
         else:
             _raise_error(f"gns_data dir {gns_data} not exist!")
+
+        if upd_data:
+            if os.path.isdir(upd_data):
+                self.config.set('common', 'upd_data', os.path.abspath(upd_data))
+            else:
+                _raise_error(f"upd_data dir {upd_data} not exist!")
 
         path_sections = ['xml_template', 'process_files', 'source_files']
         if platform.system() == 'Windows':
