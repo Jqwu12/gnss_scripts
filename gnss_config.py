@@ -196,6 +196,8 @@ class GNSSconfig:
                 amb_dict['upd_mode'] = 'IRC'
         else:
             amb_dict['upd_mode'] = 'UPD'
+        if self.config['process_scheme']['lsq_mode'] == "EPO":
+            amb_dict['min_common_time'] = '0'
         if self.config.has_option('ambiguity_scheme', 'extra_widelane_decision'):
             if len(self.config.get('ambiguity_scheme', 'extra_widelane_decision').split()) == 3:
                 amb_dict['extra_widelane_decision'] = self.config.get('ambiguity_scheme', 'extra_widelane_decision').split()

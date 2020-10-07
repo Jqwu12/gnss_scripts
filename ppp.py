@@ -22,7 +22,7 @@ parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UDUC', 'IF'},
 parser.add_argument('-est', dest='est', default='EPO', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
 parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
-parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
+parser.add_argument('-cen', dest='cen', default='com', choices={'igs','cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
                     help='GNSS precise orbits and clocks')
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
                     help='bias files')
