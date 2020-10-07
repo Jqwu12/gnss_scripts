@@ -110,13 +110,19 @@ while count > 0:
     logging.info(f"config is {f_config}")
 
     # Run turboedit
+    config.update_process(frequency='3')
     nthread = min(len(config.all_receiver().split()), 8)
     gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
     # Run Precise Point Positioning
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
-    #gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
-    #             out=os.path.join('tmp', 'ppplsq'))
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+                 out=os.path.join('tmp', 'ppplsq'))
+    config.update_process(frequency='2')
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+                 out=os.path.join('tmp', 'ppplsq'))
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+                 out=os.path.join('tmp', 'ppplsq'))
 
     # next day
     t_beg0 = t_beg0.time_increase(86400)
