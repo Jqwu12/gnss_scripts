@@ -81,7 +81,7 @@ while count > 0:
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run PPP-UPD for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
