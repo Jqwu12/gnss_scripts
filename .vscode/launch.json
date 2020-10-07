@@ -1,0 +1,25 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: ppp",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-y", "2019",
+                "-d", "100",
+                "-s", "site_list_test1",
+                "-c", "UDUC",
+                "-sys", "G",
+                "-freq", "3",
+                "-l", "9",
+                "-t", "1"
+            ]
+        }
+    ]
+}
