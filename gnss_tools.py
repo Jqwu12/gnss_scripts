@@ -160,7 +160,7 @@ def copy_result_files_to_path(config, files, path, sattype='gns'):
     e,g, cp upd_nl_2019100_G ${upd_dir}
     """
     if not os.path.isdir(path):
-        logging.warning(f"Input path ${path} not exists, creating...")
+        logging.warning(f"Input path {path} not exists, creating...")
         os.makedirs(path)
     for file in files:
         file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)

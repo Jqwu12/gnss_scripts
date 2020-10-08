@@ -137,7 +137,7 @@ while count > 0:
     gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=f"upd_wl_{args.sys}")
     gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
 
-    gt.copy_result_files_to_path(config, ["upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
+    gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

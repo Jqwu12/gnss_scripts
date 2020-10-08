@@ -166,7 +166,7 @@ class GNSStime:
         mjd = self.mjd
         sod = self.sod + float(dsec)
         while True:
-            if sod > 86400.0:
+            if sod >= 86400.0:
                 sod -= 86400.0
                 mjd += 1
             elif sod < 0:
