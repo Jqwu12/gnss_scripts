@@ -136,6 +136,6 @@ while count > 0:
     gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
 
     # next day
-    logging.info("Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
+    logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
     t_beg0 = t_beg0.time_increase(86400)
     count -= 1
