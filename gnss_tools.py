@@ -154,6 +154,23 @@ def copy_result_files(config, files, scheme, sattype='gns'):
                 logging.warning(f"unable to copy file {file}")
 
 
+def copy_result_files_to_path(config, files, path, sattype='gns'):
+    """
+    Purpose: Copy result files to another path
+    e,g, cp upd_nl_2019100_G ${upd_dir}
+    """
+    if not os.path.isdir(path):
+        logging.warning(f"Input path ${path} not exists, creating...")
+        os.makedirs(path)
+    for file in files:
+        file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)
+        for f_name in file_olds.split():
+            try:
+                shutil.copy(f_name, path)
+            except IOError as e:
+                logging.warning(f"unable to copy file {file}")
+
+
 def _get_grg_wsb(config):
     """
     purpose: grep WL UPD from CNES/CLS integer clock products

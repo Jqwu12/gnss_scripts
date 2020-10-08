@@ -39,12 +39,14 @@ if platform.system() == 'Windows':
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin', 'RelWithDebInfo')
     sys_data = r"C:\Users\jiaqi\GNSS_Project\sys_data"
     gns_data = r"C:\Users\jiaqi\GNSS_Project\gns_data"
+    upd_data = r"C:\Users\jiaqi\GNSS_Project\gns_data\upd"
     base_dir = r"C:\Users\jiaqi\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
     sys_data = "/home/jqwu/projects/sys_data"
     gns_data = "/home/jqwu/gns_data"
+    upd_data = "/home/jqwu/gns_data/upd"
     base_dir = "/home/jqwu/projects"
 
 # ------ Init config file --------
@@ -52,7 +54,7 @@ sta_list = read_site_list(args.f_list)
 sta_list.sort()
 f_config_tmp = 'upd_config.ini'
 config = GNSSconfig(f_config_tmp)
-config.update_pathinfo(sys_data, gns_data)
+config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
 if sta_list:
     config.update_stalist(sta_list)
@@ -134,6 +136,8 @@ while count > 0:
         gt.run_great(grt_bin, 'great_updlsq', config, mode='EWL', out=f"upd_ewl_{args.sys}")
     gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=f"upd_wl_{args.sys}")
     gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
+
+    gt.copy_result_files_to_path(config, ["upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
