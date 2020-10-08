@@ -148,5 +148,6 @@ while count > 0:
                  out=os.path.join('tmp', 'ppplsq'))
 
     # next day
+    logging.info("Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
     t_beg0 = t_beg0.time_increase(86400)
     count -= 1
