@@ -108,7 +108,8 @@ class GNSSconfig:
             if os.path.isdir(upd_data):
                 self.config.set('common', 'upd_data', os.path.abspath(upd_data))
             else:
-                _raise_error(f"upd_data dir {upd_data} not exist!")
+                os.makedirs(upd_data)
+                # _raise_error(f"upd_data dir {upd_data} not exist!")
 
         path_sections = ['xml_template', 'process_files', 'source_files']
         if platform.system() == 'Windows':
