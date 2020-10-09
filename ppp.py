@@ -39,7 +39,7 @@ if platform.system() == 'Windows':
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin', 'RelWithDebInfo')
     sys_data = r"C:\Users\jiaqi\GNSS_Project\sys_data"
     gns_data = r"C:\Users\jiaqi\GNSS_Project\gns_data"
-    upd_data = r"C:\Users\jiaqi\GNSS_Project\UPD"
+    upd_data = r"C:\Users\jiaqi\GNSS_Project\gns_data\upd"
     base_dir = r"C:\Users\jiaqi\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"

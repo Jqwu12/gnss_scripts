@@ -336,9 +336,11 @@ class GNSSconfig:
         if f_type == 'sp3':
             t_beg = t_beg.time_increase(-5400.0)
             t_end = t_end.time_increase(5400.0)
+        else:
+            t_end = t_end.time_increase(-1)
         time = t_beg
         end = GNSStime()
-        end.set_mjd(t_end.mjd, 86400.0)
+        end.set_mjd(t_end.mjd, 86399.0)
         f_out = ""
         while time.time_difference(end) > 0.0:
             cf_vars = config_vars
