@@ -267,6 +267,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
     gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
     root.append(gen)
     # <inputs>
+    amb_dict = config.xml_ambiguity()
     if mode == "ifcb":
         f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern']
         inp = _get_element_io(config, 'inputs', f_inputs, check=True)
@@ -281,6 +282,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
             if mode == "NL":
                 ele = ET.SubElement(inp, "upd")
                 ele.text = config.get_filename("upd_wl", check=True)
+                if amb_dict['carrier_range'].upper() == "YES":
+                    ele = ET.SubElement(inp, "ambflag")
+                    ele.text = config.get_filename("ambflag", check=True)
         else:
             if mode == "WL":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'biabern']
@@ -294,6 +298,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
                 ele.text = config.get_filename("ambupd_in", check=True)
                 ele = ET.SubElement(inp, "upd")
                 ele.text = config.get_filename("upd_wl", check=True)
+                if amb_dict['carrier_range'].upper() == "YES":
+                    ele = ET.SubElement(inp, "ambflag")
+                    ele.text = config.get_filename("ambflag", check=True)
             root.append(inp)
     # <outputs>
     out = ET.SubElement(root, "outputs")
@@ -324,6 +331,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
     # <ambiguity>
     amb = ET.SubElement(root, "ambiguity")
     upd = ET.SubElement(amb, "upd")
+    if mode == "NL":
+        upd_ele = ET.SubElement(amb, "carrier_range_out")
+        upd_ele.text = amb_dict['carrier_range'].upper()
     upd.text = mode
     # write new xml
     _pretty_xml(root, '\t', '\n', 0)

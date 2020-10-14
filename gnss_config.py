@@ -193,9 +193,9 @@ class GNSSconfig:
         if not self.config.has_section('ambiguity_scheme'):
             logging.error("No [ambiguity_scheme] in config file")
             return {}
-        opt_list = ['dd_mode', 'is_ppprtk', 'fix_mode', 'ratio', 'part_fix', 'add_leo', 'all_baselines',
+        opt_list = ['dd_mode', 'is_ppprtk', 'fix_mode', 'ratio', 'part_fix', 'carrier_range', 'add_leo', 'all_baselines',
                     'min_common_time', 'baseline_length_limit', 'widelane_interval']
-        amb_dict = {}
+        amb_dict = {'carrier_range': "NO"}
         for opt in opt_list:
             if self.config.has_option('ambiguity_scheme', opt):
                 amb_dict[opt] = self.config.get('ambiguity_scheme', opt).upper()
