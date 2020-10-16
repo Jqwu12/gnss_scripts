@@ -184,8 +184,8 @@ class GNSSconfig:
             proc_dict['tropo_model'] = self.config.get('process_scheme', 'tropo').split()[2]
         if proc_dict['obs_combination'] == "RAW_ALL":
             proc_dict['ion_model'] = "SION"
-        #if "BDS" in self.gnssys():
-        #    proc_dict["bds_code_bias_corr"] = "true"
+        if "BDS" in self.gnssys():
+           proc_dict["bds_code_bias_corr"] = "true"
         return proc_dict
 
     def xml_ambiguity(self):
