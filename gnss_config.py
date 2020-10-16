@@ -237,6 +237,13 @@ class GNSSconfig:
         else:
             logging.warning("Cannot find sys in [process_scheme]")
 
+    def all_gnssat(self):
+        """ Get all GNSS sats """
+        sats = []
+        for sys in self.gnssys().split():
+            sats.extend(_GNS_INFO[sys]['sat'])
+        return sats
+
     def all_receiver(self):
         """ Get all receiver names """
         leo_list = self.leo_recs()
