@@ -263,6 +263,15 @@ def _get_lsq_param(config, mode):
         ele.set("sigCLK", "9000")
         ele.set("sigTropPd", "0.015")
         ele.set("sigZTD", "0.201")
+    if mode == "PCE_EST" or mode == "POD_EST":
+        for sat in config.all_gnssat():
+            ele = ET.SubElement(param, 'SAT')
+            ele.set("ID", sat)
+            ele.set("sigCLK", "5000")
+            ele.set("sigPOS", "10.000_10.000_10.000")
+            ele.set("sigVEL", "0.100_0.100_0.100")
+            ele.set("sigECOM", "10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000")
+
     return param
 
 
