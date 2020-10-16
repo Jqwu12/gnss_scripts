@@ -8,7 +8,7 @@ import logging
 def generate_great_xml(config, app, f_xml, **kwargs):
     if app == 'great_turboedit':
         _generate_turboedit_xml(config, f_xml)
-    elif app == 'great_podlsq' or app == 'great_ppplsq':
+    elif app in ['great_podlsq', 'great_ppplsq', 'great_pcelsq']:
         mode = ''
         ambcon = False
         fix_mode = "NO"
@@ -44,6 +44,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             elif key == 'trans':
                 trans = val
         _generate_orbfit_xml(config, f_xml, fit, trans)
+    elif app == 'great_clkdif':
+        _generate_clkdif_xml(config, f_xml)
     elif app == 'great_orbfitleo':
         fit = False
         trans = ""
@@ -89,7 +91,7 @@ def _generate_turboedit_xml(config, f_xml_out):
     # <receiver> <parameters>
     if config.stalist():
         rec = _get_receiver(config)
-        par = _get_receiver_param(config)
+        par = _get_lsq_param(config, "PPP_EST")
         root.append(rec)
         root.append(par)
     # <gps> <bds> <gal> <glo>
@@ -146,7 +148,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
     # <receiver> <parameters>
     if config.stalist():
         rec = _get_receiver(config)
-        par = _get_receiver_param(config)
+        par = _get_lsq_param(config, mode)
         root.append(rec)
         root.append(par)
     # <inputs> <outputs>
@@ -173,6 +175,9 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
         proc.set('ambfix', 'true')
     else:
         proc.set('ambfix', 'false')
+    if mode == "PCE_EST":
+        proc.set('ref_clk', _set_ref_clk(config))
+        proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     ifb_model.text = 'EST_REC_IFB'
     for gns in _get_element_gns(config):
@@ -211,6 +216,9 @@ def _get_element_lsq_io(config, mode):
             inp_ele = ET.SubElement(inputs, 'sp3')
             inp_ele.text = config.get_filename(file, check=True, sattype='gnsleo')
             continue
+        if file == 'rinexc_all':
+            inp_ele = ET.SubElement(inputs, 'rinexc')
+            inp_ele.text = config.get_filename('rinexc_all', check=True)
         inp_ele = ET.SubElement(inputs, file)
         inp_ele.text = config.get_filename(file, check=True, sattype='gns')
     outputs = ET.Element('outputs')
@@ -245,7 +253,7 @@ def _get_receiver(config):
     return receiver
 
 
-def _get_receiver_param(config):
+def _get_lsq_param(config, mode):
     param = ET.Element('parameters')
     for site in config.stalist():
         ele = ET.SubElement(param, 'STA')
@@ -258,6 +266,13 @@ def _get_receiver_param(config):
     return param
 
 
+def _set_ref_clk(config):
+    if "ALGO" in config.stalist() or "algo" in config.stalist():
+        return "ALGO"
+    else:
+        return config.stalist()[0].upper()
+
+
 def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
     if mode.upper() == "IFCB":
         mode = "ifcb"
@@ -267,6 +282,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
     gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
     root.append(gen)
     # <inputs>
+    amb_dict = config.xml_ambiguity()
     if mode == "ifcb":
         f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern']
         inp = _get_element_io(config, 'inputs', f_inputs, check=True)
@@ -280,7 +296,12 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
             ele.text = config.get_filename("ambupd_in", check=True)
             if mode == "NL":
                 ele = ET.SubElement(inp, "upd")
-                ele.text = config.get_filename("upd_wl", check=True)
+                ele.text = config.get_filename("upd_wl", check=True) + " " + config.get_filename("upd_ewl", check=True)
+                if amb_dict['carrier_range'].upper() == "YES":
+                    ele = ET.SubElement(inp, "ambflag")
+                    ele.text = config.get_filename("ambflag", check=True)
+                    ele = ET.SubElement(inp, "ambflag13")
+                    ele.text = config.get_filename("ambflag13", check=True)
         else:
             if mode == "WL":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'biabern']
@@ -294,6 +315,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
                 ele.text = config.get_filename("ambupd_in", check=True)
                 ele = ET.SubElement(inp, "upd")
                 ele.text = config.get_filename("upd_wl", check=True)
+                if amb_dict['carrier_range'].upper() == "YES":
+                    ele = ET.SubElement(inp, "ambflag")
+                    ele.text = config.get_filename("ambflag", check=True)
             root.append(inp)
     # <outputs>
     out = ET.SubElement(root, "outputs")
@@ -324,6 +348,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
     # <ambiguity>
     amb = ET.SubElement(root, "ambiguity")
     upd = ET.SubElement(amb, "upd")
+    if mode == "NL":
+        upd_ele = ET.SubElement(amb, "carrier_range_out")
+        upd_ele.text = amb_dict['carrier_range'].upper()
     upd.text = mode
     # write new xml
     _pretty_xml(root, '\t', '\n', 0)
@@ -566,6 +593,41 @@ def _generate_orbfitleo_xml(config, f_xml_out, fit=False, trans="", unit="mm"):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
+def _generate_clkdif_xml(config, f_xml_out):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    gen = _get_element_gen(config, ['sys', 'intv'])
+    gen_ele = ET.SubElement(gen, "refsat")
+    if "GPS" in config.gnssys().split():
+        gen_ele.text = "G08"
+    else:
+        if "GAL" in config.gnssys().split():
+            gen_ele.text = "E01"
+        else:
+            if "BDS" in config.gnssys().split():
+                gen_ele.text = "C08"  # the ref sat of BDS need to choose
+            else:
+                if "GLO" in config.gnssys().split():
+                    gen_ele.text = "R01"
+    root.append(gen)
+    # <inputs>
+    inp = ET.SubElement(root, "inputs")
+    inp_ele = ET.SubElement(inp, "rinexc_prd")
+    inp_ele.text = config.get_filename("satclk")
+    inp_ele = ET.SubElement(inp, "rinexc_ref")
+    inp_ele.text = config.get_filename("rinexc")
+    # <outputs>
+    out = ET.SubElement(root, "outputs")
+    out_ele = ET.SubElement(out, 'log')
+    out_ele.text = f"LOGRT.log"
+    out_ele = ET.SubElement(out, 'clkdif')
+    out_ele.text = config.get_filename("clkdif")
+    for gns in _get_element_gns(config):
+        root.append(gns)
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
+
+
 def _get_element_gen(config, ele_list=None):
     if ele_list is None:
         ele_list = []
@@ -592,6 +654,9 @@ def _get_element_gen(config, ele_list=None):
     if 'est' in ele_list:
         estimator = ET.SubElement(gen, 'est')
         estimator.text = config.config.get('process_scheme', 'estimator').upper()
+    if 'refsat' in ele_list:
+        refsat = ET.SubElement(gen, 'refsat')
+        refsat.text = ""
     # sat_rm = ET.SubElement(gen, 'sat_rm')
     return gen
 

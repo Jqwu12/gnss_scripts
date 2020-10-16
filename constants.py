@@ -102,20 +102,24 @@ def _leo_short2long(leo):
 
 _LSQ_SCHEME = {
     'BASIC': {
-        'inputs': ['rinexo', 'rinexc', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern'],
+        'inputs': ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern'],
         'outputs': []
     },
     'LEO_KIN': {
-        'inputs': ['orb', 'sp3', 'satpars', 'attitude'],
+        'inputs': ['orb', 'rinexc', 'sp3', 'satpars', 'attitude'],
         'outputs': ['recclk', 'sp3']
     },
     'LEO_DYN': {
-        'inputs': ['orb', 'ics', 'satpars', 'attitude'],
+        'inputs': ['orb', 'rinexc', 'ics', 'satpars', 'attitude'],
         'outputs': ['recclk', 'ics']
     },
     'PPP_EST': {
-        'inputs': ['rinexn', 'sp3', 'blq', 'ifcb'],
+        'inputs': ['rinexn', 'sp3', 'rinexc', 'blq', 'ifcb'],
         'outputs': ['ppp', 'enu', 'flt', 'ambupd', 'recover']
+    },
+    'PCE_EST': {
+        'inputs': ['sp3', 'blq', 'ifcb', 'satpars'],
+        'outputs': ['ppp', 'satclk', 'recclk']
     }
 }
 
