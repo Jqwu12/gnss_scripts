@@ -403,7 +403,7 @@ class GNSSconfig:
     def get_filename(self, f_type, sattype='gns', check=False, conf_opt='process_files'):
         """ get the name of process files according to config file """
         file_all = ""
-        if f_type in ['rinexo', 'ambflag','ambflag13', 'ambupd_in']:
+        if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambupd_in']:
             leo_rm = []
             for leo in self.leolist():
                 leo_abbr = _LEO_INFO[leo]['abbr']
@@ -461,6 +461,9 @@ class GNSSconfig:
             f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'rinexc':
+            f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
+            return f_out.strip()
+        elif f_type == 'rinexc_all':
             f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             f_out = f_out + " " + self._get_file('recclk', check=check, conf_opt=conf_opt)
             return f_out.strip()
