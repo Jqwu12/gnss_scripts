@@ -297,7 +297,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         inp = _get_element_io(config, 'inputs', f_inputs, check=True)
         root.append(inp)
     else:
-        if config.config['process_scheme']['obs_comb'] == "UDUC":
+        if config.config['process_scheme']['obs_comb'] == "UC":
             inp = ET.SubElement(root, "inputs")
             ele = ET.SubElement(inp, "rinexn")
             ele.text = config.get_filename("rinexn", check=True)

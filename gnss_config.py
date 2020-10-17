@@ -55,7 +55,7 @@ class GNSSconfig:
             self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
             self.config.set('process_scheme', 'ion_model', "NONE")
         else:
-            self.config.set('process_scheme', 'obs_comb', "UDUC")
+            self.config.set('process_scheme', 'obs_comb', "UC")
             self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
             self.config.set('process_scheme', 'ion_model', "SION")
         if sat_rm:

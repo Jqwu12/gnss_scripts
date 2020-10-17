@@ -118,7 +118,7 @@ _LSQ_SCHEME = {
         'outputs': ['ppp', 'enu', 'flt', 'ambupd', 'recover']
     },
     'PCE_EST': {
-        'inputs': ['sp3', 'blq', 'ifcb', 'satpars'],
+        'inputs': ['rinexn', 'sp3', 'blq', 'ifcb', 'satpars'],
         'outputs': ['ppp', 'satclk', 'recclk']
     }
 }
