@@ -134,9 +134,9 @@ class GNSSconfig:
         for key, val in kwargs.items():
             if not append:
                 if self.config.has_option('process_scheme', key):
-                    self.config.set('process_scheme', key, val)
+                    self.config.set('process_scheme', key, f"{val}")
             else:
-                self.config.set('process_scheme', key, val)
+                self.config.set('process_scheme', key, f"{val}")
 
     def update_ambiguity(self, append=False, **kwargs):
         """ Update any process item in config """
@@ -472,7 +472,7 @@ class GNSSconfig:
             f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'rinexc_all':
-            f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
+            f_out = self._get_dailyfile('rinexc', check=check, conf_opt=conf_opt)
             f_out = f_out + " " + self._get_file('recclk', check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'biabern':
