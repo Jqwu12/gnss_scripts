@@ -14,14 +14,14 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 
 # ------ Get args ----------------
-parser = argparse.ArgumentParser(description='Run Precise Clock Estimating')
+parser = argparse.ArgumentParser(description='Run Precise Orbit Determination')
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
 parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
 parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
 parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
-parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
+parser.add_argument('-freq', dest='freq', type=int, default=2, help='used GNSS frequencies')
 parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
                     help='GNSS precise orbits and clocks')
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
@@ -52,7 +52,7 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-f_config_tmp = 'pce_config.ini'
+f_config_tmp = 'gnspod_config.ini'
 config = GNSSconfig(f_config_tmp)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
@@ -65,7 +65,7 @@ if args.freq > 2:
 config.update_prodinfo(args.cen, args.bia)
 
 # ------ Start PPP process -------
-proj_dir = os.path.join(base_dir, 'PCE')
+proj_dir = os.path.join(base_dir, 'POD')
 if args.sod:
     sod = args.sod
 elif args.hms:
@@ -82,13 +82,13 @@ while count > 0:
     t_end = t_beg.time_increase(seslen)
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='FIX')
-    logging.info(f"\n===> Run PCE for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}")
+    logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
-    else:
-        shutil.rmtree(workdir)
-        os.makedirs(workdir)
+    # else:
+    #     shutil.rmtree(workdir)
+    #     os.makedirs(workdir)
     os.chdir(workdir)
     gt.mkdir(['log_tb', 'ppp', 'ambupd', 'clkdif'])
     logging.info(f"work directory is {workdir}")
@@ -110,7 +110,7 @@ while count > 0:
 
     # Run turboedit
     nthread = min(len(config.all_receiver().split()), 10)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    # gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
     isok = config.basic_check(files=['ambflag'])
     if isok:
         logging.info("Ambflag is ok ^_^")
@@ -119,8 +119,12 @@ while count > 0:
         t_beg = t_beg.time_increase(86400)
         count -= 1
         continue
+    # Generate initial orbit using BRD
+    # gt.run_great(grt_bin, 'great_preedit', config)
+    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+
     # Run Precise Clock Estimation
-    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST')
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST')
 
     gt.run_great(grt_bin, 'great_clkdif', config)
 

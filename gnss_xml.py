@@ -23,6 +23,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             logging.critical("LSQ mode missing [LEO_KIN/...]")
             raise SystemExit("LSQ mode missing [LEO_KIN/...]")
         _generate_lsq_xml(config, f_xml, mode, ambcon, fix_mode)
+    if app == "great_preedit":
+        _generate_preedit_xml(config, f_xml)
     elif app == 'great_oi':
         sattype = 'gns'
         for key, val in kwargs.items():
@@ -80,6 +82,28 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'mode':
                 mode = val.upper()
         _generate_updlsq_xml(config, f_xml, mode)
+
+
+def _generate_preedit_xml(config, f_xml_out):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    # <gen>
+    gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
+    root.append(gen)
+    # <inputs>
+    f_inputs = ['rinexo', 'rinexn', 'poleut1', 'sinex']
+    inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+    root.append(inp)
+    # <outputs>
+    out = ET.SubElement(root, 'outputs')
+    out_ele = ET.SubElement(out, 'ics')
+    out_ele.text = config.get_filename('ics', check=False)
+    # <gps> <bds> <gal> <glo>
+    for gns in _get_element_gns(config):
+        root.append(gns)
+    # write new xml
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
 def _generate_turboedit_xml(config, f_xml_out):
@@ -297,7 +321,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         inp = _get_element_io(config, 'inputs', f_inputs, check=True)
         root.append(inp)
     else:
-        if config.config['process_scheme']['obs_comb'] == "UDUC":
+        if config.config['process_scheme']['obs_comb'] == "UC":
             inp = ET.SubElement(root, "inputs")
             ele = ET.SubElement(inp, "rinexn")
             ele.text = config.get_filename("rinexn", check=True)
@@ -550,7 +574,21 @@ def _generate_sp3orb_xml(config, f_xml_out, sattype='gns', frame='crs'):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_orbfit_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm"):
+def _generate_orbfit_xml(config, f_xml_out):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    gen = _get_element_gen(config, ['sys'])
+    root.append(gen)
+    inp = _get_element_io(config, 'inputs', ['orb', 'rinexn', 'ics', 'poleut1'], check=True, sattype='gns')
+    root.append(inp)
+    out = ET.SubElement(root, 'outputs')
+    out_ele = ET.SubElement(out, 'ics')
+    out_ele.text = config.get_filename('ics')
+    for gns in _get_element_gns(config):
+        root.append(gns)
+
+
+def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm"):
     # to be changed, because orbit and orbdif are two GREAT App
     root = ET.Element('config')
     tree = ET.ElementTree(root)

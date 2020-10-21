@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(description='Perform Precise Point Positioning'
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
 parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
-parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UDUC', 'IF'}, help='Observation combination')
+parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
 parser.add_argument('-est', dest='est', default='EPO', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
 parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
@@ -86,7 +86,7 @@ while count > 0:
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run PPP for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_test")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
@@ -123,13 +123,13 @@ while count > 0:
         continue
 
     # Run Precise Point Positioning
-    config.update_gnssinfo(obs_model='UDUC', freq=3)
+    config.update_gnssinfo(obs_model='UC', freq=3)
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
                  out=os.path.join('tmp', 'ppplsq'))
 
-    config.update_gnssinfo(obs_model='UDUC', freq=2)
+    config.update_gnssinfo(obs_model='UC', freq=2)
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
     gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",

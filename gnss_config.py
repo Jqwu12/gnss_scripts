@@ -55,7 +55,7 @@ class GNSSconfig:
             self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
             self.config.set('process_scheme', 'ion_model', "NONE")
         else:
-            self.config.set('process_scheme', 'obs_comb', "UDUC")
+            self.config.set('process_scheme', 'obs_comb', "UC")
             self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
             self.config.set('process_scheme', 'ion_model', "SION")
         if sat_rm:
@@ -325,7 +325,8 @@ class GNSSconfig:
 
     def _get_sinexfile(self, check=False, conf_opt='process_files'):
         t_beg, t_end = self.timeinfo()
-        t_use = t_beg.time_increase(-86400*30)
+        # t_use = t_beg.time_increase(-86400*30) # use the current snx, change for preedit
+        t_use = t_beg
         cf_vars = t_use.config_timedic()
         f_name = self.config.get(conf_opt, 'sinex', vars=cf_vars)
         if check:
