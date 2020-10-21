@@ -23,7 +23,7 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             logging.critical("LSQ mode missing [LEO_KIN/...]")
             raise SystemExit("LSQ mode missing [LEO_KIN/...]")
         _generate_lsq_xml(config, f_xml, mode, ambcon, fix_mode)
-    if app == "great_preedit":
+    elif app == "great_preedit":
         _generate_preedit_xml(config, f_xml)
     elif app == 'great_oi':
         sattype = 'gns'
@@ -37,17 +37,25 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'sattype':
                 sattype = val
         _generate_sp3orb_xml(config, f_xml, sattype=sattype)
-    elif app == 'great_orbfit':
+    elif app == 'great_clkdif':
+        _generate_clkdif_xml(config, f_xml)
+    elif app == 'great_orbdif':
         fit = False
         trans = "STRD"
+        unit = "mm"
+        excsys = "CER"
         for key, val in kwargs.items():
             if key == 'fit':
                 fit = val
             elif key == 'trans':
                 trans = val
-        _generate_orbfit_xml(config, f_xml, fit, trans)
-    elif app == 'great_clkdif':
-        _generate_clkdif_xml(config, f_xml)
+            elif key == 'unit':
+                unit = val
+            elif key == "excsys":
+                excsys = val
+        _generate_orbdif_xml(config, f_xml, fit, trans, unit, excsys)
+    elif app == 'great_orbfit':
+        _generate_orbfit_xml(config, f_xml)
     elif app == 'great_orbfitleo':
         fit = False
         trans = ""
@@ -82,6 +90,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'mode':
                 mode = val.upper()
         _generate_updlsq_xml(config, f_xml, mode)
+    else:
+        logging.error(f"Unknown GREAT App {app}")
 
 
 def _generate_preedit_xml(config, f_xml_out):
@@ -171,7 +181,12 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
     root.append(gen)
     # <receiver> <parameters>
     if config.stalist():
-        rec = _get_receiver(config)
+        if os.path.isfile('great_preedit.xml'):
+            ref_tree = ET.parse("great_preedit.xml")
+            ref_root = ref_tree.getroot()
+            rec = ref_root.find('receiver')
+        else:
+            rec = _get_receiver(config)
         par = _get_lsq_param(config, mode)
         root.append(rec)
         root.append(par)
@@ -243,6 +258,7 @@ def _get_element_lsq_io(config, mode):
         if file == 'rinexc_all':
             inp_ele = ET.SubElement(inputs, 'rinexc')
             inp_ele.text = config.get_filename('rinexc_all', check=True)
+            continue
         inp_ele = ET.SubElement(inputs, file)
         inp_ele.text = config.get_filename(file, check=True, sattype='gns')
     outputs = ET.Element('outputs')
@@ -279,6 +295,20 @@ def _get_receiver(config):
 
 def _get_lsq_param(config, mode):
     param = ET.Element('parameters')
+    if mode == "POD_EST":
+        ele = ET.SubElement(param, 'STA')
+        ele.set("ID", "XXXX")
+        ele.set("sigCLK", "9000")
+        ele.set("sigPOS", "0.1_0.1_0.1")
+        ele.set("sigCLK", "9000")
+        ele.set("sigZTD", "0.201")
+        ele = ET.SubElement(param, 'SAT')
+        ele.set("ID", "XXX")
+        if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
+            ele.set("sigCLK", "9000")
+        else:
+            ele.set("sigCLK", "5000")
+        return param
     for site in config.stalist():
         ele = ET.SubElement(param, 'STA')
         ele.set("ID", site.upper())
@@ -287,7 +317,7 @@ def _get_lsq_param(config, mode):
         ele.set("sigCLK", "9000")
         ele.set("sigTropPd", "0.015")
         ele.set("sigZTD", "0.201")
-    if mode == "PCE_EST" or mode == "POD_EST":
+    if mode == "PCE_EST":
         for sat in config.all_gnssat():
             ele = ET.SubElement(param, 'SAT')
             ele.set("ID", sat)
@@ -577,29 +607,33 @@ def _generate_sp3orb_xml(config, f_xml_out, sattype='gns', frame='crs'):
 def _generate_orbfit_xml(config, f_xml_out):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
-    gen = _get_element_gen(config, ['sys'])
+    gen = _get_element_gen(config, ['sys', 'intv'])
     root.append(gen)
     inp = _get_element_io(config, 'inputs', ['orb', 'rinexn', 'ics', 'poleut1'], check=True, sattype='gns')
     root.append(inp)
     out = ET.SubElement(root, 'outputs')
     out_ele = ET.SubElement(out, 'ics')
     out_ele.text = config.get_filename('ics')
+    out_ele = ET.SubElement(out, 'orbfit')
+    out_ele.text = config.get_filename('orbdif')
     for gns in _get_element_gns(config):
         root.append(gns)
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm"):
+def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm", excsys="CER"):
     # to be changed, because orbit and orbdif are two GREAT App
     root = ET.Element('config')
     tree = ET.ElementTree(root)
-    gen = _get_element_gen(config, ['sys'])
+    gen = _get_element_gen(config, ['sys', 'intv'])
     root.append(gen)
-    inp = _get_element_io(config, 'inputs', ['orb', 'sp3', 'ics', 'poleut1'], check=True, sattype='gns')
+    inp = _get_element_io(config, 'inputs', ['orb', 'sp3', 'poleut1'], check=True, sattype='gns')
     root.append(inp)
     out = _get_element_io(config, 'outputs', ['orbdif'], check=False, sattype='gns')
     root.append(out)
-    xml_log = ET.SubElement(out, 'log')
-    xml_log.text = f"LOGRT.xml.log"
+    # xml_log = ET.SubElement(out, 'log')
+    # xml_log.text = f"LOGRT.xml.log"
     orbdif_ele = ET.SubElement(root, 'orbdif')  # to be changed
     ele = ET.SubElement(orbdif_ele, 'trans')
     ele.text = trans
@@ -607,6 +641,8 @@ def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm"):
     ele.text = str(fit)
     ele = ET.SubElement(orbdif_ele, 'unit')
     ele.text = unit
+    ele = ET.SubElement(orbdif_ele, 'escsys')
+    ele.text = excsys
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
@@ -614,7 +650,7 @@ def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm"):
 def _generate_orbfitleo_xml(config, f_xml_out, fit=False, trans="", unit="mm"):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
-    gen = _get_element_gen(config, ['sys'])
+    gen = _get_element_gen(config, ['sys', 'intv'])
     root.append(gen)
     inp = _get_element_io(config, 'inputs', ['orb', 'poleut1'], check=True, sattype='leo')
     inp_ele = ET.SubElement(inp, 'sp3')

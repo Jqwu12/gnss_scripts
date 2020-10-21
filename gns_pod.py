@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG,
 parser = argparse.ArgumentParser(description='Run Precise Orbit Determination')
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
-parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
+parser.add_argument('-i', dest='intv', type=int, default=300, help='process interval (seconds)')
 parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
 parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
@@ -79,7 +79,7 @@ t_beg0.set_ydoy(args.year, args.doy, sod)
 # ------- daily loop -------------
 while count > 0:
     t_beg = t_beg0
-    t_end = t_beg.time_increase(seslen)
+    t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='FIX')
     logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
@@ -90,13 +90,12 @@ while count > 0:
     #     shutil.rmtree(workdir)
     #     os.makedirs(workdir)
     os.chdir(workdir)
-    gt.mkdir(['log_tb', 'ppp', 'ambupd', 'clkdif'])
+    gt.mkdir(['log_tb', 'ppp', 'ambupd', 'orbdif', 'clkdif'])
     logging.info(f"work directory is {workdir}")
 
     # ---------- Basic check ---------
     config.copy_sys_data()
-    isok = config.basic_check(['estimator'], ['rinexo', 'rinexn', 'sp3', 'biabern'])
-    if isok:
+    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'sp3', 'biabern']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed! skip to next day")
@@ -109,10 +108,11 @@ while count > 0:
     logging.info(f"config is {f_config}")
 
     # Run turboedit
+    config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
     # gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
-    isok = config.basic_check(files=['ambflag'])
-    if isok:
+    config.update_process(intv=args.intv)
+    if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
         logging.critical("NO ambflag files ! skip to next day")
@@ -120,13 +120,29 @@ while count > 0:
         count -= 1
         continue
     # Generate initial orbit using BRD
-    # gt.run_great(grt_bin, 'great_preedit', config)
+    gt.run_great(grt_bin, 'great_preedit', config)
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gt.run_great(grt_bin, 'great_orbdif', config)
+    gt.run_great(grt_bin, 'great_orbfit', config)
+    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gt.run_great(grt_bin, 'great_orbdif', config)
+    gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
 
-    # Run Precise Clock Estimation
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST')
+    # Run Precise Orbit Determination
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq.log")
+    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gt.run_great(grt_bin, 'great_orbdif', config)
+    gt.copy_result_files(config, ['orbdif', 'ics'], 'F1', 'gns')
 
-    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq.log")
+    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gt.run_great(grt_bin, 'great_orbdif', config)
+    gt.copy_result_files(config, ['orbdif', 'ics'], 'F2', 'gns')
+
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq.log")
+    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gt.run_great(grt_bin, 'great_orbdif', config)
+    gt.copy_result_files(config, ['orbdif', 'ics'], 'F3', 'gns')
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
