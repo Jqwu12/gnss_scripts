@@ -21,5 +21,22 @@
                 "-t", "1"
             ]
         }
+
+        {
+            "name": "Python: upd",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-y", "2019",
+                "-d", "100",
+                "-s", "site_list_GREC",
+                "-c", "UDUC",
+                "-sys", "E",
+                "-freq", "3",
+                "-n", "1",
+            ]
+        }
     ]
 }
