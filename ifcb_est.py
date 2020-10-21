@@ -81,22 +81,18 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen)
     config.update_timeinfo(t_beg, t_end, args.intv)
-    config.update_process(crd_constr='EST')
-    logging.info(f"\n===> Run PPP-UPD for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
+    logging.info(f"\n===> Run IFCB for {t_beg.year}-{t_beg.doy:0>3d}\n")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_ifcb")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
         shutil.rmtree(workdir)
         os.makedirs(workdir)
     os.chdir(workdir)
-    gt.mkdir(['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res'])
     logging.info(f"work directory is {workdir}")
 
     # ---------- Basic check ---------
-    config.copy_sys_data()
-    isok = config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern'])
-    if isok:
+    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'biabern']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed! skip to next day")
@@ -109,12 +105,9 @@ while count > 0:
     logging.info(f"config is {f_config}")
 
     # Run turboedit
-    if args.sys == "C":
-        config.update_process(sys='EC')
     nthread = min(len(config.all_receiver().split()), 10)
     gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
-    isok = config.basic_check(files=['ambflag'])
-    if isok:
+    if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
         logging.critical("NO ambflag files ! skip to next day")
@@ -122,22 +115,10 @@ while count > 0:
         count -= 1
         continue
     # get ifcb for GPS
-    # if args.freq > 2 and "G" in args.sys:
-    #     config.update_process(sys='G')
-    #     gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
-    #     config.update_process(sys=args.sys)
-    # Run Precise Point Positioning
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO")
+    if args.freq > 2 and "G" in args.sys:
+        gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
 
-    # Run UPD estimation
-    if args.sys == "C":
-        config.update_process(sys='C')
-    if args.freq > 2:
-        gt.run_great(grt_bin, 'great_updlsq', config, mode='EWL', out=f"upd_ewl_{args.sys}")
-    gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=f"upd_wl_{args.sys}")
-    gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
-
-    gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
+    # gt.copy_result_files_to_path(config, ["ifcb"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
