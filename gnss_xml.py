@@ -256,8 +256,12 @@ def _get_element_lsq_io(config, mode):
             inp_ele.text = config.get_filename(file, check=True, sattype='gnsleo')
             continue
         if file == 'rinexc_all':
-            inp_ele = ET.SubElement(inputs, 'rinexc')
-            inp_ele.text = config.get_filename('rinexc_all', check=True)
+            if mode.upper() == "POD_EST":
+                inp_ele = ET.SubElement(inputs, 'rinexc')
+                inp_ele.text = config.get_filename('satclk', check=True) + " " + config.get_filename('recclk', check=True)
+            else:
+                inp_ele = ET.SubElement(inputs, 'rinexc')
+                inp_ele.text = config.get_filename('rinexc_all', check=True)
             continue
         inp_ele = ET.SubElement(inputs, file)
         inp_ele.text = config.get_filename(file, check=True, sattype='gns')
