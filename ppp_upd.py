@@ -95,8 +95,7 @@ while count > 0:
 
     # ---------- Basic check ---------
     config.copy_sys_data()
-    isok = config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern'])
-    if isok:
+    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed! skip to next day")
@@ -113,8 +112,7 @@ while count > 0:
         config.update_process(sys='EC')
     nthread = min(len(config.all_receiver().split()), 10)
     gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
-    isok = config.basic_check(files=['ambflag'])
-    if isok:
+    if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
         logging.critical("NO ambflag files ! skip to next day")
@@ -137,7 +135,7 @@ while count > 0:
     gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=f"upd_wl_{args.sys}")
     gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
 
-    gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
+    # gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

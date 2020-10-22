@@ -734,10 +734,10 @@ def _get_element_gen(config, ele_list=None):
             rec_leo = ET.SubElement(gen, 'rec')
             rec_leo.set('type', 'leo')
             rec_leo.set('mode', config.config.get('process_scheme', 'leopodmod').upper()[0])
-            rec_leo.text = _list2str(config.leo_recs())
+            rec_leo.text = _list2str(config.leo_recs(), True)
         if config.stalist():
             rec = ET.SubElement(gen, 'rec')
-            rec.text = _list2str(config.stalist())
+            rec.text = _list2str(config.stalist(), True)
     if 'est' in ele_list:
         estimator = ET.SubElement(gen, 'est')
         estimator.text = config.config.get('process_scheme', 'estimator').upper()
@@ -823,13 +823,17 @@ def _pretty_xml(element, indent='\t', newline='\n', level=0):
         _pretty_xml(subelement, indent, newline, level=level + 1)
 
 
-def _list2str(x):
+def _list2str(x, isupper=False):
     if not isinstance(x, list):
         return ''
     else:
         info = ''
-        for i in x:
-            info = info + " " + str(i)
+        if isupper:
+            for i in x:
+                info = info + " " + str(i).upper()
+        else:
+            for i in x:
+                info = info + " " + str(i)
         info = info.strip()
         return info
 
