@@ -43,8 +43,10 @@ if platform.system() == 'Windows':
     base_dir = r"C:\Users\jiaqi\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"
+    #grt_dir = "/home/jqwu/softwares/great_hs" # test
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
     sys_data = "/home/jqwu/projects/sys_data"
+    # sys_data = "/home/jqwu/projects/sys_data_pod" # test
     gns_data = "/home/jqwu/gns_data"
     upd_data = "/home/jqwu/gns_data/upd"
     base_dir = "/home/jqwu/projects"
@@ -81,9 +83,10 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
-    config.update_process(crd_constr='FIX')
+    config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
+    # workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
@@ -130,29 +133,36 @@ while count > 0:
     gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
 
     # Run Precise Orbit Determination
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq")
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-brdm", out="podlsq")
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.copy_result_files(config, ['orbdif', 'ics'], 'F1', 'gns')
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F1', 'gns')
     gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
 
     gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq")
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.copy_result_files(config, ['orbdif', 'ics'], 'F2', 'gns')
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F2', 'gns')
     gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
 
     gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out="podlsq")
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.copy_result_files(config, ['orbdif', 'ics'], 'F3', 'gns')
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F3', 'gns')
+    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
 
     # Ambiguity fix solution
-    gt.run_great(grt_bin, 'great_ambfixDd', config)
+    config.update_process(intv=30)
+    gt.run_great(grt_bin, 'great_ambfixDd', config, out="ambfix")
+    config.update_process(intv=args.intv)
     gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True)
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.copy_result_files(config, ['orbdif', 'ics'], 'AR', 'gns')
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'AR', 'gns')
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
