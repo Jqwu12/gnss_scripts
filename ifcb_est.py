@@ -18,10 +18,7 @@ parser = argparse.ArgumentParser(description='Run Precise Point Positioning')
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
 parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
-parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
-parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
-parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
 parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
                     help='GNSS precise orbits and clocks')
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
@@ -55,13 +52,11 @@ sta_list.sort()
 f_config_tmp = 'upd_config.ini'
 config = GNSSconfig(f_config_tmp)
 config.update_pathinfo(sys_data, gns_data, upd_data)
-config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
+config.update_gnssinfo(args.sys, 3, "IF", "LSQ")
 if sta_list:
     config.update_stalist(sta_list)
 else:
     raise SystemExit("No site to process")
-if args.freq > 2:
-    args.bia = "CAS"
 config.update_prodinfo(args.cen, args.bia)
 
 # ------ Start PPP process -------
@@ -92,7 +87,7 @@ while count > 0:
     logging.info(f"work directory is {workdir}")
 
     # ---------- Basic check ---------
-    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'biabern']):
+    if config.basic_check(['estimator'], ['rinexo']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed! skip to next day")
@@ -115,8 +110,7 @@ while count > 0:
         count -= 1
         continue
     # get ifcb for GPS
-    if args.freq > 2 and "G" in args.sys:
-        gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
+    gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
 
     # gt.copy_result_files_to_path(config, ["ifcb"], os.path.join(upd_data, f"{t_beg.year}"))
 

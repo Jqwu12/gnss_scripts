@@ -32,7 +32,7 @@ def _run_great_app(bindir, app, config, str_args="", newxml=True, stop=True, out
             gnss_xml.generate_great_xml(config, app, f_xml, **kwargs)
     grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
     if out:
-        grt_cmd = f"{grt_cmd} > {out}.log"
+        grt_cmd = f"{grt_cmd} > {out}.log 2>&1"
     _run_cmd(grt_cmd, stop)
 
 
