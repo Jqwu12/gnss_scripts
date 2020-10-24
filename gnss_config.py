@@ -174,7 +174,8 @@ class GNSSconfig:
             "grad_mf": "BAR_SEVER", "gradient": "false", "minimum_elev": "7", "minimum_elev_leo": "1",
             "obs_weight": "PARTELE", "phase": "true", "slip_model": "turboedit"
         }
-        opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode', 'sysbias_model', 'ztd_model']
+        opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
+                    'sysbias_model', 'ztd_model', 'apply_carrier_range']
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):
                 proc_dict[opt] = self.config.get('process_scheme', opt).upper()
@@ -185,7 +186,7 @@ class GNSSconfig:
         if proc_dict['obs_combination'] == "RAW_ALL":
             proc_dict['ion_model'] = "SION"
         if "BDS" in self.gnssys():
-           proc_dict["bds_code_bias_corr"] = "true"
+            proc_dict["bds_code_bias_corr"] = "true"
         return proc_dict
 
     def xml_ambiguity(self):

@@ -71,7 +71,12 @@ proj_dir = os.path.join(base_dir, 'POD')
 if args.sod:
     sod = args.sod
 elif args.hms:
-    sod = hms2sod(args.hms[0:3])
+    if len(args.hms) > 2:
+        sod = hms2sod(args.hms[0], args.hms[1], args.hms[2])
+    elif len(args.hms) > 1:
+        sod = hms2sod(args.hms[0], args.hms[1])
+    else:
+        sod = hms2sod(args.hms[0])
 else:
     sod = hms2sod(0)
 count = args.num
