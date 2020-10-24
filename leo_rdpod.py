@@ -84,7 +84,7 @@ t_beg0.set_ydoy(args.year, args.doy, sod)
 # ------- daily loop -------------
 while count > 0:
     t_beg = t_beg0
-    t_end = t_beg.time_increase(seslen)
+    t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(leopodmod='K', crd_constr='KIN')
     logging.info(f"\n===> Run {proj.upper()} RD POD for {t_beg.year}-{t_beg.doy:0>3d}\n")

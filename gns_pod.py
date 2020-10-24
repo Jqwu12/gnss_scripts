@@ -158,7 +158,7 @@ while count > 0:
     config.update_process(intv=30)
     gt.run_great(grt_bin, 'great_ambfixDd', config, out="ambfix")
     config.update_process(intv=args.intv)
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True)
+    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True, out="podlsq")
     gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gt.run_great(grt_bin, 'great_orbdif', config)
     gt.run_great(grt_bin, 'great_clkdif', config)
