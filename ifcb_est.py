@@ -74,7 +74,7 @@ t_beg0.set_ydoy(args.year, args.doy, sod)
 # ------- daily loop -------------
 while count > 0:
     t_beg = t_beg0
-    t_end = t_beg.time_increase(seslen)
+    t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
     logging.info(f"\n===> Run IFCB for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_ifcb")
