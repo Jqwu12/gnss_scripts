@@ -87,7 +87,7 @@ while count > 0:
     logging.info(f"work directory is {workdir}")
 
     # ---------- Basic check ---------
-    if config.basic_check(['estimator'], ['rinexo']):
+    if config.basic_check(['estimator'], ['rinexo', 'biabern']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed! skip to next day")

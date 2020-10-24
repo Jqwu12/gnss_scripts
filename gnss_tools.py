@@ -49,7 +49,7 @@ def _run_great_app_multithreading(bindir, app, config, str_args="", nthread=8, s
         gnss_xml.generate_great_xml(child_configs[i], app, f_xml, ithread=i + 1, **kwargs)
         grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
         if out:
-            grt_cmd = f"{grt_cmd} > {out}{i + 1:0>2d}.log"
+            grt_cmd = f"{grt_cmd} > {out}{i + 1:0>2d}.log 2>&1"
         new_thread = Thread(target=_run_cmd, args=(grt_cmd, stop))
         thread_list.append(new_thread)
         new_thread.start()
