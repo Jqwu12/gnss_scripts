@@ -178,7 +178,7 @@ class GNSSconfig:
                     'sysbias_model', 'ztd_model', 'apply_carrier_range']
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):
-                proc_dict[opt] = self.config.get('process_scheme', opt).upper()
+                proc_dict[opt] = self.config.get('process_scheme', opt)
         if len(self.config.get('process_scheme', 'tropo').split()) == 3:
             proc_dict['tropo'] = self.config.get('process_scheme', 'tropo').split()[0]
             proc_dict['tropo_mf'] = self.config.get('process_scheme', 'tropo').split()[1]

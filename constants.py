@@ -119,7 +119,7 @@ _LSQ_SCHEME = {
     },
     'PCE_EST': {
         'inputs': ['rinexn', 'sp3', 'blq', 'ifcb', 'satpars'],
-        'outputs': ['ppp', 'satclk', 'recclk']
+        'outputs': ['satclk', 'recclk', 'recover']
     },
     'POD_EST': {
         'inputs': ['orb', 'ics', 'blq', 'satpars', 'rinexn', 'rinexc_all'],

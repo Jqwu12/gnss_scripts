@@ -299,7 +299,7 @@ def _get_receiver(config):
 
 def _get_lsq_param(config, mode):
     param = ET.Element('parameters')
-    if mode == "POD_EST":
+    if mode == "POD_EST" or mode == "PCE_EST":
         ele = ET.SubElement(param, 'STA')
         ele.set("ID", "XXXX")
         ele.set("sigCLK", "9000")
