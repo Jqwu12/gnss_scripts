@@ -207,6 +207,89 @@ def _get_grg_wsb(config):
             file_object.write(line)
 
 
+def merge_upd_all(config, gsys):
+    """
+    merge ewl, wl and nl UPD files
+    inputs : config    config
+             gsys      "GREC"
+    """
+    for f in ["upd_ewl", "upd_wl", "upd_nl"]:
+        config.update_process(sys=gsys)
+        f_out = config.get_filename(f)
+        if not f_out:
+            logging.error("Cannot get merged upd name")
+        f_ins = []
+        for s in gsys:
+            config.update_process(sys=s)
+            f_in = config.get_filename(f, check=True)
+            if f_in:
+                f_ins.append(f_in)
+        if f == "upd_ewl":
+            merge_upd(f_ins, f_out, "EWL")
+            logging.info(f"merge upd_ewl complete, file is {f_out}")
+        elif f == "upd_wl":
+            merge_upd(f_ins, f_out, "WL")
+            logging.info(f"merge upd_wl  complete, file is {f_out}")
+        else:
+            intv = config.config['process_scheme']['intv']
+            merge_upd(f_ins, f_out, "NL", int(intv))
+            logging.info(f"merge upd_nl  complete, file is {f_out}")
+
+    config.update_process(sys=gsys)
+
+
+def merge_upd(f_ins, f_out, mode, intv=30):
+    if mode == "NL":
+        lines_in = []
+        nlines = []
+        nsats = []
+        idx_sys = []
+        for isys in range(0, len(f_ins)):
+            idxHeads = []
+            with open(f_ins[isys]) as file_object:
+                lines = file_object.readlines()
+            nline = len(lines)
+            nlines.append(nline)
+            for i in range(0, nline):
+                lines_in.append(lines[i])
+                if len(idxHeads) < 3:
+                    if "EPOCH-TIME" in lines[i]:
+                        idxHeads.append(i)
+            recLen = idxHeads[1] - idxHeads[0] - 1
+            nsats.append(recLen)
+
+        idx_sys.append(0)
+        idx = nlines[0]
+        for isys in range(1, len(f_ins)):
+            idx_sys.append(idx)
+            idx += nlines[isys]
+
+        nepo = int(86400 / intv) + 1
+        with open(f_out, 'w') as file_object:
+            file_object.write('% UPD generated using upd_NL\n')
+            for i in range(1, nepo):
+                idx1 = 2 + (i - 1) * (nsats[0] + 1) - 1
+                idx2 = 1 + i * (nsats[0] + 1) - 1
+                for j in range(idx1, idx2 + 1):
+                    file_object.write(lines_in[j])
+
+                for isys in range(1, len(f_ins)):
+                    idx1 = idx_sys[isys] + 3 + (i - 1) * (nsats[isys] + 1) - 1
+                    idx2 = idx_sys[isys] + 1 + i * (nsats[isys] + 1) - 1
+                    for j in range(idx1, idx2 + 1):
+                        file_object.write(lines_in[j])
+            file_object.write("EOF\n")
+    elif mode == "EWL" or mode == "WL":
+        with open(f_out, 'w') as f1:
+            f1.write(f"% UPD generated using upd_{mode}\n")
+            for file in f_ins:
+                with open(file) as f2:
+                    for line in f2:
+                        if line[0] != "%" and line.find("EOF") < 0:
+                            f1.write(line)
+            f1.write("EOF\n")
+
+
 def mkdir(dir_list):
     for d in dir_list:
         if not os.path.isdir(d):

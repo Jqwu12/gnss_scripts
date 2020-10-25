@@ -95,7 +95,7 @@ while count > 0:
         shutil.rmtree(workdir)
         os.makedirs(workdir)
     os.chdir(workdir)
-    gt.mkdir(['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res'])
+    gt.mkdir(['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp'])
     logging.info(f"work directory is {workdir}")
 
     # ---------- Basic check ---------
@@ -116,7 +116,7 @@ while count > 0:
     if args.sys == "C":
         config.update_process(sys='EC')
     nthread = min(len(config.all_receiver().split()), 10)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
@@ -130,16 +130,22 @@ while count > 0:
     #     gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
     #     config.update_process(sys=args.sys)
     # Run Precise Point Positioning
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO")
+    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
+                 out=os.path.join("tmp", "ppplsq"))
 
     # Run UPD estimation
-    if args.sys == "C":
-        config.update_process(sys='C')
-    if args.freq > 2:
-        gt.run_great(grt_bin, 'great_updlsq', config, mode='EWL', out=f"upd_ewl_{args.sys}")
-    gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=f"upd_wl_{args.sys}")
-    gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=f"upd_nl_{args.sys}")
+    for gsys in args.sys:
+        config.update_process(sys=gsys)
+        if args.freq > 2:
+            gt.run_great(grt_bin, 'great_updlsq', config, mode='EWL', out=os.path.join("tmp", f"upd_ewl_{gsys}"))
+        gt.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=os.path.join("tmp", f"upd_wl_{gsys}"))
+        gt.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=os.path.join("tmp", f"upd_nl_{gsys}"))
 
+    # Merge multi-GNSS UPD
+    if len(args.sys) > 1:
+        gt.merge_upd_all(config, args.sys)
+
+    # Copy results
     # gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day

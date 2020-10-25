@@ -399,6 +399,9 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         out_ele.text = config.get_filename("ifcb")
     elif mode == "NL":
         out_ele.text = config.get_filename("upd_nl")
+    if mode == "NL" and amb_dict['carrier_range'].upper() == "YES":
+        out_ele = ET.SubElement(out, "ambflag_dir")
+        out_ele.text = config.get_filename("ambflagdir")
     out.set('verb', '2')
     # <gps> <bds> <gal> <glo>
     for gns in _get_element_gns(config):
