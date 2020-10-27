@@ -218,7 +218,10 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
         proc.set('ref_clk', _set_ref_clk(config))
         proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
-    ifb_model.text = 'EST_REC_IFB'
+    if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
+        ifb_model.text = 'EST_REC_IFB'
+    else:
+        ifb_model.text = 'NONE'
     for gns in _get_element_gns(config):
         root.append(gns)
     if 'LEO' in mode.upper():

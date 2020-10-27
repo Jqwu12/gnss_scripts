@@ -122,7 +122,7 @@ _LSQ_SCHEME = {
         'outputs': ['satclk', 'recclk', 'recover']
     },
     'POD_EST': {
-        'inputs': ['orb', 'ics', 'blq', 'satpars', 'rinexn', 'rinexc_all'],
+        'inputs': ['orb', 'ics', 'blq', 'ifcb', 'satpars', 'rinexn', 'rinexc_all'],
         'outputs': ['ics', 'satclk', 'recclk', 'recover']
     }
 }
