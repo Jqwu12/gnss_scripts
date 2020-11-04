@@ -111,6 +111,10 @@ def _generate_preedit_xml(config, f_xml_out):
     # <gps> <bds> <gal> <glo>
     for gns in _get_element_gns(config):
         root.append(gns)
+    # <force_model> : get from template xml file
+    force_model = _get_force_model_from_template(config)
+    if force_model:
+        root.append(force_model)
     # write new xml
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
@@ -215,7 +219,8 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
     else:
         proc.set('ambfix', 'false')
     if mode == "PCE_EST":
-        proc.set('ref_clk', _set_ref_clk(config))
+        # proc.set('ref_clk', _set_ref_clk(config))
+        proc.set('ref_clk', '')
         proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":

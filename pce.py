@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG,
 parser = argparse.ArgumentParser(description='Run Precise Clock Estimating')
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
-parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
+parser.add_argument('-i', dest='intv', type=int, default=300, help='process interval (seconds)')
 parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
 parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
@@ -111,7 +111,6 @@ while count > 0:
     f_config = os.path.join(workdir, 'config.ini')
     config.write_config(f_config)  # config file is only for check
     logging.info(f"config is {f_config}")
-
     # Run turboedit
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)

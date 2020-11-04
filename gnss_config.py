@@ -16,25 +16,29 @@ def _raise_error(msg):
 
 class GNSSconfig:
 
-    def __init__(self, f_config):
-        self.config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-        if os.path.isfile(f_config):
-            self.config.read(f_config, encoding='UTF-8')
+    def __init__(self, f_config, conf=None):
+        if conf:
+            self.config = conf
         else:
-            _raise_error(f"config file {f_config} not exist!")
-        if not self.config.has_section('process_scheme'):
-            self.config.add_section('process_scheme')
-        if not self.config.has_section('common'):
-            self.config.add_section('common')
-        if not self.config.has_option('common', 'sys_data'):
-            sys_data = '/home/yuanyongqiang/data_new/WJQ/projects/sys_data'
-            self.config.set('common', 'sys_data', sys_data)
-        if not self.config.has_option('common', 'gns_data'):
-            gns_data = '/home/yuanyongqiang/data_new/WJQ/data'
-            self.config.set('common', 'gns_data', gns_data)
+            self.config = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+            if os.path.isfile(f_config):
+                self.config.read(f_config, encoding='UTF-8')
+            else:
+                _raise_error(f"config file {f_config} not exist!")
+            if not self.config.has_section('process_scheme'):
+                self.config.add_section('process_scheme')
+            if not self.config.has_section('common'):
+                self.config.add_section('common')
+            if not self.config.has_option('common', 'sys_data'):
+                sys_data = '/home/yuanyongqiang/data_new/WJQ/projects/sys_data'
+                self.config.set('common', 'sys_data', sys_data)
+            if not self.config.has_option('common', 'gns_data'):
+                gns_data = '/home/yuanyongqiang/data_new/WJQ/data'
+                self.config.set('common', 'gns_data', gns_data)
 
     def copy(self):
-        return copy.deepcopy(self)
+        conf = copy.deepcopy(self.config)
+        return GNSSconfig("", conf)
 
     def update_timeinfo(self, time_beg, time_end, intv):
         """ update the time information in config file """
