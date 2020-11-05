@@ -125,8 +125,18 @@ while count > 0:
         continue
     # Run Precise Clock Estimation
     gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
-
     gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
+    gt.copy_result_files(config, ['clkdif'], 'F1', 'gns')
+
+    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=60, jump=60)
+    gt.copy_result_files(config, ['clkdif'], 'F2', 'gns')
+
+    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
+    gt.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['clkdif'], 'F3', 'gns')
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
