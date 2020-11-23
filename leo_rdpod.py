@@ -2,6 +2,7 @@ from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
 # import gnss_files as gf
+import gnss_run as gr
 from constants import form_leolist
 import os
 import shutil
@@ -103,8 +104,7 @@ while count > 0:
     config.copy_sys_data()
     # Currently, attitude file is necessary for kinematic POD
     # The attitude file header will be changed to GREAT format; and the antenna name in RINEXO will be
-    isok = config.basic_check(['leopodmod', 'estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude'])
-    if isok:
+    if config.basic_check(['leopodmod', 'estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude']):
         logging.info("Basic check complete ^_^")
     else:
         logging.critical("Basic check failed ! skip to next day")
@@ -118,22 +118,22 @@ while count > 0:
 
     # ------ Start LEO KIN POD for init orbit ------
     # SP3ORB NAV
-    # gt.run_great(grt_bin, 'great_sp3orb', config, sattype='gns')
+    # gr.run_great(grt_bin, 'great_sp3orb', config, sattype='gns')
     # # Run turboedit
     # nthread = min(len(config.all_receiver().split()), 8)
-    # gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    # gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
     # # Run Kinematic POD for init positions and velocities
-    # gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
-    # gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
-    # gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
+    # gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
+    # gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
+    # gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_KIN', ambcon=False, newxml=True)
     # # Generate ICS and Orb
     # t_beg = t_beg.time_increase(3600)
     # t_end = t_end.time_increase(-3600)
     # config.update_timeinfo(t_beg, t_end, args.intv)
-    gt.run_great(grt_bin, 'great_sp3orb', config, sattype='leo', newxml=True)
-    gt.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo', newxml=True)
+    gr.run_great(grt_bin, 'great_sp3orb', config, sattype='leo', newxml=True)
+    gr.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo', newxml=True)
     gt.copy_result_files(config, ['kin', 'orbdif'], 'K', 'leo')
-    gt.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo', newxml=True)
+    gr.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo', newxml=True)
 
     logging.info("------------------------------")
     logging.info("Start LEO Reduced Dynamic POD")
@@ -141,29 +141,29 @@ while count > 0:
     config.update_process(leopodmod='D', crd_constr='EST')
 
     # gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False, newxml=True)
-    gt.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo', newxml=True)
-    gt.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo', newxml=True)
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False, newxml=True)
+    gr.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo', newxml=True)
+    gr.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo', newxml=True)
     gt.copy_result_files(config, ['orbdif', 'ics'], 'D1', 'leo')
-    gt.run_great(grt_bin, 'great_editres', config, nshort=120, bad=80, jump=80)
+    gr.run_great(grt_bin, 'great_editres', config, nshort=120, bad=80, jump=80)
 
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False)
-    gt.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
-    gt.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False)
+    gr.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
+    gr.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
     gt.copy_result_files(config, ['orbdif', 'ics'], 'D2', 'leo')
-    gt.run_great(grt_bin, 'great_editres', config, nshort=120, bad=40, jump=40)
+    gr.run_great(grt_bin, 'great_editres', config, nshort=120, bad=40, jump=40)
 
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False)
-    gt.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
-    gt.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', ambcon=False)
+    gr.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
+    gr.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
     gt.copy_result_files(config, ['orbdif', 'ics'], 'D3', 'leo')
 
     # ambiguity-fixed solution
-    gt.run_great(grt_bin, 'great_ambfixD', config)
+    gr.run_great(grt_bin, 'great_ambfixD', config)
     for i in range(1, 3):
-        gt.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', str_args="-ambfix", ambcon=True)
-        gt.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
-        gt.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
+        gr.run_great(grt_bin, 'great_podlsq', config, mode='LEO_DYN', str_args="-ambfix", ambcon=True)
+        gr.run_great(grt_bin, 'great_oi', config, str_args="-leo", sattype='leo')
+        gr.run_great(grt_bin, 'great_orbfitleo', config, fit=False, sattype='leo')
         gt.copy_result_files(config, ['orbdif'], f"DFIX{i}", 'leo')
 
     # next day

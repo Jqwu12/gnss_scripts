@@ -3,6 +3,7 @@ from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
 # import gnss_files as gf
+import gnss_run as gr
 from constants import read_site_list
 import os
 import shutil
@@ -86,7 +87,7 @@ while count > 0:
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run PPP for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_test")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_test7")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
@@ -113,7 +114,7 @@ while count > 0:
     # Run turboedit
     config.update_process(frequency='3')
     nthread = min(len(config.all_receiver().split()), 8)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
@@ -124,28 +125,28 @@ while count > 0:
 
     # Run Precise Point Positioning
     config.update_gnssinfo(obs_model='UC', freq=3)
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
                  out=os.path.join('tmp', 'ppplsq'))
 
     config.update_gnssinfo(obs_model='UC', freq=2)
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
                  out=os.path.join('tmp', 'ppplsq'))
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
-                 out=os.path.join('tmp', 'ppplsq'))
-
-    config.update_gnssinfo(obs_model='IF', freq=3)
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
-                 out=os.path.join('tmp', 'ppplsq'))
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
                  out=os.path.join('tmp', 'ppplsq'))
 
-    config.update_gnssinfo(obs_model='IF', freq=2)
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
-                 out=os.path.join('tmp', 'ppplsq'))
-    gt.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
-                 out=os.path.join('tmp', 'ppplsq'))
+    # config.update_gnssinfo(obs_model='IF', freq=3)
+    # gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+    #              out=os.path.join('tmp', 'ppplsq'))
+    # gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+    #              out=os.path.join('tmp', 'ppplsq'))
+    #
+    # config.update_gnssinfo(obs_model='IF', freq=2)
+    # gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="NO",
+    #              out=os.path.join('tmp', 'ppplsq'))
+    # gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', newxml=True, nthread=nthread, fix_mode="SEARCH",
+    #              out=os.path.join('tmp', 'ppplsq'))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

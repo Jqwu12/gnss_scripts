@@ -1,5 +1,6 @@
 from gnss_config import GNSSconfig
 from constants import _GNS_INFO, _LEO_INFO, _get_gns_info, _LSQ_SCHEME
+import gnss_tools as gt
 import xml.etree.ElementTree as ET
 import os
 import logging
@@ -7,11 +8,16 @@ import logging
 
 def generate_great_xml(config, app, f_xml, **kwargs):
     if app == 'great_turboedit':
-        _generate_turboedit_xml(config, f_xml)
+        use_res_crd = False
+        for key, val in kwargs.items():
+            if key == 'use_res_crd':
+                use_res_crd = val
+        _generate_turboedit_xml(config, f_xml, use_res_crd)
     elif app in ['great_podlsq', 'great_ppplsq', 'great_pcelsq']:
         mode = ''
         ambcon = False
         fix_mode = "NO"
+        use_res_crd = False
         for key, val in kwargs.items():
             if key == 'ambcon':
                 ambcon = val
@@ -19,10 +25,12 @@ def generate_great_xml(config, app, f_xml, **kwargs):
                 mode = val
             elif key == 'fix_mode':
                 fix_mode = val
+            elif key == 'use_res_crd':
+                use_res_crd = val
         if len(mode) == 0:
             logging.critical("LSQ mode missing [LEO_KIN/...]")
             raise SystemExit("LSQ mode missing [LEO_KIN/...]")
-        _generate_lsq_xml(config, f_xml, mode, ambcon, fix_mode)
+        _generate_lsq_xml(config, f_xml, mode, ambcon, fix_mode, use_res_crd)
     elif app == "great_preedit":
         _generate_preedit_xml(config, f_xml)
     elif app == 'great_oi':
@@ -72,6 +80,9 @@ def generate_great_xml(config, app, f_xml, **kwargs):
         nshort = 120
         jump = 100
         bad = 100
+        mode = "L12"
+        edt_amb = False
+        all_sites = False
         for key, val in kwargs.items():
             if key == 'nshort':
                 nshort = val
@@ -79,7 +90,13 @@ def generate_great_xml(config, app, f_xml, **kwargs):
                 jump = val
             elif key == 'bad':
                 bad = val
-        _generate_edtres_xml(config, f_xml, nshort, jump, bad)
+            elif key == 'mode':
+                mode = val
+            elif key == 'edt_amb':
+                edt_amb = val
+            elif key == 'all_sites':
+                all_sites = val
+        _generate_edtres_xml(config, f_xml, nshort, jump, bad, mode, edt_amb, all_sites)
     elif app == 'great_ambfixD':
         _generate_ambfix_xml(config, f_xml, "SD")
     elif app == 'great_ambfixDd':
@@ -90,6 +107,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'mode':
                 mode = val.upper()
         _generate_updlsq_xml(config, f_xml, mode)
+    elif app == 'great_convobs':
+        _generate_convobs_xml(config, f_xml)
     else:
         logging.error(f"Unknown GREAT App {app}")
 
@@ -120,7 +139,7 @@ def _generate_preedit_xml(config, f_xml_out):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_turboedit_xml(config, f_xml_out):
+def _generate_turboedit_xml(config, f_xml_out, use_res_crd=False):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
     # <gen>
@@ -128,7 +147,7 @@ def _generate_turboedit_xml(config, f_xml_out):
     root.append(gen)
     # <receiver> <parameters>
     if config.stalist():
-        rec = _get_receiver(config)
+        rec = _get_receiver(config, use_res_crd)
         par = _get_lsq_param(config, "PPP_EST")
         root.append(rec)
         root.append(par)
@@ -173,7 +192,30 @@ def _generate_turboedit_xml(config, f_xml_out):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
+def _generate_convobs_xml(config, f_xml_out):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    # <gen>
+    gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
+    root.append(gen)
+    # <inputs>
+    f_inputs = ['rinexo', 'ambflag', 'ambflag13']
+    inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+    root.append(inp)
+    # <outputs>
+    out = ET.SubElement(root, 'outputs')
+    out.set('append', 'false')
+    out.set('verb', '1')
+    out_ele = ET.SubElement(out, 'obs_dir')
+    out_ele.text = config.get_filename('rinexo_out')
+    for gns in _get_element_gns(config):
+        root.append(gns)
+    # write new xml
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
+
+
+def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_res_crd=False):
     if fix_mode != "NO":
         config.update_process(ambiguity="AR")
     else:
@@ -190,7 +232,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
             ref_root = ref_tree.getroot()
             rec = ref_root.find('receiver')
         else:
-            rec = _get_receiver(config)
+            rec = _get_receiver(config, use_res_crd)
         par = _get_lsq_param(config, mode)
         root.append(rec)
         root.append(par)
@@ -203,7 +245,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
     if ambcon:
         inp_ele = ET.SubElement(inp, 'ambcon')
         inp_ele.text = config.get_filename('ambcon', check=True)
-    if fix_mode != "NO":
+    if fix_mode != "NO" or config.config['process_scheme']['apply_carrier_range'] == 'true':
         inp_ele = ET.SubElement(inp, 'upd')
         inp_ele.text = config.get_filename('upd', check=True)
     root.append(inp)
@@ -219,8 +261,9 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO"):
     else:
         proc.set('ambfix', 'false')
     if mode == "PCE_EST":
-        # proc.set('ref_clk', _set_ref_clk(config))
-        proc.set('ref_clk', '')
+        proc.set('ref_clk', _set_ref_clk(config))
+        # proc.set('ref_clk', '')
+        # proc.set('sig_ref_clk', '1')
         proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
@@ -290,18 +333,42 @@ def _get_element_lsq_io(config, mode):
     return inputs, outputs
 
 
-def _get_receiver(config):
-    f_snx = config.get_filename('sinex', check=True)
-    if f_snx.isspace():
-        return
-    crds = read_snxfile(f_snx, config.stalist())
+def _get_receiver(config, use_res_crd=False):
     receiver = ET.Element('receiver')
-    for site, crd in crds.items():
-        ele = ET.SubElement(receiver, 'rec')
-        ele.set('X', f"{crd[0]}")
-        ele.set('Y', f"{crd[1]}")
-        ele.set('Z', f"{crd[2]}")
-        ele.set('id', f"{site.upper()}")
+    # get coordinates from IGS snx file
+    f_snx = config.get_filename('sinex', check=True)
+    crds_snx = {}
+    if not f_snx.isspace():
+        crds_snx = gt.read_snxfile(f_snx, config.stalist())
+    # get coordinates from GREAT residuals file
+    if use_res_crd:
+        crds_res = gt.get_crd_res(config)
+    else:
+        crds_res = {}
+    # get receiver elements
+    for site in config.stalist():
+        if site in crds_snx.keys():
+            ele = ET.SubElement(receiver, 'rec')
+            ele.set('X',  f"{crds_snx[site][0]:20.8f}")
+            ele.set('Y',  f"{crds_snx[site][2]:20.8f}")
+            ele.set('Z',  f"{crds_snx[site][4]:20.8f}")
+            ele.set('dX', f"{crds_snx[site][1]:8.4f}")
+            ele.set('dY', f"{crds_snx[site][3]:8.4f}")
+            ele.set('dZ', f"{crds_snx[site][5]:8.4f}")
+            ele.set('id', f"{site.upper()}")
+            ele.set('obj', "SNX")
+            continue
+        if site in crds_res.keys():
+            ele = ET.SubElement(receiver, 'rec')
+            ele.set('X', f"{crds_res[site][0]:20.8f}")
+            ele.set('Y', f"{crds_res[site][1]:20.8f}")
+            ele.set('Z', f"{crds_res[site][2]:20.8f}")
+            ele.set('dX', "  0.0001")
+            ele.set('dY', "  0.0001")
+            ele.set('dZ', "  0.0001")
+            ele.set('id', f"{site.upper()}")
+            ele.set('obj', "RES")
+            continue
     return receiver
 
 
@@ -498,18 +565,29 @@ def _get_ambfix(config, fix_mode="ROUND"):
     return ambfix
 
 
-def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100):
+def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, mode="L12", edt_amb=False, all_sites=False):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
-    f_inputs = ['ambflag']
+    if mode == "L12":
+        f_inputs = ['ambflag']
+    elif mode == "L13":
+        f_inputs = ['ambflag13']
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     ele = ET.SubElement(inp, "recover")
-    ele.text = config.get_filename("recover_in", check=True)
+    if all_sites:
+        ele.text = config.get_filename("recover_all", check=True)
+    else:
+        ele.text = config.get_filename("recover_in", check=True)
     root.append(inp)
     f_outputs = ['sum']
     out = _get_element_io(config, 'outputs', f_outputs, check=False)
     root.append(out)
     proc = ET.SubElement(root, 'editres')
+    if edt_amb:
+        ele_proc = ET.SubElement(proc, 'edt_amb')
+        ele_proc.text = 'YES'
+    ele_proc = ET.SubElement(proc, 'mode')
+    ele_proc.text = str(mode)
     ele_proc = ET.SubElement(proc, 'short_elisp')
     ele_proc.text = str(nshort)
     ele_proc = ET.SubElement(proc, 'jump_elisp')
@@ -849,40 +927,4 @@ def _list2str(x, isupper=False):
         return info
 
 
-def read_snxfile(snxfile, site_list):
-    """
-    snxfile: sinex file name
-    site_list: [list] sites
-    get sites crd from snx file
-    return : [map] site_name:crd
-    """
-    crd = {}
-    snx_crd = {}
-    # logging.info(f"read snxfile:{snxfile}")
-    if os.path.isfile(snxfile):
-        with open(snxfile, "r", errors="ignore") as myfile:
-            flag = False
-            for line in myfile:
-                if line.find("+SOLUTION/ESTIMATE") != -1:
-                    flag = True
-                    myfile.readline()
-                    continue
 
-                elif line.find("-SOLUTION/ESTIMATE") != -1:
-                    break
-
-                if flag:
-                    temp = line.split()
-                    idx = temp[1]
-                    site = temp[2]
-                    value = float(temp[8])
-                    if idx.find("STA") == -1:
-                        continue
-                    if idx == "STAX":
-                        snx_crd[site.lower()] = [value]
-                    else:
-                        snx_crd[site.lower()].append(value)
-    for site in site_list:
-        if snx_crd.get(site.lower()):
-            crd[site.lower()] = snx_crd[site.lower()]
-    return crd

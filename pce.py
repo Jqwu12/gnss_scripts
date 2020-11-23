@@ -3,6 +3,7 @@ from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
 # import gnss_files as gf
+import gnss_run as gr
 from constants import read_site_list
 import os
 import shutil
@@ -114,7 +115,7 @@ while count > 0:
     # Run turboedit
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     config.update_process(intv=args.intv)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
@@ -124,19 +125,8 @@ while count > 0:
         count -= 1
         continue
     # Run Precise Clock Estimation
-    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
-    gt.run_great(grt_bin, 'great_clkdif', config)
-    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
-    gt.copy_result_files(config, ['clkdif'], 'F1', 'gns')
-
-    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
-    gt.run_great(grt_bin, 'great_clkdif', config)
-    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=60, jump=60)
-    gt.copy_result_files(config, ['clkdif'], 'F2', 'gns')
-
-    gt.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
-    gt.run_great(grt_bin, 'great_clkdif', config)
-    gt.copy_result_files(config, ['clkdif'], 'F3', 'gns')
+    gr.run_great(grt_bin, 'great_pcelsq', config, mode='PCE_EST', out=os.path.join("tmp", "pcelsq"))
+    gr.run_great(grt_bin, 'great_clkdif', config)
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

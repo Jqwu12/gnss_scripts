@@ -1,85 +1,7 @@
 import os
-import platform
-import gnss_xml
 import gnss_config
 import logging
-import subprocess
-import copy
 import shutil
-from threading import Thread
-
-
-def run_great(bindir, app, config, str_args="", newxml=True, nthread=1, stop=True, out=None, **kwargs):
-    """ Run GREAT APP """
-    if app == 'great_ambfixD' and config.is_integer_clock() and not config.is_integer_clock_osb():
-        _get_grg_wsb(config)
-    if nthread > 1:
-        _run_great_app_multithreading(bindir, app, config, str_args, nthread, stop=stop, out=out, **kwargs)
-    else:
-        _run_great_app(bindir, app, config, str_args, newxml, stop=stop, out=out, **kwargs)
-
-
-def _run_great_app(bindir, app, config, str_args="", newxml=True, stop=True, out=None, **kwargs):
-    """ Run GREAT APP Default"""
-    grt_app = _executable_app(bindir, app)
-    f_xml = app + ".xml"
-    if newxml:
-        if os.path.isfile(f_xml):
-            os.remove(f_xml)
-        gnss_xml.generate_great_xml(config, app, f_xml, **kwargs)
-    else:
-        if not os.path.isfile(f_xml):
-            gnss_xml.generate_great_xml(config, app, f_xml, **kwargs)
-    grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
-    if out:
-        grt_cmd = f"{grt_cmd} > {out}.log 2>&1"
-    _run_cmd(grt_cmd, stop)
-
-
-def _run_great_app_multithreading(bindir, app, config, str_args="", nthread=8, stop=True, out=None, **kwargs):
-    """ Run GRAET App with multi-threading (by dividing receivers list) """
-    if nthread <= 0 or nthread > 99:
-        _raise_error(f"Number of threads = {nthread}")
-    grt_app = _executable_app(bindir, app)
-    child_configs = split_config_by_receivers(config, nthread)
-    nthread = min(nthread, len(child_configs))
-    thread_list = []
-    for i in range(nthread):
-        f_xml = f"{app}{i + 1:0>2d}.xml"
-        gnss_xml.generate_great_xml(child_configs[i], app, f_xml, ithread=i + 1, **kwargs)
-        grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
-        if out:
-            grt_cmd = f"{grt_cmd} > {out}{i + 1:0>2d}.log 2>&1"
-        new_thread = Thread(target=_run_cmd, args=(grt_cmd, stop))
-        thread_list.append(new_thread)
-        new_thread.start()
-    for i in range(len(thread_list)):
-        thread_list[i].join()
-
-
-def _run_cmd(cmd, stop=True):
-    logging.debug(cmd)
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        if stop:
-            _raise_error(f"Run {cmd.split()[0]} error, check log")
-        else:
-            logging.error(f"Run {cmd.split()[0]} error, check log")
-
-
-def _executable_app(bindir, app):
-    if not os.path.isdir(bindir):
-        _raise_error(f"GREAT Bin {bindir} not exist")
-    app = app.strip()
-    if platform.system() == 'Windows':
-        grt_app = os.path.join(bindir, f"{app}.exe")
-    else:
-        grt_app = os.path.join(bindir, app)
-    if not os.path.isfile(grt_app):
-        _raise_error(f"GREAT App {grt_app} not exist")
-    return grt_app
-
 
 def split_config_by_receivers(config, num):
     """ 
@@ -171,7 +93,7 @@ def copy_result_files_to_path(config, files, path, sattype='gns'):
                 logging.warning(f"unable to copy file {file}")
 
 
-def _get_grg_wsb(config):
+def get_grg_wsb(config):
     """
     purpose: grep WL UPD from CNES/CLS integer clock products
     """
@@ -288,6 +210,73 @@ def merge_upd(f_ins, f_out, mode, intv=30):
                         if line[0] != "%" and line.find("EOF") < 0:
                             f1.write(line)
             f1.write("EOF\n")
+
+
+def read_snxfile(snxfile, site_list):
+    """
+    snxfile: sinex file name
+    site_list: [list] sites
+    get sites crd from snx file
+    return : [map] site_name:crd
+    """
+    crd = {}
+    snx_crd = {}
+    # logging.info(f"read snxfile:{snxfile}")
+    if os.path.isfile(snxfile):
+        with open(snxfile, "r", errors="ignore") as myfile:
+            flag = False
+            for line in myfile:
+                if line.find("+SOLUTION/ESTIMATE") != -1:
+                    flag = True
+                    myfile.readline()
+                    continue
+
+                elif line.find("-SOLUTION/ESTIMATE") != -1:
+                    break
+
+                if flag:
+                    temp = line.split()
+                    idx = temp[1]
+                    site = temp[2]
+                    value = float(temp[8])
+                    std = float(temp[9])
+                    if idx.find("STA") == -1:
+                        continue
+                    if idx == "STAX":
+                        snx_crd[site.lower()] = [value, std]
+                    else:
+                        snx_crd[site.lower()].extend([value, std])
+    for site in site_list:
+        if snx_crd.get(site.lower()):
+            crd[site.lower()] = snx_crd[site.lower()]
+    return crd
+
+
+def get_crd_res(config):
+    crds = {}
+    for site in config.stalist():
+        f_res = config.get_dailyfile('recover_in', {'recnam': site.upper()}, check=True).strip()
+        if not f_res:
+            continue
+        x = 0; y = 0; z = 0
+        with open(f_res) as f:
+            for line in f:
+                if line[0] == '#':
+                    continue
+                if line[0:3] == 'PAR':
+                    if line.find(f"{site.upper()}_CRD_X_") == 19 and len(line) >= 155:
+                        x = float(line[131:156])
+                    if line.find(f"{site.upper()}_CRD_Y_") == 19 and len(line) >= 155:
+                        y = float(line[131:156])
+                    if line.find(f"{site.upper()}_CRD_Z_") == 19 and len(line) >= 155:
+                        z = float(line[131:156])
+                if line[0:3] == 'RES':
+                    break
+                if x != 0 and y != 0 and z != 0:
+                    break
+        if x != 0 and y != 0 and z != 0:
+            crds[site] = [x, y, z]
+    return crds
 
 
 def mkdir(dir_list):

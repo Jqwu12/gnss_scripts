@@ -67,13 +67,41 @@ def read_sp3file(f_sp3):
     end = time.time()
     msg = f"{f_sp3} file is read in {end - start:.2f} seconds"
     logging.info(msg)
-    return pd.DataFrame(data)
+    #return pd.DataFrame(data)
+    return data
+
+
+def read_rnxc_file(f_name, mode="AS"):
+    if not os.path.isfile(f_name):
+        logging.error(f"NO RINEXC file {f_name}")
+        return
+
+    data = []
+    with open(f_name) as f:
+        for line in f:
+            if line[0:2] != mode:
+                continue
+            if len(line) < 59:
+                continue
+            epoch = GNSStime()
+            name = line[3:7].strip()
+            year = int(line[8:12])
+            mon = int(line[13:15])
+            dd = int(line[16:18])
+            sod = int(line[19:21]) * 3600 + int(line[22:24]) * 60 + float(line[25:34])
+            epoch.set_ymd(year, mon, dd, sod)
+            value = float(line[37:59])
+            sat_dict = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sod': sod, 'name': name, 'clk': value}
+            data.append(sat_dict)
+
+    #return pd.DataFrame(data)
+    return data
 
 
 def read_rnxo_file(f_name):
     start = time.time()
     if not os.path.isfile(f_name):
-        logging.error(f"NO RNXO file {f_name}")
+        logging.error(f"NO RINEXO file {f_name}")
         return
 
     obs_type = {}
@@ -173,6 +201,28 @@ def read_rnxo_file(f_name):
     end = time.time()
     msg = f"{f_name} file is read in {end - start:.2f} seconds"
     logging.info(msg)
+    #return pd.DataFrame(data)
+    return data
+
+
+def read_resfile_great(f_res):
+    with open(f_res) as file_object:
+        lines = file_object.readlines()
+
+    data = []
+    for line in lines:
+        if line.find("RES") != 0:
+            continue
+        rec_dict = {}
+        tt = GNSStime()
+        tt.set_datetime(line[11:30])
+        rec_dict['mjd'] = tt.mjd + tt.sod/86400.0
+        rec_dict['sod'] = tt.sod
+        rec_dict['site'] = line[39:43]
+        rec_dict['sat'] = line[48:51]
+        rec_dict['ot'] = line[57:59]
+        rec_dict['res'] = float(line[74:89])
+        data.append(rec_dict)
     return pd.DataFrame(data)
 
 

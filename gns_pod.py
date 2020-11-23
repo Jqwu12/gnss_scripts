@@ -2,7 +2,7 @@
 from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
-# import gnss_files as gf
+import gnss_run as gr
 from constants import read_site_list
 import os
 import shutil
@@ -27,6 +27,7 @@ parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'c
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
                     help='bias files')
 parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
+parser.add_argument('-cf', dest='cf', help='config file')
 parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
 parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')
 parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
@@ -35,18 +36,16 @@ args = parser.parse_args()
 
 # ------ Path information --------
 if platform.system() == 'Windows':
-    grt_dir = r"C:\Users\jiaqi\GNSS_Software\branches"
-    grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin', 'RelWithDebInfo')
-    sys_data = r"C:\Users\jiaqi\GNSS_Project\sys_data"
-    gns_data = r"C:\Users\jiaqi\GNSS_Project\gns_data"
-    upd_data = r"C:\Users\jiaqi\GNSS_Project\gns_data\upd"
-    base_dir = r"C:\Users\jiaqi\GNSS_Project"
+    grt_dir = r"D:\GNSS_Software\GREAT"
+    grt_bin = os.path.join(grt_dir, 'build', 'Bin', 'RelWithDebInfo')
+    sys_data = r"D:\GNSS_Project\sys_data"
+    gns_data = r"D:\GNSS_Project\gns_data"
+    upd_data = r"D:\GNSS_Project\gns_data\upd"
+    base_dir = r"D:\GNSS_Project"
 else:
     grt_dir = "/home/jqwu/softwares/GREAT/branches"
-    #grt_dir = "/home/jqwu/softwares/great_hs" # test
     grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
     sys_data = "/home/jqwu/projects/sys_data"
-    # sys_data = "/home/jqwu/projects/sys_data_pod" # test
     gns_data = "/home/jqwu/gns_data"
     upd_data = "/home/jqwu/gns_data/upd"
     base_dir = "/home/jqwu/projects"
@@ -54,14 +53,19 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-f_config_tmp = 'gnspod_config.ini'
+if not args.cf:
+    f_config_tmp = 'cf_gnspod.ini'
+else:
+    f_config_tmp = args.cf
+if not os.path.isfile(f_config_tmp):
+    raise SystemExit("Cannot get config file >_<")
 config = GNSSconfig(f_config_tmp)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
 if sta_list:
     config.update_stalist(sta_list)
 else:
-    raise SystemExit("No site to process")
+    raise SystemExit("No site to process!")
 if args.freq > 2:
     args.bia = "CAS"
 config.update_prodinfo(args.cen, args.bia)
@@ -90,7 +94,7 @@ while count > 0:
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
-    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}_test")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
@@ -117,7 +121,7 @@ while count > 0:
     # Run turboedit
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     config.update_process(intv=args.intv)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
@@ -128,46 +132,49 @@ while count > 0:
         continue
 
     # Generate initial orbit using BRD
-    gt.run_great(grt_bin, 'great_preedit', config)
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.run_great(grt_bin, 'great_orbfit', config)
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_preedit', config)
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_orbfit', config)
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
     gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
 
     # Run Precise Orbit Determination
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-brdm", out=os.path.join("tmp", "podlsq"))
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.run_great(grt_bin, 'great_clkdif', config)
+    # 1st
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-brdm", out=os.path.join("tmp", "podlsq"))
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_clkdif', config)
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F1', 'gns')
-    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
+    gr.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
 
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.run_great(grt_bin, 'great_clkdif', config)
+    # 2nd
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_clkdif', config)
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F2', 'gns')
-    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
+    gr.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
 
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.run_great(grt_bin, 'great_clkdif', config)
-    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb'], 'F3', 'gns')
-    gt.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
+    # 3rd
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
 
     # Ambiguity fix solution
     config.update_process(intv=30)
-    gt.run_great(grt_bin, 'great_ambfixDd', config, out=os.path.join("tmp", "ambfix"))
+    config.update_process(crd_constr='FIX')
+    gr.run_great(grt_bin, 'great_ambfixDd', config, out=os.path.join("tmp", "ambfix"))
     config.update_process(intv=args.intv)
-    gt.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True,
+    gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True, use_res_crd=True,
                  out=os.path.join("tmp", "podlsq"))
-    gt.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gt.run_great(grt_bin, 'great_orbdif', config)
-    gt.run_great(grt_bin, 'great_clkdif', config)
-    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb'], 'AR', 'gns')
+    gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
+    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_clkdif', config)
+    gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

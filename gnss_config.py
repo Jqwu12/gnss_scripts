@@ -180,6 +180,7 @@ class GNSSconfig:
         }
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
                     'sysbias_model', 'ztd_model', 'apply_carrier_range']
+        proc_dict['apply_carrier_range'] = "false"
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):
                 proc_dict[opt] = self.config.get('process_scheme', opt)
@@ -339,7 +340,7 @@ class GNSSconfig:
                 f_name = ''
         return f_name
 
-    def _get_dailyfile(self, f_type, config_vars=None, check=False, conf_opt='process_files'):
+    def get_dailyfile(self, f_type, config_vars=None, check=False, conf_opt='process_files'):
         if config_vars is None:
             config_vars = {}
         if not self.config.has_option(conf_opt, f_type):
@@ -368,7 +369,7 @@ class GNSSconfig:
             time = time.time_increase(86400.1)
         return f_out
 
-    def _get_file(self, f_type, config_vars=None, check=False, conf_opt='process_files'):
+    def get_file(self, f_type, config_vars=None, check=False, conf_opt='process_files'):
         if config_vars is None:
             config_vars = {}
         if not self.config.has_option(conf_opt, f_type):
@@ -416,32 +417,36 @@ class GNSSconfig:
     def get_filename(self, f_type, sattype='gns', check=False, conf_opt='process_files'):
         """ get the name of process files according to config file """
         file_all = ""
-        if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambupd_in']:
+        if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambupd_in', 'recover_all']:
             leo_rm = []
             for leo in self.leolist():
                 leo_abbr = _LEO_INFO[leo]['abbr']
-                if f_type == 'ambupd_in':
+                if f_type == 'ambupd_in' or f_type == 'recover_all':
                     config_vars = {'leonam': leo, 'recnam': leo_abbr.upper()}
                 else:
                     config_vars = {'leonam': leo, 'recnam': leo_abbr}
                 if f_type == 'rinexo':
-                    f_out = self._get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+                    f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+                elif f_type == 'recover_all':
+                    f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
                 else:
-                    f_out = self._get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+                    f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 if len(f_out.strip()) == 0:
                     leo_rm.append(leo)
                 else:
                     file_all = file_all + " " + f_out
             sta_rm = []
             for sta in self.stalist():
-                if f_type == 'ambupd_in':
+                if f_type == 'ambupd_in' or f_type == 'recover_all':
                     config_vars = {'recnam': sta.upper()}
                 else:
                     config_vars = {'recnam': sta}
                 if f_type == 'rinexo':
-                    f_out = self._get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+                    f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+                elif f_type == 'recover_all':
+                    f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
                 else:
-                    f_out = self._get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+                    f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 if len(f_out.strip()) == 0:
                     sta_rm.append(sta)
                 else:
@@ -453,73 +458,74 @@ class GNSSconfig:
         elif f_type == 'kin':
             for leo in self.leolist():
                 config_vars = {'recnam': leo}
-                f_out = self._get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+                f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 file_all = file_all + " " + f_out
             return file_all.strip()
         elif f_type in ['attitude', 'pso']:  # LEO files
             for leo in self.leolist():
                 leo_abbr = _LEO_INFO[leo]['abbr']
                 config_vars = {'leonam': leo, 'recnam': leo_abbr}
-                f_out = self._get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+                f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
                 file_all = file_all + " " + f_out
             return file_all.strip()
         elif f_type == 'sp3':
             f_out = ""
             if 'gns' in sattype:
-                f_out = f_out + " " + self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
+                f_out = f_out + " " + self.get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             if 'leo' in sattype:
                 f_out = f_out + " " + self.get_filename('kin', check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type in ['rinexn', 'pso']:  # other daily files
-            f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
+            f_out = self.get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'rinexc':
-            f_out = self._get_dailyfile(f_type, check=check, conf_opt=conf_opt)
+            f_out = self.get_dailyfile(f_type, check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'rinexc_all':
-            f_out = self._get_dailyfile('rinexc', check=check, conf_opt=conf_opt)
-            f_out = f_out + " " + self._get_file('recclk', check=check, conf_opt=conf_opt)
+            f_out = self.get_dailyfile('rinexc', check=check, conf_opt=conf_opt)
+            f_out = f_out + " " + self.get_file('recclk', check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'biabern':
             bia = self.config.get('process_scheme', 'bia')
             if bia:
-                f_bia = self._get_dailyfile('bia', check=check, conf_opt=conf_opt)
+                f_bia = self.get_dailyfile('bia', check=check, conf_opt=conf_opt)
                 return f_bia.strip()
             else:
-                f_dcb_p1c1 = self._get_file('dcb_p1c1', check=check, conf_opt=conf_opt)
-                f_dcb_p2c2 = self._get_file('dcb_p2c2', check=check, conf_opt=conf_opt)
+                f_dcb_p1c1 = self.get_file('dcb_p1c1', check=check, conf_opt=conf_opt)
+                f_dcb_p2c2 = self.get_file('dcb_p2c2', check=check, conf_opt=conf_opt)
                 f_out = f_dcb_p1c1 + " " + f_dcb_p2c2
                 return f_out.strip()
         elif f_type == 'upd':
             f_out = ""
             if not self.is_integer_clock_osb():
-                f_out = self._get_file('upd_wl', check=check, conf_opt=conf_opt)
-                f_out = f_out + " " + self._get_file('upd_ewl', check=check, conf_opt=conf_opt)
+                f_out = self.get_file('upd_wl', check=check, conf_opt=conf_opt)
+                if int(self.config['process_scheme']['frequency']) > 2:
+                    f_out = f_out + " " + self.get_file('upd_ewl', check=check, conf_opt=conf_opt)
                 if not self.is_integer_clock():
-                    f_nlupd = self._get_file('upd_nl', check=check, conf_opt=conf_opt)
+                    f_nlupd = self.get_file('upd_nl', check=check, conf_opt=conf_opt)
                     f_out = f_out + " " + f_nlupd
             return f_out.strip()
         elif f_type in ['orb', 'ics', 'orbdif']:
             f_out = ""
             if 'leo' in sattype:
-                f_out = f_out + " " + self._get_file(f_type, {'sattype': 'leo'}, check=check, conf_opt=conf_opt)
+                f_out = f_out + " " + self.get_file(f_type, {'sattype': 'leo'}, check=check, conf_opt=conf_opt)
             if 'gns' in sattype:
-                f_out = f_out + " " + self._get_file(f_type, {'sattype': 'gns'}, check=check, conf_opt=conf_opt)
+                f_out = f_out + " " + self.get_file(f_type, {'sattype': 'gns'}, check=check, conf_opt=conf_opt)
             return f_out.strip()
         elif f_type == 'solar':
-            f_solar_flux = self._get_file('solar_flux', check=check, conf_opt=conf_opt)
-            f_geomag_kp = self._get_file('geomag_kp', check=check, conf_opt=conf_opt)
+            f_solar_flux = self.get_file('solar_flux', check=check, conf_opt=conf_opt)
+            f_geomag_kp = self.get_file('geomag_kp', check=check, conf_opt=conf_opt)
             f_out = f"{f_solar_flux} {f_geomag_kp}"
             return f_out.strip()
         elif f_type == 'solar_MSISE':
-            f_solar_flux = self._get_file('solar_flux_MSISE', check=check, conf_opt=conf_opt)
-            f_geomag_ap = self._get_file('geomag_ap', check=check, conf_opt=conf_opt)
+            f_solar_flux = self.get_file('solar_flux_MSISE', check=check, conf_opt=conf_opt)
+            f_geomag_ap = self.get_file('geomag_ap', check=check, conf_opt=conf_opt)
             f_out = f"{f_solar_flux} {f_geomag_ap}"
             return f_out.strip()
         elif f_type == 'sinex':
             return self._get_sinexfile(check=check, conf_opt=conf_opt)
         else:
-            f_out = self._get_file(f_type, check=check, conf_opt=conf_opt)
+            f_out = self.get_file(f_type, check=check, conf_opt=conf_opt)
             return f_out.strip()
 
     def basic_check(self, opts=None, files=None):
