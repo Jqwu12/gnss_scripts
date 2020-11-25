@@ -15,23 +15,29 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 
 # ------ Get args ----------------
-parser = argparse.ArgumentParser(description='Run Precise Point Positioning')
+parser = argparse.ArgumentParser(description='Run Uncalibrated-Phase-Delay Estimation')
+# Time argument
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
 parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
-parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
-parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
+parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
+parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
+# Estimation argument
+parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='observation combination')
+parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
 parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
-parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
+# File argument
+parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
                     help='GNSS precise orbits and clocks')
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
                     help='bias files')
+parser.add_argument('-cf', dest='cf', default='cf_upd.ini', help='config file')
+parser.add_argument('-kp', dest='keep_dir', action='store_true', help='Keep the existing work dir')
+# Required argument
 parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
 parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
 parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')
-parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
-parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
 args = parser.parse_args()
 
 # ------ Path information --------
@@ -53,14 +59,14 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-f_config_tmp = 'upd_config.ini'
-config = GNSSconfig(f_config_tmp)
+if not sta_list:
+    raise SystemExit("No site to process")
+if not os.path.isfile(args.cf):
+    raise SystemExit("Cannot get config file >_<")
+config = GNSSconfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
-if sta_list:
-    config.update_stalist(sta_list)
-else:
-    raise SystemExit("No site to process")
+config.update_stalist(sta_list)
 if args.freq > 2:
     args.bia = "CAS"
 config.update_prodinfo(args.cen, args.bia)
@@ -92,9 +98,10 @@ while count > 0:
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
-    # else:
-    #     shutil.rmtree(workdir)
-    #     os.makedirs(workdir)
+    else:
+        if not args.keep_dir:
+            shutil.rmtree(workdir)
+            os.makedirs(workdir)
     os.chdir(workdir)
     gt.mkdir(['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp'])
     logging.info(f"work directory is {workdir}")
@@ -132,24 +139,6 @@ while count > 0:
     #     config.update_process(sys=args.sys)
 
     # Run Precise Point Positioning
-    # 1st
-    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
-                 out=os.path.join("tmp", "ppplsq"))
-    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=80, jump=80, mode="L12",
-                 all_sites=True)
-    if args.freq > 2:
-        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=80, jump=80, mode="L13",
-                     all_sites=True)
-    # 2nd
-    config.update_process(crd_constr='FIX')
-    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
-                 out=os.path.join("tmp", "ppplsq"))
-    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=40, jump=40, mode="L12",
-                 all_sites=True)
-    if args.freq > 2:
-        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=40, jump=40, mode="L13",
-                     all_sites=True)
-    # 3rd
     gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
                  out=os.path.join("tmp", "ppplsq"))
 
@@ -165,20 +154,8 @@ while count > 0:
     if len(args.sys) > 1:
         gt.merge_upd_all(config, args.sys)
 
-    # PPP clean
-    if not os.path.isdir("ambupd_save"):
-        os.rename("ambupd", "ambupd_save")
-    config.update_process(crd_constr='FIX')
-    config.update_process(apply_carrier_range='true', append=True)
-    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO", use_res_crd=True,
-                 out=os.path.join("tmp", "ppplsq"))
-    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, jump=60, mode="L12", edt_amb=True, all_sites=True)
-    if args.freq > 2:
-        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, jump=60, mode="L13", edt_amb=True,
-                     all_sites=True)
-
     # Copy results
-    # gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
+    gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
 
     # next day
     logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")

@@ -244,6 +244,23 @@ def isint(value):
         return False
 
 
+def check_ambflag(f_ambflag):
+    """ check if the ambflag file is correct"""
+    try:
+        with open(f_ambflag) as f:
+            lfound = False
+            for line in f:
+                if line[0:3] == "AMB" or line[0:3] == "IAM":
+                    lfound = True
+                    break
+            if not lfound:
+                logging.warning(f"no valid ambiguity in {f_ambflag}")
+            return lfound
+    except FileNotFoundError:
+        logging.warning(f"ambflag file not found {f_ambflag}")
+        return False
+
+
 def check_rnxo_ant(f_rnxo, f_atx, change=True):
     """ check if the antenna of RINEXO file in igs14.atx """
     if os.path.isfile(f_rnxo):

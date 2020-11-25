@@ -418,6 +418,7 @@ class GNSSconfig:
         """ get the name of process files according to config file """
         file_all = ""
         if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambupd_in', 'recover_all']:
+            # LEO receivers
             leo_rm = []
             for leo in self.leolist():
                 leo_abbr = _LEO_INFO[leo]['abbr']
@@ -431,10 +432,15 @@ class GNSSconfig:
                     f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+                # check ambflag
+                if f_out.strip() != '' and f_type == 'ambflag':
+                    if not gf.check_ambflag(f_out.strip()):
+                        f_out = ''
                 if len(f_out.strip()) == 0:
                     leo_rm.append(leo)
                 else:
                     file_all = file_all + " " + f_out
+            # Ground receivers
             sta_rm = []
             for sta in self.stalist():
                 if f_type == 'ambupd_in' or f_type == 'recover_all':
@@ -447,6 +453,10 @@ class GNSSconfig:
                     f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+                # check ambflag
+                if f_out.strip() != '' and f_type == 'ambflag':
+                    if not gf.check_ambflag(f_out.strip()):
+                        f_out = ''
                 if len(f_out.strip()) == 0:
                     sta_rm.append(sta)
                 else:

@@ -15,23 +15,28 @@ logging.basicConfig(level=logging.DEBUG,
 
 # ------ Get args ----------------
 parser = argparse.ArgumentParser(description='Run Precise Orbit Determination')
+# Time argument
 parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
 parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
 parser.add_argument('-i', dest='intv', type=int, default=300, help='process interval (seconds)')
-parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='Observation combination')
-parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='Estimator: LSQ or EPO')
+parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
+parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
+# Estimation argument
+parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='observation combination')
+parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
 parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
 parser.add_argument('-freq', dest='freq', type=int, default=2, help='used GNSS frequencies')
-parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg'},
+# File argument
+parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
                     help='GNSS precise orbits and clocks')
 parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
                     help='bias files')
+parser.add_argument('-cf', dest='cf', default='cf_gnspod.ini', help='config file')
+parser.add_argument('-kp', dest='keep_dir', action='store_true', help='Keep the existing work dir')
+# Required argument
 parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
-parser.add_argument('-cf', dest='cf', help='config file')
 parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
 parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')
-parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
-parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
 args = parser.parse_args()
 
 # ------ Path information --------
@@ -53,13 +58,9 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
-if not args.cf:
-    f_config_tmp = 'cf_gnspod.ini'
-else:
-    f_config_tmp = args.cf
-if not os.path.isfile(f_config_tmp):
+if not os.path.isfile(args.cf):
     raise SystemExit("Cannot get config file >_<")
-config = GNSSconfig(f_config_tmp)
+config = GNSSconfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
 if sta_list:
@@ -98,8 +99,9 @@ while count > 0:
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
     else:
-        shutil.rmtree(workdir)
-        os.makedirs(workdir)
+        if not args.keep_dir:
+            shutil.rmtree(workdir)
+            os.makedirs(workdir)
     os.chdir(workdir)
     gt.mkdir(['log_tb', 'tmp', 'orbdif', 'clkdif'])
     logging.info(f"work directory is {workdir}")

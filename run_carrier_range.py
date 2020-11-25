@@ -1,0 +1,193 @@
+#!/home/jqwu/anaconda3/bin/python3
+from gnss_config import GNSSconfig
+from gnss_time import GNSStime, hms2sod
+import gnss_tools as gt
+import gnss_run as gr
+# import gnss_files as gf
+from constants import read_site_list
+import os
+import shutil
+import logging
+import platform
+import argparse
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
+
+# ------ Get args ----------------
+parser = argparse.ArgumentParser(description='Generate Carrier-range observations')
+# Time argument
+parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
+parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
+parser.add_argument('-i', dest='intv', type=int, default=30, help='process interval (seconds)')
+parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
+parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
+# Estimation argument
+parser.add_argument('-c', dest='obs_comb', default='IF', choices={'UC', 'IF'}, help='observation combination')
+parser.add_argument('-est', dest='est', default='LSQ', choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
+parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
+parser.add_argument('-freq', dest='freq', type=int, default=3, help='used GNSS frequencies')
+# File argument
+parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+                    help='GNSS precise orbits and clocks')
+parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
+                    help='bias files')
+parser.add_argument('-cf', dest='cf', default='cf_upd.ini', help='config file')
+parser.add_argument('-kp', dest='keep_dir', action='store_true', help='Keep the existing work dir')
+# Required argument
+parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
+parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
+parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')
+args = parser.parse_args()
+
+# ------ Path information --------
+if platform.system() == 'Windows':
+    grt_dir = r"D:\GNSS_Software\GREAT"
+    grt_bin = os.path.join(grt_dir, 'build', 'Bin', 'RelWithDebInfo')
+    sys_data = r"D:\GNSS_Project\sys_data"
+    gns_data = r"D:\GNSS_Project\gns_data"
+    upd_data = r"D:\GNSS_Project\gns_data\upd"
+    base_dir = r"D:\GNSS_Project"
+else:
+    grt_dir = "/home/jqwu/softwares/GREAT/branches"
+    grt_bin = os.path.join(grt_dir, 'merge_navpod_merge_ppp', 'build', 'Bin')
+    sys_data = "/home/jqwu/projects/sys_data"
+    gns_data = "/home/jqwu/gns_data"
+    upd_data = "/home/jqwu/gns_data/upd"
+    base_dir = "/home/jqwu/projects"
+
+# ------ Init config file --------
+sta_list = read_site_list(args.f_list)
+sta_list.sort()
+if not sta_list:
+    raise SystemExit("No site to process")
+if not os.path.isfile(args.cf):
+    raise SystemExit("Cannot get config file >_<")
+config = GNSSconfig(args.cf)
+config.update_pathinfo(sys_data, gns_data, upd_data)
+config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
+config.update_stalist(sta_list)
+if args.freq > 2:
+    args.bia = "CAS"
+config.update_prodinfo(args.cen, args.bia)
+
+# ------ Start PPP process -------
+proj_dir = os.path.join(base_dir, 'UPD')
+if args.sod:
+    sod = args.sod
+elif args.hms:
+    if len(args.hms) > 2:
+        sod = hms2sod(args.hms[0], args.hms[1], args.hms[2])
+    elif len(args.hms) > 1:
+        sod = hms2sod(args.hms[0], args.hms[1])
+    else:
+        sod = hms2sod(args.hms[0])
+else:
+    sod = hms2sod(0)
+count = args.num
+seslen = hms2sod(args.len)
+t_beg0 = GNSStime()
+t_beg0.set_ydoy(args.year, args.doy, sod)
+# ------- daily loop -------------
+while count > 0:
+    t_beg = t_beg0
+    t_end = t_beg.time_increase(seslen-args.intv)
+    config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_process(crd_constr='EST')
+    logging.info(f"\n===> Run PPP-UPD for {t_beg.year}-{t_beg.doy:0>3d}\n")
+    workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")
+    if not os.path.isdir(workdir):
+        os.makedirs(workdir)
+    else:
+        if not args.keep_dir:
+            shutil.rmtree(workdir)
+            os.makedirs(workdir)
+    os.chdir(workdir)
+    gt.mkdir(['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp'])
+    logging.info(f"work directory is {workdir}")
+
+    # ---------- Basic check ---------
+    config.copy_sys_data()
+    if config.basic_check(['estimator'], ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']):
+        logging.info("Basic check complete ^_^")
+    else:
+        logging.critical("Basic check failed! skip to next day")
+        t_beg = t_beg.time_increase(86400)
+        count -= 1
+        continue
+
+    f_config = os.path.join(workdir, 'config.ini')
+    config.write_config(f_config)  # config file is only for check
+    logging.info(f"config is {f_config}")
+
+    # Run turboedit
+    if args.sys == "C":
+        config.update_process(sys='EC')
+    nthread = min(len(config.all_receiver().split()), 10)
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    if config.basic_check(files=['ambflag']):
+        logging.info("Ambflag is ok ^_^")
+    else:
+        logging.critical("NO ambflag files ! skip to next day")
+        t_beg = t_beg.time_increase(86400)
+        count -= 1
+        continue
+    # get ifcb for GPS
+    # if args.freq > 2 and "G" in args.sys:
+    #     config.update_process(sys='G')
+    #     gt.run_great(grt_bin, 'great_updlsq', config, mode='ifcb', out="ifcb")
+    #     config.update_process(sys=args.sys)
+
+    # Run Precise Point Positioning
+    # 1st
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
+                 out=os.path.join("tmp", "ppplsq"))
+    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=80, jump=80, mode="L12",
+                 all_sites=True)
+    if args.freq > 2:
+        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=80, jump=80, mode="L13",
+                     all_sites=True)
+    # 2nd
+    config.update_process(crd_constr='FIX')
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
+                 out=os.path.join("tmp", "ppplsq"))
+    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=40, jump=40, mode="L12",
+                 all_sites=True)
+    if args.freq > 2:
+        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, nshort=600, bad=40, jump=40, mode="L13",
+                     all_sites=True)
+    # 3rd
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO",
+                 out=os.path.join("tmp", "ppplsq"))
+
+    # Run UPD estimation
+    for gsys in args.sys:
+        config.update_process(sys=gsys)
+        if args.freq > 2:
+            gr.run_great(grt_bin, 'great_updlsq', config, mode='EWL', out=os.path.join("tmp", f"upd_ewl_{gsys}"))
+        gr.run_great(grt_bin, 'great_updlsq', config, mode='WL', out=os.path.join("tmp", f"upd_wl_{gsys}"))
+        gr.run_great(grt_bin, 'great_updlsq', config, mode='NL', out=os.path.join("tmp", f"upd_nl_{gsys}"))
+
+    # Merge multi-GNSS UPD
+    if len(args.sys) > 1:
+        gt.merge_upd_all(config, args.sys)
+
+    # PPP clean
+    if not os.path.isdir("ambupd_save"):
+        os.rename("ambupd", "ambupd_save")
+    config.update_process(crd_constr='FIX')
+    config.update_process(apply_carrier_range='true', append=True)
+    gr.run_great(grt_bin, 'great_ppplsq', config, mode='PPP_EST', nthread=nthread, fix_mode="NO", use_res_crd=True,
+                 out=os.path.join("tmp", "ppplsq"))
+    gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, jump=60, mode="L12", edt_amb=True, all_sites=True)
+    if args.freq > 2:
+        gr.run_great(grt_bin, 'great_editres', config, nthread=nthread, jump=60, mode="L13", edt_amb=True,
+                     all_sites=True)
+
+    # Copy results
+    # gt.copy_result_files_to_path(config, ["ifcb", "upd_ewl", "upd_wl", "upd_nl"], os.path.join(upd_data, f"{t_beg.year}"))
+
+    # next day
+    logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
+    t_beg0 = t_beg0.time_increase(86400)
+    count -= 1
