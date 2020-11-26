@@ -2,7 +2,7 @@
 from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
-# import gnss_files as gf
+import gnss_run as gr
 from constants import read_site_list
 import os
 import shutil
@@ -122,7 +122,7 @@ while count > 0:
 
     # Run turboedit
     nthread = min(len(config.all_receiver().split()), 12)
-    gt.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
