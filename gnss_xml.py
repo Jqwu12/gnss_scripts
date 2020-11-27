@@ -1,5 +1,5 @@
 from gnss_config import GNSSconfig
-from constants import _GNS_INFO, _LEO_INFO, _get_gns_info, _LSQ_SCHEME
+from constants import _LEO_INFO, get_gns_info, get_gns_sat, _LSQ_SCHEME
 import gnss_tools as gt
 import xml.etree.ElementTree as ET
 import os
@@ -199,7 +199,9 @@ def _generate_convobs_xml(config, f_xml_out):
     gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
     root.append(gen)
     # <inputs>
-    f_inputs = ['rinexo', 'ambflag', 'ambflag13']
+    f_inputs = ['rinexo', 'ambflag']
+    if int(config.config['process_scheme']['frequency']) > 2:
+        f_inputs.append('ambflag13')
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     root.append(inp)
     # <outputs>
@@ -275,7 +277,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     if 'LEO' in mode.upper():
         leo = ET.SubElement(root, 'LEO')
         leosat = ET.SubElement(leo, 'sat')
-        leosat.text = _list2str(config.leolist())
+        leosat.text = gt.list2str(config.leolist())
     # ambiguity
     if "PPP" in mode.upper():
         ambfix = _get_ambfix(config, fix_mode=fix_mode)
@@ -618,7 +620,7 @@ def _generate_oi_xml(config, f_xml_out, sattype='gns'):
         root.append(gen)
         leo = ET.SubElement(root, 'LEO')
         leosat = ET.SubElement(leo, 'sat')
-        leosat.text = _list2str(config.leolist())
+        leosat.text = gt.list2str(config.leolist())
     else:
         f_inputs.extend(['ics'])
         inp = _get_element_io(config, 'inputs', f_inputs, check=True, sattype=sattype)
@@ -680,12 +682,12 @@ def _generate_sp3orb_xml(config, f_xml_out, sattype='gns', frame='crs'):
     if sattype == 'leo':
         out_ele = ET.SubElement(out, 'icsleo')
         out_ele.text = config.get_filename('ics', sattype='leo')
-        sat_all = _list2str(config.leolist())
+        sat_all = gt.list2str(config.leolist())
     else:
         out_ele = ET.SubElement(out, 'ics')
         out_ele.text = config.get_filename('ics', sattype='gns')
         for gns_sys in config.gnssys().split():
-            sat_all = sat_all + " " + _list2str(_GNS_INFO[gns_sys]['sat'])
+            sat_all = sat_all + " " + gt.list2str(get_gns_sat(gns_sys, config.sat_rm()))
     sat.text = sat_all
     frm = ET.SubElement(proc, 'frame')
     frm.text = frame
@@ -757,7 +759,7 @@ def _generate_orbfitleo_xml(config, f_xml_out, fit=False, trans="", unit="mm"):
     xml_log.text = f"LOGRT.xml.log"
     orbdif_ele = ET.SubElement(root, 'orbdifleo')
     leolist = ET.SubElement(orbdif_ele, 'leo')
-    leolist.text = _list2str(config.leolist())
+    leolist.text = gt.list2str(config.leolist())
     ele = ET.SubElement(orbdif_ele, 'trans')
     if trans:
         ele.text = trans
@@ -823,10 +825,10 @@ def _get_element_gen(config, ele_list=None):
             rec_leo = ET.SubElement(gen, 'rec')
             rec_leo.set('type', 'leo')
             rec_leo.set('mode', config.config.get('process_scheme', 'leopodmod').upper()[0])
-            rec_leo.text = _list2str(config.leo_recs(), True)
+            rec_leo.text = gt.list2str(config.leo_recs(), True)
         if config.stalist():
             rec = ET.SubElement(gen, 'rec')
-            rec.text = _list2str(config.stalist(), True)
+            rec.text = gt.list2str(config.stalist(), True)
     if 'est' in ele_list:
         estimator = ET.SubElement(gen, 'est')
         estimator.text = config.config.get('process_scheme', 'estimator').upper()
@@ -849,19 +851,20 @@ def _get_element_gns(config):
     gns_ele = []
     for gns_sys in config.gnssys().split():
         gns = ET.Element(gns_sys.lower())
-        gns.set('sigma_C', str(_GNS_INFO[gns_sys]['code']))
-        gns.set('sigma_L', str(_GNS_INFO[gns_sys]['phase']))
-        gns.set('sigma_C_LEO', str(_GNS_INFO[gns_sys]['code_leo']))
-        gns.set('sigma_L_LEO', str(_GNS_INFO[gns_sys]['phase_leo']))
+        GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
+        gns.set('sigma_C', str(GNS_INFO['code']))
+        gns.set('sigma_L', str(GNS_INFO['phase']))
+        gns.set('sigma_C_LEO', str(GNS_INFO['code_leo']))
+        gns.set('sigma_L_LEO', str(GNS_INFO['phase_leo']))
         sat = ET.SubElement(gns, 'sat')
-        sat.text = _list2str(_GNS_INFO[gns_sys]['sat'])
+        sat.text = gt.list2str(GNS_INFO['sat'])
         band = ET.SubElement(gns, 'band')
         nfreq = config.config.get('process_scheme', 'frequency')
-        mfreq = min(int(nfreq), len(_GNS_INFO[gns_sys]['band']))
+        mfreq = min(int(nfreq), len(GNS_INFO['band']))
         # mfreq = min(3, len(_GNS_INFO[gns_sys]['band']))
-        band.text = _list2str(_GNS_INFO[gns_sys]['band'][0:mfreq])
+        band.text = gt.list2str(GNS_INFO['band'][0:mfreq])
         freq = ET.SubElement(gns, 'freq')
-        freq.text = _list2str(list(range(1, mfreq + 1)))
+        freq.text = gt.list2str(list(range(1, mfreq + 1)))
         gns_ele.append(gns)
     return gns_ele
 
@@ -910,21 +913,3 @@ def _pretty_xml(element, indent='\t', newline='\n', level=0):
         else:
             subelement.tail = newline + indent * level
         _pretty_xml(subelement, indent, newline, level=level + 1)
-
-
-def _list2str(x, isupper=False):
-    if not isinstance(x, list):
-        return ''
-    else:
-        info = ''
-        if isupper:
-            for i in x:
-                info = info + " " + str(i).upper()
-        else:
-            for i in x:
-                info = info + " " + str(i)
-        info = info.strip()
-        return info
-
-
-

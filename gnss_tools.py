@@ -1,7 +1,23 @@
 import os
-import gnss_config
+import math
 import logging
 import shutil
+
+
+def list2str(x, isupper=False):
+    if not isinstance(x, list):
+        return ''
+    else:
+        info = ''
+        if isupper:
+            for i in x:
+                info = info + " " + str(i).upper()
+        else:
+            for i in x:
+                info = info + " " + str(i)
+        info = info.strip()
+        return info
+
 
 def split_config_by_receivers(config, num):
     """ 
@@ -59,6 +75,41 @@ def _split_list(list_in, num):
         sub_list = list_in[ibeg: iend]
         list_out.append(sub_list)
     return list_out
+
+
+def check_brd_orbfit(f_name):
+    val = {}
+    num = {}
+    try:
+        with open(f_name) as f:
+            for line in f:
+                if line[0:4] != "APRI":
+                    continue
+                if line[0:3] == "ACR" or line[0:3] == "RMS":
+                    break
+                prn = line[6:9]
+                rms_a = float(line[39:54])
+                rms_c = float(line[54:69])
+                rms_r = float(line[69:84])
+                rms_3d = math.sqrt(rms_a * rms_a + rms_c * rms_c + rms_r * rms_r)
+                if prn not in val.keys():
+                    val[prn] = rms_3d * rms_3d
+                    num[prn] = 1
+                else:
+                    val[prn] = val[prn] + rms_3d * rms_3d
+                    num[prn] += 1
+    except FileNotFoundError:
+        logging.warning(f"orbfit file not found {f_name}")
+        return
+
+    sat_rm = []
+    for prn in val.keys():
+        result = math.sqrt(val[prn] / num[prn])
+        if result > 100:
+            sat_rm.append(prn)
+            logging.warning(f"Bad satellite BRD: {prn}")
+    logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
+    return sat_rm
 
 
 def copy_result_files(config, files, scheme, sattype='gns'):

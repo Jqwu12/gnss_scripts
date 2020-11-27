@@ -93,6 +93,7 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_gnssinfo(sat_rm=[])
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}")
@@ -123,7 +124,7 @@ while count > 0:
     # Run turboedit
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
-    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    # gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     config.update_process(intv=args.intv)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
@@ -140,6 +141,7 @@ while count > 0:
     gr.run_great(grt_bin, 'great_orbfit', config)
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gr.run_great(grt_bin, 'great_orbdif', config)
+    config.update_gnssinfo(sat_rm=gt.check_brd_orbfit(config.get_filename('orbdif')))
     gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
 
     # Run Precise Orbit Determination

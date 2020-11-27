@@ -5,7 +5,7 @@ import os
 import logging
 import math
 from gnss_time import GNSStime
-from constants import _GNS_INFO, _GNS_NAME, _LEO_INFO
+from constants import _GNS_NAME, _LEO_INFO
 
 
 def read_sp3file(f_sp3):

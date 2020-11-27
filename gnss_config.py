@@ -5,8 +5,9 @@ import logging
 import platform
 import copy
 import gnss_files as gf
+import gnss_tools as gt
 from gnss_time import GNSStime
-from constants import _GNS_INFO, _GNS_NAME, _LEO_INFO
+from constants import get_gns_name, get_gns_sat, _GNS_NAME, _LEO_INFO
 
 
 def _raise_error(msg):
@@ -54,16 +55,16 @@ class GNSSconfig:
             self.config.set('process_scheme', 'frequency', f"{freq:d}")
         if est:
             self.config.set('process_scheme', 'lsq_mode', est)
-        if obs_model == 'IF':
-            self.config.set('process_scheme', 'obs_comb', "IF")
-            self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
-            self.config.set('process_scheme', 'ion_model', "NONE")
-        else:
+        if obs_model == 'UC':
             self.config.set('process_scheme', 'obs_comb', "UC")
             self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
             self.config.set('process_scheme', 'ion_model', "SION")
+        else:
+            self.config.set('process_scheme', 'obs_comb', "IF")
+            self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
+            self.config.set('process_scheme', 'ion_model', "NONE")
         if sat_rm:
-            self.config.set('process_scheme', 'sat_rm', sat_rm)  # currently not used
+            self.config.set('process_scheme', 'sat_rm', gt.list2str(sat_rm))  # currently not used
 
     def update_prodinfo(self, cen='grm', bia=''):
         """ update the IGS product settings in config file """
@@ -172,6 +173,34 @@ class GNSSconfig:
         else:
             _raise_error("Cannot find time_beg/time_end in [process_scheme]")
 
+    def band(self, gsys):
+        """ Get the GNSS Band """
+        gsys = get_gns_name(gsys)
+        if not gsys:
+            return
+        if gsys == "GPS":
+            word = 'band_G'
+        elif gsys == "BDS":
+            word = 'band_C'
+        elif gsys == "GAL":
+            word = 'band_E'
+        elif gsys == "GLO":
+            word = 'band_R'
+        elif gsys == "QZS":
+            word = 'band_J'
+        if self.config.has_option('process_scheme', word):
+            band = self.config.get('process_scheme', word)
+            bands = []
+            for x in band:
+                if x.isdigit():
+                    bands.append(int(x))
+            return bands
+
+    def sat_rm(self):
+        if self.config.has_option('process_scheme', 'sat_rm'):
+            sats = self.config.get('process_scheme', 'sat_rm')
+            return sats.split()
+
     def xml_process(self):
         """ return a dict for xml <process> """
         proc_dict = {
@@ -247,7 +276,7 @@ class GNSSconfig:
         """ Get all GNSS sats """
         sats = []
         for sys in self.gnssys().split():
-            sats.extend(_GNS_INFO[sys]['sat'])
+            sats.extend(get_gns_sat(sys, self.sat_rm())['sat'])
         return sats
 
     def all_receiver(self):
@@ -306,7 +335,7 @@ class GNSSconfig:
             sta_list_new = list(set(sta_list).difference(set(sta_rm)))
             self.update_stalist(sta_list_new)
             sta_rm_str = " ".join(sta_rm)
-            logging.warning(f"STATIONs {sta_rm_str} are removed")
+            logging.warning(f"STATIONS {sta_rm_str} are removed")
 
     def grtbin(self):
         """ GREAT bin path in config file """
