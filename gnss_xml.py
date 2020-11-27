@@ -247,7 +247,8 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     if ambcon:
         inp_ele = ET.SubElement(inp, 'ambcon')
         inp_ele.text = config.get_filename('ambcon', check=True)
-    if fix_mode != "NO" or config.config['process_scheme']['apply_carrier_range'] == 'true':
+    if fix_mode != "NO" or config.config['process_scheme']['apply_carrier_range'] == 'true' \
+            and mode not in ["POD_EST", "PCE_EST"]:
         inp_ele = ET.SubElement(inp, 'upd')
         inp_ele.text = config.get_filename('upd', check=True)
     root.append(inp)

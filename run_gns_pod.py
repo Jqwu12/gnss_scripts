@@ -10,7 +10,7 @@ import logging
 import platform
 import argparse
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 
 # ------ Get args ----------------
@@ -95,7 +95,8 @@ while count > 0:
     config.update_timeinfo(t_beg, t_end, args.intv)
     config.update_gnssinfo(sat_rm=[])
     config.update_process(crd_constr='EST')
-    logging.info(f"\n===> Run POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
+    logging.info(f"------------------------------------------------------------------------")
+    logging.info(f"===> Run GNSS POD for {t_beg.year}-{t_beg.doy:0>3d}")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.freq}_{args.obs_comb}")
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
@@ -119,12 +120,12 @@ while count > 0:
 
     f_config = os.path.join(workdir, 'config.ini')
     config.write_config(f_config)  # config file is only for check
-    logging.info(f"config is {f_config}")
+    # logging.info(f"config is {f_config}")
 
-    # Run turboedit
+    logging.info(f"===> Preprocess RINEXO files with Turboedit")
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
-    # gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     config.update_process(intv=args.intv)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
@@ -134,53 +135,56 @@ while count > 0:
         count -= 1
         continue
 
-    # Generate initial orbit using BRD
+    logging.info(f"===> Generate initial orbits using broadcast ephemeris")
     gr.run_great(grt_bin, 'great_preedit', config)
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
-    gr.run_great(grt_bin, 'great_orbfit', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
+    gr.run_great(grt_bin, 'great_orbfit', config, out=os.path.join("tmp", "orbfit"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
     config.update_gnssinfo(sat_rm=gt.check_brd_orbfit(config.get_filename('orbdif')))
     gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
 
     # Run Precise Orbit Determination
-    # 1st
+    logging.info(f"===> 1st iteration for precise orbit determination")
     gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-brdm", out=os.path.join("tmp", "podlsq"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
-    gr.run_great(grt_bin, 'great_clkdif', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
+    gr.run_great(grt_bin, 'great_clkdif', config, out=os.path.join("tmp", "clkdif"))
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F1', 'gns')
     gr.run_great(grt_bin, 'great_editres', config, nshort=600, bad=80, jump=80)
 
-    # 2nd
+    logging.info(f"===> 2nd iteration for precise orbit determination")
     gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
-    gr.run_great(grt_bin, 'great_clkdif', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
+    gr.run_great(grt_bin, 'great_clkdif', config, out=os.path.join("tmp", "clkdif"))
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics'], 'F2', 'gns')
     gr.run_great(grt_bin, 'great_editres', config, nshort=600, bad=40, jump=40)
 
-    # 3rd
+    logging.info(f"===> 3rd iteration for precise orbit determination")
     gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', out=os.path.join("tmp", "podlsq"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
-    gr.run_great(grt_bin, 'great_clkdif', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
+    gr.run_great(grt_bin, 'great_clkdif', config, out=os.path.join("tmp", "clkdif"))
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
 
-    # Ambiguity fix solution
+    logging.info(f"===> Double-difference ambiguity resolution")
     config.update_process(intv=30)
     config.update_process(crd_constr='FIX')
     gr.run_great(grt_bin, 'great_ambfixDd', config, out=os.path.join("tmp", "ambfix"))
     config.update_process(intv=args.intv)
+
+    logging.info(f"===> 4th iteration for precise orbit determination")
     gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-ambfix", ambcon=True, use_res_crd=True,
                  out=os.path.join("tmp", "podlsq"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
-    gr.run_great(grt_bin, 'great_orbdif', config)
-    gr.run_great(grt_bin, 'great_clkdif', config)
+    gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
+    gr.run_great(grt_bin, 'great_clkdif', config, out=os.path.join("tmp", "clkdif"))
     gt.copy_result_files(config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
 
     # next day
-    logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^\n")
+    logging.info(f"Complete {t_beg.year}-{t_beg.doy:0>3d} ^_^")
+    logging.info(f"------------------------------------------------------------------------\n")
     t_beg0 = t_beg0.time_increase(86400)
     count -= 1

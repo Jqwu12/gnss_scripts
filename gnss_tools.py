@@ -108,7 +108,8 @@ def check_brd_orbfit(f_name):
         if result > 100:
             sat_rm.append(prn)
             logging.warning(f"Bad satellite BRD: {prn}")
-    logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
+    if sat_rm:
+        logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
     return sat_rm
 
 

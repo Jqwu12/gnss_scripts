@@ -1,6 +1,5 @@
-import datetime
 import time
-import pandas as pd
+#import pandas as pd
 import os
 import logging
 import math
@@ -223,7 +222,8 @@ def read_resfile_great(f_res):
         rec_dict['ot'] = line[57:59]
         rec_dict['res'] = float(line[74:89])
         data.append(rec_dict)
-    return pd.DataFrame(data)
+    #return pd.DataFrame(data)
+    return  data
 
 
 def isfloat(value):
