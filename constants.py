@@ -185,6 +185,6 @@ def read_site_list(f_list):
     for line in lines:
         if line[0] != " ":
             continue
-        sites.append(line.split()[0])
+        sites.append(line.split()[0].lower())
 
     return sites

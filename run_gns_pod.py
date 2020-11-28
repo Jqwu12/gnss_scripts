@@ -119,14 +119,15 @@ while count > 0:
         continue
 
     f_config = os.path.join(workdir, 'config.ini')
-    config.write_config(f_config)  # config file is only for check
-    # logging.info(f"config is {f_config}")
+    config.write_config(f_config)
 
     logging.info(f"===> Preprocess RINEXO files with Turboedit")
     config.update_process(intv=30)
     nthread = min(len(config.all_receiver().split()), 10)
+    logging.info(f"number of stations = {len(config.stalist())}, number of threads = {nthread}")
     gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
     config.update_process(intv=args.intv)
+    config.remove_sta(gt.check_turboedit_log(nthread))
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
@@ -135,7 +136,7 @@ while count > 0:
         count -= 1
         continue
 
-    logging.info(f"===> Generate initial orbits using broadcast ephemeris")
+    logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
     gr.run_great(grt_bin, 'great_preedit', config)
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')
     gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
@@ -144,8 +145,9 @@ while count > 0:
     gr.run_great(grt_bin, 'great_orbdif', config, out=os.path.join("tmp", "orbdif"))
     config.update_gnssinfo(sat_rm=gt.check_brd_orbfit(config.get_filename('orbdif')))
     gt.copy_result_files(config, ['orbdif', 'ics'], 'BRD', 'gns')
+    logging.info(f"------------------------------------------------------------------------")
+    logging.info(f"Everything is ready: number of stations = {len(config.stalist())}, number of satellites = {len(config.all_gnssat())}")
 
-    # Run Precise Orbit Determination
     logging.info(f"===> 1st iteration for precise orbit determination")
     gr.run_great(grt_bin, 'great_podlsq', config, mode='POD_EST', str_args="-brdm", out=os.path.join("tmp", "podlsq"))
     gr.run_great(grt_bin, 'great_oi', config, sattype='gns')

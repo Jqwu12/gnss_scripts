@@ -77,6 +77,40 @@ def _split_list(list_in, num):
     return list_out
 
 
+def check_turboedit_log(nthread):
+    site_rm = []
+    if nthread == 1:
+        f_name = 'great_turboedit.log'
+        try:
+            with open(f_name) as f:
+                for line in f:
+                    if line.find("Site and Evaluation") > 0:
+                        if line[65:68] == "BAD":
+                            site = line[58:62].lower()
+                            if site not in site_rm:
+                                site_rm.append(site)
+        except FileNotFoundError:
+            logging.warning(f"Cannot open turboedit log file {f_name}")
+    else:
+        for i in range(1, nthread + 1):
+            f_name = f"great_turboedit{i:0>2d}.log"
+            try:
+                with open(f_name) as f:
+                    for line in f:
+                        if line.find("Site and Evaluation") > 0:
+                            if line[65:68] == "BAD":
+                                site = line[58:62].lower()
+                                if site not in site_rm:
+                                    site_rm.append(site)
+            except FileNotFoundError:
+                logging.warning(f"Cannot open turboedit log file {f_name}")
+                continue
+    if site_rm:
+        msg = f"BAD Turboedit results: {list2str(site_rm)}"
+        logging.warning(msg)
+    return site_rm
+
+
 def check_brd_orbfit(f_name):
     val = {}
     num = {}

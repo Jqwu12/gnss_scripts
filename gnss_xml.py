@@ -263,10 +263,10 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         proc.set('ambfix', 'true')
     else:
         proc.set('ambfix', 'false')
-    if mode == "PCE_EST":
+    if mode == "PCE_EST" or mode == "POD_EST":
         proc.set('ref_clk', _set_ref_clk(config))
         # proc.set('ref_clk', '')
-        # proc.set('sig_ref_clk', '1')
+        proc.set('sig_ref_clk', '1')
         proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
@@ -297,6 +297,8 @@ def _get_element_lsq_io(config, mode):
         return
     inputs = ET.Element('inputs')
     for file in f_inputs:
+        if file == 'ifcb' and int(config.config['process_scheme']['frequency']) < 3 and "GPS" not in config.gnssys():
+            continue
         if file == 'ics' and mode.upper() == "LEO_DYN":
             inp_ele = ET.SubElement(inputs, 'icsleo')
             inp_ele.text = config.get_filename(file, check=True, sattype='leo')
@@ -411,11 +413,24 @@ def _get_lsq_param(config, mode):
     return param
 
 
-def _set_ref_clk(config):
-    if "ALGO" in config.stalist() or "algo" in config.stalist():
-        return "ALGO"
+def _set_ref_clk(config, mode='sat'):
+    if mode == 'sat':
+        if "GPS" in config.gnssys().split():
+            return "G08"
+        else:
+            if "GAL" in config.gnssys().split():
+                return "E01"
+            else:
+                if "BDS" in config.gnssys().split():
+                    return "C08"  # the ref sat of BDS need to choose
+                else:
+                    if "GLO" in config.gnssys().split():
+                        return "R01"
     else:
-        return config.stalist()[0].upper()
+        if "ALGO" in config.stalist() or "algo" in config.stalist():
+            return "ALGO"
+        else:
+            return config.stalist()[0].upper()
 
 
 def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
@@ -777,17 +792,7 @@ def _generate_clkdif_xml(config, f_xml_out):
     tree = ET.ElementTree(root)
     gen = _get_element_gen(config, ['sys', 'intv'])
     gen_ele = ET.SubElement(gen, "refsat")
-    if "GPS" in config.gnssys().split():
-        gen_ele.text = "G08"
-    else:
-        if "GAL" in config.gnssys().split():
-            gen_ele.text = "E01"
-        else:
-            if "BDS" in config.gnssys().split():
-                gen_ele.text = "C08"  # the ref sat of BDS need to choose
-            else:
-                if "GLO" in config.gnssys().split():
-                    gen_ele.text = "R01"
+    gen_ele.text = _set_ref_clk(config)
     root.append(gen)
     # <inputs>
     inp = ET.SubElement(root, "inputs")

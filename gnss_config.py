@@ -38,7 +38,7 @@ class GNSSconfig:
                 self.config.set('common', 'gns_data', gns_data)
 
     def copy(self):
-        conf = copy.deepcopy(self.config)
+        conf = copy.deepcopy(self.config)  # need python3.8 or higher!
         return GNSSconfig("", conf)
 
     def update_timeinfo(self, time_beg, time_end, intv):
@@ -91,8 +91,8 @@ class GNSSconfig:
         """ update the ground station list in config file """
         info = ''
         if isinstance(sta_list, list):
-            for leo in sta_list:
-                info = info + ' ' + leo
+            for sta in sta_list:
+                info = info + ' ' + sta
         else:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
@@ -276,7 +276,7 @@ class GNSSconfig:
         """ Get all GNSS sats """
         sats = []
         for sys in self.gnssys().split():
-            sats.extend(get_gns_sat(sys, self.sat_rm())['sat'])
+            sats.extend(get_gns_sat(sys, self.sat_rm()))
         return sats
 
     def all_receiver(self):
@@ -311,10 +311,14 @@ class GNSSconfig:
         """ ground station list in config file """
         if self.config.has_option('process_scheme', 'sta_list'):
             info = self.config.get('process_scheme', 'sta_list')
-            if info.strip() == 'NONE':
-                return []
-            else:
-                return info.split()
+            out = []
+            for sta in info.split():
+                if len(sta) == 4:
+                    out.append(sta.lower())
+            if out:
+                out = list(set(out))
+                out.sort()
+            return out
         else:
             logging.warning("Cannot find sta_list in [process_scheme]")
             return []
