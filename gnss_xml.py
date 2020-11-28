@@ -297,8 +297,11 @@ def _get_element_lsq_io(config, mode):
         return
     inputs = ET.Element('inputs')
     for file in f_inputs:
-        if file == 'ifcb' and int(config.config['process_scheme']['frequency']) < 3 and "GPS" not in config.gnssys():
-            continue
+        if file == 'ifcb':
+            if "GPS" not in config.gnssys():
+                continue
+            if int(config.config['process_scheme']['frequency']) < 3:
+                continue
         if file == 'ics' and mode.upper() == "LEO_DYN":
             inp_ele = ET.SubElement(inputs, 'icsleo')
             inp_ele.text = config.get_filename(file, check=True, sattype='leo')

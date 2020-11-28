@@ -125,6 +125,7 @@ while count > 0:
         config.update_process(sys='EC')
     nthread = min(len(config.all_receiver().split()), 10)
     gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+    config.remove_sta(gt.check_turboedit_log(nthread))
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:
