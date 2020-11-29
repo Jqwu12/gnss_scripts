@@ -66,7 +66,6 @@ if not os.path.isfile(args.cf):
 config = GNSSconfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
-config.update_stalist(sta_list)
 if args.freq > 2:
     args.bia = "CAS"
 config.update_prodinfo(args.cen, args.bia)
@@ -93,6 +92,7 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_stalist(sta_list)
     config.update_process(crd_constr='EST')
     logging.info(f"\n===> Run PPP-UPD for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_{args.obs_comb}")

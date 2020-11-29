@@ -58,15 +58,13 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
+if not sta_list:
+    raise SystemExit("No site to process!")
 if not os.path.isfile(args.cf):
     raise SystemExit("Cannot get config file >_<")
 config = GNSSconfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, args.obs_comb, args.est)
-if sta_list:
-    config.update_stalist(sta_list)
-else:
-    raise SystemExit("No site to process!")
 if args.freq > 2:
     args.bia = "CAS"
 config.update_prodinfo(args.cen, args.bia)
@@ -92,7 +90,9 @@ t_beg0.set_ydoy(args.year, args.doy, sod)
 while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
+    # reset daily config
     config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_stalist(sta_list)
     config.update_gnssinfo(sat_rm=[])
     config.update_process(crd_constr='EST')
     logging.info(f"------------------------------------------------------------------------")

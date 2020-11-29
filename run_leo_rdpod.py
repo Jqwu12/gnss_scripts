@@ -64,11 +64,8 @@ sta_list = args.sta_list
 if not os.path.isfile(args.cf):
     raise SystemExit("Cannot get config file >_<")
 config = GNSSconfig(args.cf)
-config.update_pathinfo(sys_data, gns_data)
+config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, 'IF')
-config.update_leolist(leo_list)
-if sta_list:
-    config.update_stalist(sta_list)
 config.update_prodinfo(args.cen, args.bia)
 base_dir = os.getcwd()
 
@@ -105,6 +102,9 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_leolist(leo_list)
+    if sta_list:
+        config.update_stalist(sta_list)
     config.update_process(leopodmod='K', crd_constr='KIN')
     logging.info(f"\n===> Run {proj.upper()} RD POD for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}")

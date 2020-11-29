@@ -55,15 +55,13 @@ else:
 # ------ Init config file --------
 sta_list = read_site_list(args.f_list)
 sta_list.sort()
+if not sta_list:
+    raise SystemExit("No site to process")
 if not os.path.isfile(args.cf):
     raise SystemExit("Cannot get config file >_<")
 config = GNSSconfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, 3, "IF", "LSQ")
-if sta_list:
-    config.update_stalist(sta_list)
-else:
-    raise SystemExit("No site to process")
 config.update_prodinfo(args.cen, args.bia)
 
 # ------ Start PPP process -------
@@ -83,6 +81,7 @@ while count > 0:
     t_beg = t_beg0
     t_end = t_beg.time_increase(seslen-args.intv)
     config.update_timeinfo(t_beg, t_end, args.intv)
+    config.update_stalist(sta_list)
     logging.info(f"\n===> Run IFCB for {t_beg.year}-{t_beg.doy:0>3d}\n")
     workdir = os.path.join(proj_dir, str(t_beg.year), f"{t_beg.doy:0>3d}_{args.sys}_ifcb")
     if not os.path.isdir(workdir):
