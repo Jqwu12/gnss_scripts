@@ -2,6 +2,20 @@ import os
 import math
 import logging
 import shutil
+import gnss_files as gf
+import pandas as pd
+import time
+from contextlib import contextmanager
+
+
+@contextmanager
+def timeblock(label):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        end = time.perf_counter()
+        logging.info(f"#### {label:25s} duration {end - start:15.5f} sec")
 
 
 def list2str(x, isupper=False):
@@ -77,18 +91,74 @@ def _split_list(list_in, num):
     return list_out
 
 
-def check_turboedit_log(nthread):
-    site_rm = []
+def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_freq=0.3):
+    """
+    Purpose : find the possible BAD station or satellite by post-fit residuals
+              only for network LSQ
+    Inputs : config         config
+             max_res_L      phase residual threshold
+             max_res_P      code residual threshold
+             max_freq       threshold of outlier numbers
+             max_per        threshold of outlier percentage
+    """
+    f_res = config.get_filename("recover_in", check=True)
+    if not os.path.isfile(f_res):
+        logging.warning(f"file not found {f_res}")
+        return [],[]
+    data = gf.read_resfile(f_res)
+    type_P = ["PC", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9"]
+    type_L = ["LC", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9"]
+    idx_P = (data.ot == type_P[0])
+    for i in range(1, len(type_P)):
+        idx_P = idx_P | (data.ot == type_P[i])
+    idx_L = (data.ot == type_L[0])
+    for i in range(1, len(type_L)):
+        idx_L = idx_L | (data.ot == type_L[i])
+    # get code and phase possible outliers
+    data_out_P = data[idx_P & ((data.res > max_res_P) | (data.res < -1 * max_res_P))]
+    data_out_L = data[idx_L & ((data.res > max_res_L) | (data.res < -1 * max_res_L))]
+    site_P = pd.DataFrame({'counts': data_out_P['site'].value_counts(),
+                           'freq': data_out_P['site'].value_counts(normalize=True)})
+    site_L = pd.DataFrame({'counts': data_out_L['site'].value_counts(),
+                           'freq': data_out_L['site'].value_counts(normalize=True)})
+    sat_P = pd.DataFrame({'counts': data_out_P['sat'].value_counts(),
+                           'freq': data_out_P['sat'].value_counts(normalize=True)})
+    sat_L = pd.DataFrame({'counts': data_out_L['sat'].value_counts(),
+                           'freq': data_out_L['sat'].value_counts(normalize=True)})
+    # remove sites
+    site_rm_P = list(site_P[(site_P.counts > max_count) & (site_P.freq > max_freq)].index)
+    if site_rm_P:
+        logging.warning(f"too many bad code residuals for station: {list2str(site_rm_P)}")
+    site_rm_L = list(site_L[(site_L.counts > max_count) & (site_L.freq > max_freq)].index)
+    if site_rm_L:
+        logging.warning(f"too many bad phase residuals for station: {list2str(site_rm_L)}")
+    site_rm = site_rm_P + site_rm_L
+    site_rm = list(set(site_rm))
+    # remove sats
+    sat_rm_P = list(sat_P[(sat_P.counts > max_count) & (sat_P.freq > max_freq)].index)
+    if sat_rm_P:
+        logging.warning(f"too many bad code residuals for satellite: {list2str(sat_rm_P)}")
+    sat_rm_L = list(sat_L[(sat_L.counts > max_count) & (sat_L.freq > max_freq)].index)
+    if sat_rm_L:
+        logging.warning(f"too many bad phase residuals for satellite: {list2str(sat_rm_L)}")
+    sat_rm = sat_rm_P + sat_rm_L
+    sat_rm = list(set(sat_rm))
+    return site_rm, sat_rm
+
+
+def check_turboedit_log(config, nthread):
+    # LEO satellites need to be considered
+    site_good = []
     if nthread == 1:
         f_name = 'great_turboedit.log'
         try:
             with open(f_name) as f:
                 for line in f:
                     if line.find("Site and Evaluation") > 0:
-                        if line[65:68] == "BAD":
+                        if line[65:69] == "GOOD":
                             site = line[58:62].lower()
-                            if site not in site_rm:
-                                site_rm.append(site)
+                            if site not in site_good:
+                                site_good.append(site)
         except FileNotFoundError:
             logging.warning(f"Cannot open turboedit log file {f_name}")
     else:
@@ -98,17 +168,18 @@ def check_turboedit_log(nthread):
                 with open(f_name) as f:
                     for line in f:
                         if line.find("Site and Evaluation") > 0:
-                            if line[65:68] == "BAD":
+                            if line[65:69] == "GOOD":
                                 site = line[58:62].lower()
-                                if site not in site_rm:
-                                    site_rm.append(site)
+                                if site not in site_good:
+                                    site_good.append(site)
             except FileNotFoundError:
                 logging.warning(f"Cannot open turboedit log file {f_name}")
                 continue
+    site_rm = list(set(config.stalist()).difference(set(site_good)))
     if site_rm:
         msg = f"BAD Turboedit results: {list2str(site_rm)}"
         logging.warning(msg)
-    return site_rm
+    config.update_stalist(site_good)
 
 
 def check_brd_orbfit(f_name):
@@ -145,6 +216,28 @@ def check_brd_orbfit(f_name):
     if sat_rm:
         logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
     return sat_rm
+
+
+def backup_files(config, files, sattype='gns', suffix="bak"):
+    for file in files:
+        file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)
+        for f_name in file_olds.split():
+            f_new = f"{f_name}.{suffix}"
+            try:
+                shutil.copy(f_name, f_new)
+            except IOError as e:
+                logging.warning(f"unable to backup file {file}")
+
+
+def recover_files(config, files, sattype='gns', suffix="bak"):
+    for file in files:
+        file_olds = config.get_filename(file.lower(), check=False, sattype=sattype)
+        for f_name in file_olds.split():
+            f_new = f"{f_name}.{suffix}"
+            try:
+                shutil.copy(f_new, f_name)
+            except IOError as e:
+                logging.warning(f"unable to recover file {file}.{suffix}")
 
 
 def copy_result_files(config, files, scheme, sattype='gns'):
@@ -221,7 +314,7 @@ def merge_upd_all(config, gsys):
     inputs : config    config
              gsys      "GREC"
     """
-    for f in ["upd_ewl", "upd_wl", "upd_nl"]:
+    for f in ["upd_ewl25", "upd_ewl24", "upd_ewl", "upd_wl", "upd_nl"]:
         config.update_process(sys=gsys)
         f_out = config.get_filename(f)
         if not f_out:
@@ -232,7 +325,13 @@ def merge_upd_all(config, gsys):
             f_in = config.get_filename(f, check=True)
             if f_in:
                 f_ins.append(f_in)
-        if f == "upd_ewl":
+        if f == "upd_ewl25":
+            merge_upd(f_ins, f_out, "EWL25")
+            logging.info(f"merge upd_ewl25 complete, file is {f_out}")
+        elif f == "upd_ewl24":
+            merge_upd(f_ins, f_out, "EWL24")
+            logging.info(f"merge upd_ewl24 complete, file is {f_out}")
+        elif f == "upd_ewl":
             merge_upd(f_ins, f_out, "EWL")
             logging.info(f"merge upd_ewl complete, file is {f_out}")
         elif f == "upd_wl":
@@ -287,7 +386,7 @@ def merge_upd(f_ins, f_out, mode, intv=30):
                     for j in range(idx1, idx2 + 1):
                         file_object.write(lines_in[j])
             file_object.write("EOF\n")
-    elif mode == "EWL" or mode == "WL":
+    elif mode in ["EWL25", "EWL24", "EWL", "WL"]:
         with open(f_out, 'w') as f1:
             f1.write(f"% UPD generated using upd_{mode}\n")
             for file in f_ins:

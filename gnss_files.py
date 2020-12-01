@@ -1,5 +1,5 @@
 import time
-#import pandas as pd
+import pandas as pd
 import os
 import logging
 import math
@@ -50,7 +50,7 @@ def read_sp3file(f_sp3):
                 month = int(info[2])
                 day = int(info[3])
                 sod = int(info[4]) * 3600 + int(info[5]) * 60 + float(info[6])
-                epoch.set_ymd(year, month, day, sod)
+                epoch.from_ymd(year, month, day, sod)
             elif lines[i][0] == 'P':
                 sat = lines[i][1:4]
                 px = float(lines[i].split()[1]) * 1000  # units: m
@@ -66,8 +66,8 @@ def read_sp3file(f_sp3):
     end = time.time()
     msg = f"{f_sp3} file is read in {end - start:.2f} seconds"
     logging.info(msg)
-    #return pd.DataFrame(data)
-    return data
+    return pd.DataFrame(data)
+    #return data
 
 
 def read_rnxc_file(f_name, mode="AS"):
@@ -88,13 +88,13 @@ def read_rnxc_file(f_name, mode="AS"):
             mon = int(line[13:15])
             dd = int(line[16:18])
             sod = int(line[19:21]) * 3600 + int(line[22:24]) * 60 + float(line[25:34])
-            epoch.set_ymd(year, mon, dd, sod)
+            epoch.from_ymd(year, mon, dd, sod)
             value = float(line[37:59])
             sat_dict = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sod': sod, 'name': name, 'clk': value}
             data.append(sat_dict)
 
-    #return pd.DataFrame(data)
-    return data
+    return pd.DataFrame(data)
+    #return data
 
 
 def read_rnxo_file(f_name):
@@ -176,7 +176,7 @@ def read_rnxo_file(f_name):
         else:
             # =========================================================================
             sod = int(epoch_hour) * 3600 + int(epoch_minute) * 60 + float(epoch_second)
-            epoch.set_ymd(int(epoch_year), int(epoch_month), int(epoch_day), sod)
+            epoch.from_ymd(int(epoch_year), int(epoch_month), int(epoch_day), sod)
             del lines[0]  # delete epoch header line
             # =============================================================================
             epoch_sat_num = int(epoch_sat_num)
@@ -200,13 +200,33 @@ def read_rnxo_file(f_name):
     end = time.time()
     msg = f"{f_name} file is read in {end - start:.2f} seconds"
     logging.info(msg)
-    #return pd.DataFrame(data)
-    return data
+    return pd.DataFrame(data)
+    #return data
 
 
-def read_resfile_great(f_res):
-    with open(f_res) as file_object:
-        lines = file_object.readlines()
+def read_resfile(f_res):
+    try:
+        with open(f_res) as file_object:
+            lines = file_object.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {f_res}")
+        return
+
+    lfound = False
+    tbeg = GNSStime()
+    intv = 30
+    for line in lines:
+        if line[0:2] != '##':
+            break
+        if line[0:15] == '##Time&Interval':
+            lfound = True
+            tbeg.from_datetime(line[28:47])
+            intv = int(line[47:62])
+            break
+
+    if not lfound:
+        logging.warning(f"Cannot find ##Time&Interval in {f_res}")
+        return
 
     data = []
     for line in lines:
@@ -214,16 +234,17 @@ def read_resfile_great(f_res):
             continue
         rec_dict = {}
         tt = GNSStime()
-        tt.set_datetime(line[11:30])
-        rec_dict['mjd'] = tt.mjd + tt.sod/86400.0
+        tt.from_datetime(line[11:30])
+        epo = int(tt.diff(tbeg) / intv) + 1
+        rec_dict['epo'] = epo
+        rec_dict['mjd'] = tt.mjd + tt.sod / 86400.0
         rec_dict['sod'] = tt.sod
         rec_dict['site'] = line[39:43]
         rec_dict['sat'] = line[48:51]
         rec_dict['ot'] = line[57:59]
         rec_dict['res'] = float(line[74:89])
         data.append(rec_dict)
-    #return pd.DataFrame(data)
-    return  data
+    return pd.DataFrame(data)
 
 
 def isfloat(value):
@@ -327,12 +348,12 @@ def check_att_file(f_att):
         second = GNSStime()
         third = GNSStime()
         last = GNSStime()
-        first.set_mjd(int(lines[0].split()[0]), float(lines[0].split()[1]))
-        second.set_mjd(int(lines[1].split()[0]), float(lines[1].split()[1]))
-        third.set_mjd(int(lines[2].split()[0]), float(lines[2].split()[1]))
-        last.set_mjd(int(lines[-1].split()[0]), float(lines[-1].split()[1]))
-        dt1 = first.time_difference(second)
-        dt2 = second.time_difference(third)
+        first.from_mjd(int(lines[0].split()[0]), float(lines[0].split()[1]))
+        second.from_mjd(int(lines[1].split()[0]), float(lines[1].split()[1]))
+        third.from_mjd(int(lines[2].split()[0]), float(lines[2].split()[1]))
+        last.from_mjd(int(lines[-1].split()[0]), float(lines[-1].split()[1]))
+        dt1 = second.diff(first)
+        dt2 = third.diff(second)
         if dt1 - dt2 < 0.001:
             interval = int((dt1 + dt2)/2)
         else:

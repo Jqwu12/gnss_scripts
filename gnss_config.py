@@ -7,7 +7,7 @@ import copy
 import gnss_files as gf
 import gnss_tools as gt
 from gnss_time import GNSStime
-from constants import get_gns_name, get_gns_sat, _GNS_NAME, _LEO_INFO
+from constants import get_gns_name, get_gns_sat, get_gns_info, _GNS_NAME, _LEO_INFO
 
 
 def _raise_error(msg):
@@ -47,7 +47,7 @@ class GNSSconfig:
         self.config.set('process_scheme', 'time_end', time_end.datetime())
         self.config.set('process_scheme', 'intv', f"{intv:d}")
 
-    def update_gnssinfo(self, sys=None, freq=None, obs_model=None, est=None, sat_rm=None):
+    def update_gnssinfo(self, sys=None, freq=None, obs_comb=None, est=None, sat_rm=None):
         """ update the gnss settings in config file """
         if sys:
             self.config.set('process_scheme', 'sys', sys)
@@ -55,7 +55,7 @@ class GNSSconfig:
             self.config.set('process_scheme', 'frequency', f"{freq:d}")
         if est:
             self.config.set('process_scheme', 'lsq_mode', est)
-        if obs_model == 'UC':
+        if obs_comb == 'UC':
             self.config.set('process_scheme', 'obs_comb', "UC")
             self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
             self.config.set('process_scheme', 'ion_model', "SION")
@@ -97,24 +97,40 @@ class GNSSconfig:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
     
-    def update_pathinfo(self, sys_data, gns_data, upd_data=""):
+    def update_pathinfo(self, all_path={}):
         """ update the path information in config according to different OS """
-        if os.path.isdir(sys_data):
-            self.config.set('common', 'sys_data', os.path.abspath(sys_data))
+        required_path = ['grt_bin', 'base_dir', 'sys_data', 'gns_data']
+        option_path = ['upd_data']
+        if all_path:
+            logging.info("set path information from outside:")
         else:
-            _raise_error(f"sys_data dir {sys_data} not exist!")
-
-        if os.path.isdir(gns_data):
-            self.config.set('common', 'gns_data', os.path.abspath(gns_data))
-        else:
-            _raise_error(f"gns_data dir {gns_data} not exist!")
-
-        if upd_data:
-            if os.path.isdir(upd_data):
-                self.config.set('common', 'upd_data', os.path.abspath(upd_data))
+            logging.info("path information in config:")
+        for name in required_path:
+            if name in all_path.keys():
+                path = all_path[name]
+                if os.path.isdir(path):
+                    self.config.set('common', name, os.path.abspath(path))
+                else:
+                    logging.error(f"set {name} failed! {path} not exists, use old")
+            if not self.config.has_option('common', name):
+                _raise_error(f"no {name} in config [common]!")
             else:
-                os.makedirs(upd_data)
-                # _raise_error(f"upd_data dir {upd_data} not exist!")
+                path = self.config.get('common', name)
+                if os.path.isdir(path):
+                    logging.info(f"{name} = {path}")
+                else:
+                    _raise_error(f"PATH NOT EXIST ({name}): {path}")
+
+        for name in option_path:
+            if name in all_path.keys():
+                path = all_path[name]
+                self.config.set('common', name, os.path.abspath(path))
+            if not self.config.has_option('common', name):
+                logging.error(f"no {name} in config [common]!")
+            else:
+                path = self.config.get('common', name)
+                if not os.path.isdir(path):
+                    os.makedirs(path)
 
         path_sections = ['xml_template', 'process_files', 'source_files']
         if platform.system() == 'Windows':
@@ -152,6 +168,34 @@ class GNSSconfig:
             else:
                 self.config.set('ambiguity_scheme', key, val)
 
+    def change_data_path(self, file, target):
+        """
+        inputs: file            original file defined in config
+                target          target directory defined in config
+        """
+        support_files = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'bia']  # can be added later
+        if file not in support_files:
+            logging.warning(f"change_data_path failed! file type not supported {file}")
+            logging.warning(f"supported files {gt.list2str(support_files)}")
+            return
+        if not self.config.has_option("process_files", file):
+            logging.warning(f"change_data_path failed! cannot find {file} in [process_files]")
+            return
+        if not self.config.has_option("process_files", target):
+            logging.warning(f"change_data_path failed! cannot find {target} in [process_files]")
+            return
+        if platform.system() == 'Windows':
+            sep = '\\'
+        else:
+            sep = '/'
+        old_path = self.config.get("process_files", file, raw=True)
+        target_path = self.config.get("process_files", target, raw=True)
+        ipos = old_path.rfind(sep)
+        old_file = old_path[ipos+1:]
+        new_path = f"{target_path}{sep}{old_file}"
+        self.config.set("process_files", file, new_path)
+        logging.info(f"change {file} directory to {target_path}")
+
     def write_config(self, f_config_new):
         """ write the new config file """
         with open(f_config_new, 'w') as configfile:
@@ -167,8 +211,8 @@ class GNSSconfig:
                 _raise_error("Cannot find time_beg/time_end in [process_scheme]")
             t_beg = GNSStime()
             t_end = GNSStime()
-            t_beg.set_datetime(beg)
-            t_end.set_datetime(end)
+            t_beg.from_datetime(beg)
+            t_end.from_datetime(end)
             return t_beg, t_end
         else:
             _raise_error("Cannot find time_beg/time_end in [process_scheme]")
@@ -200,6 +244,13 @@ class GNSSconfig:
         if self.config.has_option('process_scheme', 'sat_rm'):
             sats = self.config.get('process_scheme', 'sat_rm')
             return sats.split()
+
+    def apply_carrier_range(self):
+        if self.config.has_option('process_scheme', 'apply_carrier_range'):
+            return self.config.getboolean('process_scheme', 'apply_carrier_range')
+        else:
+            return False
+
 
     def xml_process(self):
         """ return a dict for xml <process> """
@@ -254,6 +305,16 @@ class GNSSconfig:
                 amb_dict['narrowlane_decision'] = self.config.get('ambiguity_scheme', 'narrowlane_decision').split()
         return amb_dict
 
+    def beg_time(self):
+        time = GNSStime()
+        time.from_datetime(self.config['process_scheme']['time_beg'])
+        return time
+
+    def end_time(self):
+        time = GNSStime()
+        time.from_datetime(self.config['process_scheme']['time_end'])
+        return time
+
     def gnssys(self):
         """ GNS system information """
         if self.config.has_option('process_scheme', 'sys'):
@@ -271,6 +332,13 @@ class GNSSconfig:
             return sys_out.strip()
         else:
             logging.warning("Cannot find sys in [process_scheme]")
+
+    def gnsfreq(self, gsys):
+        """ freq of one system """
+        GNS_INFO = get_gns_info(gsys, self.sat_rm(), self.band(gsys))
+        nfreq = self.config.get('process_scheme', 'frequency')
+        mfreq = min(int(nfreq), len(GNS_INFO['band']))
+        return mfreq
 
     def all_gnssat(self):
         """ Get all GNSS sats """
@@ -381,17 +449,17 @@ class GNSSconfig:
             return ''
         t_beg, t_end = self.timeinfo()
         if f_type == 'sp3':
-            t_beg = t_beg.time_increase(-5400.0)
-            t_end = t_end.time_increase(5400.0)
+            t_beg -= 5400
+            t_end += 5400
         else:
-            t_end = t_end.time_increase(-1)
-        time = t_beg
-        end = GNSStime()
-        end.set_mjd(t_end.mjd, 86399.0)
+            t_end -= 1
+        crt_time = t_beg
+        end_time = GNSStime()
+        end_time.from_mjd(t_end.mjd, 86399.0)
         f_out = ""
-        while time.time_difference(end) > 0.0:
+        while crt_time < end_time:
             cf_vars = config_vars
-            cf_vars.update(time.config_timedic())
+            cf_vars.update(crt_time.config_timedic())
             f_name = self.config.get(conf_opt, f_type, vars=cf_vars)
             if check:
                 if not os.path.isfile(f_name):
@@ -399,7 +467,7 @@ class GNSSconfig:
                     f_name = ''
             if len(f_name) != 0:
                 f_out = f_out + " " + f_name
-            time = time.time_increase(86400.1)
+            crt_time += 86400
         return f_out
 
     def get_file(self, f_type, config_vars=None, check=False, conf_opt='process_files'):
@@ -620,7 +688,7 @@ class GNSSconfig:
                             continue
                         if os.path.isfile(f_source[i]):
                             shutil.copy(f_source[i], f_dest[i])
-                            logging.info(os.path.basename(f_dest[i]) + " is copied to work directory")
+                            logging.info(f"source file is copied to work directory: {os.path.basename(f_dest[i])}")
                         else:
                             logging.warning(f"source file not found {f_source[i]}")
                 else:

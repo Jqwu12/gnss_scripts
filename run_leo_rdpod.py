@@ -96,7 +96,7 @@ else:
 count = args.num
 seslen = hms2sod(args.len + 2)
 t_beg0 = GNSStime()
-t_beg0.set_ydoy(args.year, args.doy, sod)
+t_beg0.from_ydoy(args.year, args.doy, sod)
 # ------- daily loop -------------
 while count > 0:
     t_beg = t_beg0
@@ -141,7 +141,7 @@ while count > 0:
     # Run turboedit
     nthread = min(len(config.all_receiver().split()), 8)
     gr.run_great(grt_bin, 'great_turboedit', config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
-    config.remove_sta(gt.check_turboedit_log(nthread))
+    gt.check_turboedit_log(config, nthread)
     if config.basic_check(files=['ambflag']):
         logging.info("Ambflag is ok ^_^")
     else:

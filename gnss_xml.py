@@ -13,6 +13,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'use_res_crd':
                 use_res_crd = val
         _generate_turboedit_xml(config, f_xml, use_res_crd)
+    elif app == 'great_clockrepair':
+        _generat_clockrepair_xml(config, f_xml)
     elif app in ['great_podlsq', 'great_ppplsq', 'great_pcelsq']:
         mode = ''
         ambcon = False
@@ -113,6 +115,24 @@ def generate_great_xml(config, app, f_xml, **kwargs):
         logging.error(f"Unknown GREAT App {app}")
 
 
+def _generat_clockrepair_xml(config, f_xml_out):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    # <gen>
+    gen = _get_element_gen(config, ['intv', 'sys', 'rec'])
+    root.append(gen)
+    # <inputs>
+    inp = _get_element_io(config, 'inputs', ['rinexo'], check=True)
+    root.append(inp)
+    # <outputs>
+    out = ET.SubElement(root, 'outputs')
+    out_ele = ET.SubElement(out, 'obs_dir')
+    out_ele.text = config.get_filename('obs_trimcor', check=False)
+    # write new xml
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
+
+
 def _generate_preedit_xml(config, f_xml_out):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
@@ -209,7 +229,7 @@ def _generate_convobs_xml(config, f_xml_out):
     out.set('append', 'false')
     out.set('verb', '1')
     out_ele = ET.SubElement(out, 'obs_dir')
-    out_ele.text = config.get_filename('rinexo_out')
+    out_ele.text = config.get_filename('obs_fix')
     for gns in _get_element_gns(config):
         root.append(gns)
     # write new xml
@@ -247,7 +267,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     if ambcon:
         inp_ele = ET.SubElement(inp, 'ambcon')
         inp_ele.text = config.get_filename('ambcon', check=True)
-    if fix_mode != "NO" or config.config['process_scheme']['apply_carrier_range'] == 'true' \
+    if fix_mode != "NO" or config.apply_carrier_range() \
             and mode not in ["POD_EST", "PCE_EST"]:
         inp_ele = ET.SubElement(inp, 'upd')
         inp_ele.text = config.get_filename('upd', check=True)
@@ -279,7 +299,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         leo = ET.SubElement(root, 'LEO')
         leosat = ET.SubElement(leo, 'sat')
         leosat.text = gt.list2str(config.leolist())
-    # ambiguity
+    # <ambiguity>
     if "PPP" in mode.upper():
         ambfix = _get_ambfix(config, fix_mode=fix_mode)
         root.append(ambfix)
@@ -491,6 +511,10 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         out_ele.text = config.get_filename("upd_wl")
     elif mode == "EWL":
         out_ele.text = config.get_filename("upd_ewl")
+    elif mode == "EWL24":
+        out_ele.text = config.get_filename("upd_ewl24")
+    elif mode == "EWL25":
+        out_ele.text = config.get_filename("upd_ewl25")
     elif mode == "ifcb":
         out_ele.text = config.get_filename("ifcb")
     elif mode == "NL":
@@ -500,7 +524,28 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         out_ele.text = config.get_filename("ambflagdir")
     out.set('verb', '2')
     # <gps> <bds> <gal> <glo>
-    for gns in _get_element_gns(config):
+    for gns_sys in config.gnssys().split():
+        gns = ET.Element(gns_sys.lower())
+        GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
+        sat = ET.SubElement(gns, 'sat')
+        sat.text = gt.list2str(GNS_INFO['sat'])
+        mfreq = config.gnsfreq(gns_sys)
+        if mode == "EWL25" and mfreq < 5:
+            logging.critical(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+            raise SystemExit(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+        if mode == "EWL24" and mfreq < 4:
+            logging.critical(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+            raise SystemExit(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+        if mode == "EWL25":
+            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][4]]
+        elif mode == "EWL24":
+            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][3]]
+        else:
+            upd_band = GNS_INFO['band'][0:3]
+        band = ET.SubElement(gns, 'band')
+        band.text = gt.list2str(upd_band)
+        freq = ET.SubElement(gns, 'freq')
+        freq.text = gt.list2str(list(range(1, 4)))
         root.append(gns)
     # <process>
     proc = ET.SubElement(root, 'process')
