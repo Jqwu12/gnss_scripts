@@ -55,14 +55,15 @@ class GNSSconfig:
             self.config.set('process_scheme', 'frequency', f"{freq:d}")
         if est:
             self.config.set('process_scheme', 'lsq_mode', est)
-        if obs_comb == 'UC':
-            self.config.set('process_scheme', 'obs_comb', "UC")
-            self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
-            self.config.set('process_scheme', 'ion_model', "SION")
-        else:
-            self.config.set('process_scheme', 'obs_comb', "IF")
-            self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
-            self.config.set('process_scheme', 'ion_model', "NONE")
+        if obs_comb:
+            if obs_comb == 'UC':
+                self.config.set('process_scheme', 'obs_comb', "UC")
+                self.config.set('process_scheme', 'obs_combination', "RAW_ALL")
+                self.config.set('process_scheme', 'ion_model', "SION")
+            else:
+                self.config.set('process_scheme', 'obs_comb', "IF")
+                self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
+                self.config.set('process_scheme', 'ion_model', "NONE")
         if sat_rm:
             self.config.set('process_scheme', 'sat_rm', gt.list2str(sat_rm))  # currently not used
 

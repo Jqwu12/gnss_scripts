@@ -1,5 +1,6 @@
 import logging
 
+_MAX_THREAD = 10
 
 _GNS_NAME = {'G': 'GPS',
              'R': 'GLO',

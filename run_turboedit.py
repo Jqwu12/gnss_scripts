@@ -74,13 +74,12 @@ if __name__ == '__main__':
         os.chdir(workdir)
         logging.info(f"work directory = {workdir}")
 
-        with gt.timeblock("prepare obs"):
+        with gt.timeblock(f"Finished process {crt_time.year}-{crt_time.doy:0>3d}"):
             if not proc.prepare_obs():
                 crt_time += step
                 continue
 
         # next day
-        logging.info(f"Complete {crt_time.year}-{crt_time.doy:0>3d} ^_^")
         logging.info(f"------------------------------------------------------------------------\n")
         crt_time += step
 

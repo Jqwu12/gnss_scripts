@@ -3,14 +3,31 @@ from gnss_config import GNSSconfig
 from gnss_time import GNSStime, hms2sod
 import gnss_tools as gt
 import gnss_run as gr
-from constants import read_site_list
+from constants import read_site_list, _MAX_THREAD
 import os
+import shutil
 import logging
 import argparse
+import platform
 
 
 class RunGen:
-    def __init__(self, config=None):
+    def __init__(self):
+        self.default_args = {
+            'dsc': 'GREAT Data Processing',
+            'num': 1, 'len': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
+            'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_gnspod.ini'
+        }
+        self.args = None
+        self.config = None
+        self.sta_list = []
+        self.grt_bin = ''
+        self.proj_dir = ''
+        self.required_subdir = ['log_tb', 'tmp']
+        self.required_opt = []
+        self.required_file = ['rinexo']
+
+    def init_proc(self, config=None):
         self.args = self.get_args()
         if not config:
             self.config = GNSSconfig(self.args.cf)
@@ -26,30 +43,26 @@ class RunGen:
             self.sta_list = config.stalist()
             self.grt_bin = config.config.get('common', 'grt_bin')
 
-        self.required_subdir = ['log_tb', 'tmp']
-        self.required_opt = []
-        self.required_file = ['rinexo']
-
     # ------ Get args ----------------
-    def get_args(self, intv=300, freq=2, est='LSQ', obs_comb='IF', cf='cf_gnspod.ini'):
-        parser = argparse.ArgumentParser(description='GREAT Data Processing')
+    def get_args(self):
+        parser = argparse.ArgumentParser(description=self.default_args['dsc'])
         # Time argument
-        parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
-        parser.add_argument('-l', dest='len', type=int, default=24, help='process time length (hours)')
-        parser.add_argument('-i', dest='intv', type=int, default=intv, help='process interval (seconds)')
+        parser.add_argument('-n', dest='num', type=int, default=self.default_args['num'], help='number of process days')
+        parser.add_argument('-l', dest='len', type=int, default=self.default_args['len'], help='process time length (hours)')
+        parser.add_argument('-i', dest='intv', type=int, default=self.default_args['intv'], help='process interval (seconds)')
         parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
         parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
         # Estimation argument
-        parser.add_argument('-c', dest='obs_comb', default=obs_comb, choices={'UC', 'IF'}, help='observation combination')
-        parser.add_argument('-est', dest='est', default=est, choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
-        parser.add_argument('-sys', dest='sys', default='G', help='used GNSS observations, e.g. G/GC/GREC')
-        parser.add_argument('-freq', dest='freq', type=int, default=freq, help='used GNSS frequencies')
+        parser.add_argument('-c', dest='obs_comb', default=self.default_args['obs_comb'], choices={'UC', 'IF'}, help='observation combination')
+        parser.add_argument('-est', dest='est', default=self.default_args['est'], choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
+        parser.add_argument('-sys', dest='sys', default=self.default_args['sys'], help='used GNSS observations, e.g. G/GC/GREC')
+        parser.add_argument('-freq', dest='freq', type=int, default=self.default_args['freq'], help='used GNSS frequencies')
         # File argument
-        parser.add_argument('-cen', dest='cen', default='com', choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+        parser.add_argument('-cen', dest='cen', default=self.default_args['cen'], choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
                             help='GNSS precise orbits and clocks')
-        parser.add_argument('-bia', dest='bia', default='cas', choices={'cod', 'cas', 'whu', 'sgg'},
+        parser.add_argument('-bia', dest='bia', default=self.default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
                             help='bias files')
-        parser.add_argument('-cf', dest='cf', default=cf, help='config file')
+        parser.add_argument('-cf', dest='cf', default=self.default_args['cf'], help='config file')
         parser.add_argument('-kp', dest='keep_dir', action='store_true', help='Keep the existing work dir')
         # Required argument
         parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
@@ -74,6 +87,9 @@ class RunGen:
         t_beg0.from_ydoy(self.args.year, self.args.doy, sod)
         return t_beg0
 
+    def nthread(self):
+        return min(len(self.config.all_receiver().split()), _MAX_THREAD)
+
     def update_path(self, all_path):
         self.config.update_pathinfo(all_path)
         self.grt_bin = self.config.config.get('common', 'grt_bin')
@@ -83,6 +99,8 @@ class RunGen:
         self.config.update_stalist(self.sta_list)
         self.config.update_gnssinfo(sat_rm=[])
         self.config.update_process(crd_constr='EST')
+        if self.config.is_integer_clock() and not self.config.is_integer_clock_osb():
+            gt.get_grg_wsb(self.config)
 
     def prepare_obs(self):
         # ---------- Basic check ---------
@@ -94,15 +112,13 @@ class RunGen:
             logging.critical("Basic check failed! skip to next day")
             return False
 
-        self.config.write_config('config.ini')
-
         logging.info(f"===> Preprocess RINEXO files with Turboedit")
         self.config.update_process(intv=30)
-        nthread = min(len(self.config.all_receiver().split()), 10)
-        logging.info(f"number of stations = {len(self.config.stalist())}, number of threads = {nthread}")
-        gr.run_great(self.grt_bin, 'great_turboedit', self.config, nthread=nthread, out=os.path.join("tmp", "turboedit"))
+        logging.info(f"number of stations = {len(self.config.stalist())}, number of threads = {self.nthread()}")
+        tb_label = 'turboedit'
+        gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label, nthread=self.nthread())
         self.config.update_process(intv=self.args.intv)
-        gt.check_turboedit_log(self.config, nthread)
+        gt.check_turboedit_log(self.config, self.nthread(), label=tb_label)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
             return True
@@ -112,20 +128,89 @@ class RunGen:
 
     def prepare_ics(self):
         logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
-        gr.run_great(self.grt_bin, 'great_preedit', self.config)
-        gr.run_great(self.grt_bin, 'great_oi', self.config, sattype='gns')
-        gr.run_great(self.grt_bin, 'great_orbdif', self.config, out=os.path.join("tmp", "orbdif"))
-        gr.run_great(self.grt_bin, 'great_orbfit', self.config, out=os.path.join("tmp", "orbfit"))
-        gr.run_great(self.grt_bin, 'great_oi', self.config, sattype='gns')
-        gr.run_great(self.grt_bin, 'great_orbdif', self.config, out=os.path.join("tmp", "orbdif"))
+        gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit')
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+        gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
+        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit')
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+        gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
         sat_rm = gt.check_brd_orbfit(self.config.get_filename('orbdif'))
         self.config.update_gnssinfo(sat_rm=sat_rm)
         gt.copy_result_files(self.config, ['orbdif', 'ics'], 'BRD', 'gns')
         gt.backup_files(self.config, ['ics'])
         return True
 
+    def prepare(self):
+        with gt.timeblock("Finished prepare obs"):
+            if not self.prepare_obs():
+                return False
+
+        return True
+
     def process_daily(self):
         pass
+
+    def process_batch(self):
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s - %(filename)20s[line:%(lineno)5d] - %(levelname)8s: %(message)s')
+        # ------ Path information --------
+        if platform.system() == 'Windows':
+            all_path = {
+                'grt_bin': r"D:\GNSS_Software\GREAT\build\Bin\RelWithDebInfo",
+                'base_dir': r"D:\GNSS_Project",
+                'sys_data': r"D:\GNSS_Project\sys_data",
+                'gns_data': r"D:\GNSS_Project\gns_data",
+                'upd_data': r"D:\GNSS_Project\gns_data\upd"
+            }
+        else:
+            all_path = {
+                'grt_bin': "/home/jqwu/softwares/GREAT/branches/merge_navpod_merge_ppp/build/Bin",
+                'base_dir': "/home/jqwu/projects",
+                'sys_data': "/home/jqwu/projects/sys_data",
+                'gns_data': "/home/jqwu/gns_data",
+                'upd_data': "/home/jqwu/gns_data/upd"
+            }
+
+        # ------ Init config file --------
+        self.init_proc()
+        if not self.sta_list:
+            raise SystemExit("No site to process!")
+        self.update_path(all_path)
+        # ------ Set process time --------
+        step = 86400
+        beg_time = self.beg_time()
+        end_time = beg_time + self.args.num * step - self.args.intv
+        seslen = hms2sod(self.args.len)
+
+        # ------- daily loop -------------
+        crt_time = beg_time
+        while crt_time < end_time:
+            # reset daily config
+            self.init_daily(crt_time, seslen)
+            logging.info(f"------------------------------------------------------------------------")
+            logging.info(f"===> Process {crt_time.year}-{crt_time.doy:0>3d}")
+            workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.args.sys}")
+            if not os.path.isdir(workdir):
+                os.makedirs(workdir)
+            else:
+                if not self.args.keep_dir:
+                    shutil.rmtree(workdir)
+                    os.makedirs(workdir)
+            os.chdir(workdir)
+            logging.info(f"work directory = {workdir}")
+            self.config.write_config('config.ini')
+
+            with gt.timeblock("Finished prepare"):
+                if not self.prepare():
+                    crt_time += step
+                    continue
+
+            with gt.timeblock(f"Finished process {crt_time.year}-{crt_time.doy:0>3d}"):
+                self.process_daily()
+
+            # next day
+            logging.info(f"------------------------------------------------------------------------\n")
+            crt_time += step
 
 
 if __name__ == '__main__':

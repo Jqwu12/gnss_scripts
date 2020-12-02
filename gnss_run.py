@@ -1,26 +1,29 @@
 import os
 import platform
 import gnss_xml
-import gnss_config
 import gnss_tools as gt
 import logging
 import subprocess
 from threading import Thread
 
-def run_great(bindir, app, config, str_args="", newxml=True, nthread=1, stop=True, out=None, **kwargs):
+
+def run_great(bindir, app, config, label="", str_args="", newxml=True, nthread=1, stop=True, out=None, **kwargs):
     """ Run GREAT APP """
-    if app == 'great_ambfixD' and config.is_integer_clock() and not config.is_integer_clock_osb():
-        gt.get_grg_wsb(config)
+    if not label:
+        label = app
     if nthread > 1:
-        _run_great_app_multithreading(bindir, app, config, str_args, nthread, stop=stop, out=out, **kwargs)
+        with gt.timeblock(f"Normal End [{nthread:0>2d}] {label}"):
+            _run_great_app_multithreading(bindir, app, config, label, str_args, nthread, stop=stop, out=out, **kwargs)
     else:
-        _run_great_app(bindir, app, config, str_args, newxml, stop=stop, out=out, **kwargs)
+        with gt.timeblock(f"Normal End [{nthread:0>2d}] {label}"):
+            _run_great_app(bindir, app, config, label, str_args, newxml, stop=stop, out=out, **kwargs)
 
 
-def _run_great_app(bindir, app, config, str_args="", newxml=True, stop=True, out=None, **kwargs):
+def _run_great_app(bindir, app, config, label, str_args="", newxml=True, stop=True, **kwargs):
     """ Run GREAT APP Default"""
     grt_app = _executable_app(bindir, app)
-    f_xml = app + ".xml"
+    f_xml = label + ".xml"
+    f_out = os.path.join('tmp', f"{label}.log")
     if newxml:
         if os.path.isfile(f_xml):
             os.remove(f_xml)
@@ -28,13 +31,11 @@ def _run_great_app(bindir, app, config, str_args="", newxml=True, stop=True, out
     else:
         if not os.path.isfile(f_xml):
             gnss_xml.generate_great_xml(config, app, f_xml, **kwargs)
-    grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
-    if out:
-        grt_cmd = f"{grt_cmd} > {out}.log 2>&1"
+    grt_cmd = f"{grt_app} -x {f_xml} {str_args} > {f_out} 2>&1"
     _run_cmd(grt_cmd, stop)
 
 
-def _run_great_app_multithreading(bindir, app, config, str_args="", nthread=8, stop=True, out=None, **kwargs):
+def _run_great_app_multithreading(bindir, app, config, label, str_args="", nthread=8, stop=True, **kwargs):
     """ Run GRAET App with multi-threading (by dividing receivers list) """
     if nthread <= 0 or nthread > 99:
         _raise_error(f"Number of threads = {nthread}")
@@ -43,11 +44,10 @@ def _run_great_app_multithreading(bindir, app, config, str_args="", nthread=8, s
     nthread = min(nthread, len(child_configs))
     thread_list = []
     for i in range(nthread):
-        f_xml = f"{app}{i + 1:0>2d}.xml"
+        f_xml = f"{label}{i + 1:0>2d}.xml"
+        f_out = os.path.join('tmp', f"{label}{i + 1:0>2d}.log")
         gnss_xml.generate_great_xml(child_configs[i], app, f_xml, ithread=i + 1, **kwargs)
-        grt_cmd = f"{grt_app} -x {f_xml} {str_args}"
-        if out:
-            grt_cmd = f"{grt_cmd} > {out}{i + 1:0>2d}.log 2>&1"
+        grt_cmd = f"{grt_app} -x {f_xml} {str_args} > {f_out} 2>&1"
         new_thread = Thread(target=_run_cmd, args=(grt_cmd, stop))
         thread_list.append(new_thread)
         new_thread.start()

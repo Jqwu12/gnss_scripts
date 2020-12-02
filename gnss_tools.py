@@ -15,7 +15,7 @@ def timeblock(label):
         yield
     finally:
         end = time.perf_counter()
-        logging.info(f"#### {label:25s} duration {end - start:15.5f} sec")
+        logging.info(f"#### {label:25s}, duration {end - start:15.5f} sec")
 
 
 def list2str(x, isupper=False):
@@ -146,11 +146,11 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     return site_rm, sat_rm
 
 
-def check_turboedit_log(config, nthread):
+def check_turboedit_log(config, nthread, label="turboedit"):
     # LEO satellites need to be considered
     site_good = []
     if nthread == 1:
-        f_name = 'great_turboedit.log'
+        f_name = f"{label}.log"
         try:
             with open(f_name) as f:
                 for line in f:
@@ -163,7 +163,7 @@ def check_turboedit_log(config, nthread):
             logging.warning(f"Cannot open turboedit log file {f_name}")
     else:
         for i in range(1, nthread + 1):
-            f_name = f"great_turboedit{i:0>2d}.log"
+            f_name = f"{label}{i:0>2d}.log"
             try:
                 with open(f_name) as f:
                     for line in f:
