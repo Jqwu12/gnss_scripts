@@ -164,7 +164,7 @@ class RunGen:
             }
         else:
             all_path = {
-                'grt_bin': "/home/jqwu/softwares/GREAT/branches/merge_navpod_merge_ppp/build/Bin",
+                'grt_bin': "/home/jqwu/softwares/GREAT/GREAT/build/Bin",
                 'base_dir': "/home/jqwu/projects",
                 'sys_data': "/home/jqwu/projects/sys_data",
                 'gns_data': "/home/jqwu/gns_data",
