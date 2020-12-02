@@ -98,14 +98,14 @@ class GNSSconfig:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
     
-    def update_pathinfo(self, all_path={}):
+    def update_pathinfo(self, all_path={}, check=True):
         """ update the path information in config according to different OS """
         required_path = ['grt_bin', 'base_dir', 'sys_data', 'gns_data']
         option_path = ['upd_data']
         if all_path:
-            logging.info("set path information from outside:")
+            logging.info("set path information from outside...")
         else:
-            logging.info("path information in config:")
+            logging.info("path information in config...")
         for name in required_path:
             if name in all_path.keys():
                 path = all_path[name]
@@ -117,10 +117,11 @@ class GNSSconfig:
                 _raise_error(f"no {name} in config [common]!")
             else:
                 path = self.config.get('common', name)
-                if os.path.isdir(path):
-                    logging.info(f"{name} = {path}")
-                else:
-                    _raise_error(f"PATH NOT EXIST ({name}): {path}")
+                if check:
+                    if os.path.isdir(path):
+                        logging.info(f"{name} = {path}")
+                    else:
+                        _raise_error(f"PATH NOT EXIST ({name}): {path}")
 
         for name in option_path:
             if name in all_path.keys():

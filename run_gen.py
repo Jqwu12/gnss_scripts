@@ -31,7 +31,7 @@ class RunGen:
         self.args = self.get_args()
         if not config:
             self.config = GNSSconfig(self.args.cf)
-            self.config.update_pathinfo()  # to be changed
+            self.config.update_pathinfo(check=False)  # to be changed
             self.config.update_gnssinfo(self.args.sys, self.args.freq, self.args.obs_comb, self.args.est)
             if self.args.freq > 2:
                 self.args.bia = "CAS"
