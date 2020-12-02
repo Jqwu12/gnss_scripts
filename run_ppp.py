@@ -30,37 +30,34 @@ class RunPpp(RunGen):
             self.config.update_gnssinfo(freq=int(freq))
         if obs_comb:
             self.config.update_gnssinfo(obs_comb=str(obs_comb))
+
         if not fix:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="NO", label='ppplsq')
+                         fix_mode="NO", label=f"ppplsq_{obs_comb}_{freq}_F")
         else:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="SEARCH", label='ppplsq')
+                         fix_mode="SEARCH", label=f"ppplsq_{obs_comb}_{freq}_AR")
 
     def process_daily(self):
-        with gt.timeblock("PPP-UC-3-AR"):
-            self.process_ppp(obs_comb='UC', freq=3, fix=True)
+        logging.info(f"------------------------------------------------------------------------")
+        logging.info(f"Everything is ready: number of stations = {len(proc.config.stalist())}, "
+                     f"number of satellites = {len(proc.config.all_gnssat())}")
 
-        with gt.timeblock("PPP-UC-3-F"):
-            self.process_ppp(obs_comb='UC', freq=3, fix=False)
+        self.process_ppp(obs_comb='UC', freq=3, fix=True)
 
-        with gt.timeblock("PPP-UC-2-AR"):
-            self.process_ppp(obs_comb='UC', freq=2, fix=True)
+        self.process_ppp(obs_comb='UC', freq=3, fix=False)
 
-        with gt.timeblock("PPP-UC-2-F"):
-            self.process_ppp(obs_comb='UC', freq=2, fix=False)
+        self.process_ppp(obs_comb='UC', freq=2, fix=True)
 
-        with gt.timeblock("PPP-IF-3-AR"):
-            self.process_ppp(obs_comb='IF', freq=3, fix=True)
+        self.process_ppp(obs_comb='UC', freq=2, fix=False)
 
-        with gt.timeblock("PPP-IF-3-F"):
-            self.process_ppp(obs_comb='IF', freq=3, fix=False)
+        self.process_ppp(obs_comb='IF', freq=3, fix=True)
 
-        with gt.timeblock("PPP-IF-2-AR"):
-            self.process_ppp(obs_comb='IF', freq=2, fix=True)
+        self.process_ppp(obs_comb='IF', freq=3, fix=False)
 
-        with gt.timeblock("PPP-IF-2-F"):
-            self.process_ppp(obs_comb='IF', freq=2, fix=False)
+        self.process_ppp(obs_comb='IF', freq=2, fix=True)
+
+        self.process_ppp(obs_comb='IF', freq=2, fix=False)
 
 
 if __name__ == '__main__':

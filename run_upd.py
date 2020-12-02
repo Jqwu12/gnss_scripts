@@ -44,9 +44,8 @@ class RunUpd(RunGen):
         #         upd_results.append('ifcb')
 
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
-        with gt.timeblock("Finished PPP"):
-            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
-                         label='ppplsq')
+        gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
+                     label='ppplsq')
 
         for gsys in self.args.sys:
             self.config.update_process(sys=gsys)

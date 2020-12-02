@@ -13,7 +13,7 @@ class RunTurboedit(RunGen):
     def __init__(self, config=None):
         super().__init__()
 
-        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PCE')
+        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'TB')
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'rinexn', 'biabern']
 

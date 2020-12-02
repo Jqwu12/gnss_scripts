@@ -15,7 +15,7 @@ def timeblock(label):
         yield
     finally:
         end = time.perf_counter()
-        logging.info(f"#### {label:25s}, duration {end - start:15.5f} sec")
+        logging.info(f"#### {label:30s}, duration {end - start:15.5f} sec")
 
 
 def list2str(x, isupper=False):

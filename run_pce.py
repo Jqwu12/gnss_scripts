@@ -29,8 +29,7 @@ class RunPce(RunGen):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
-        with gt.timeblock("Precise clock estimation"):
-            gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq')
+        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq')
         gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
 
 
