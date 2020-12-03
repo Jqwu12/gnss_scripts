@@ -10,7 +10,7 @@ import platform
 
 
 class RunTurboedit(RunGen):
-    def __init__(self, config=None):
+    def __init__(self):
         super().__init__()
 
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'TB')

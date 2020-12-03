@@ -8,7 +8,7 @@ import logging
 
 
 class RunGnsPod(RunGen):
-    def __init__(self, config=None):
+    def __init__(self):
         super().__init__()
 
         self.default_args['dsc'] = "GREAT GNSS Precise Orbit Determination"
