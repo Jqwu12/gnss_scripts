@@ -79,7 +79,7 @@ class RunUpd(RunGen):
         # Merge multi-GNSS UPD
         if len(self.args.sys) > 1:
             logging.info(f"===> Merge UPD: {gt.list2str(upd_results)}")
-            gt.merge_upd_all(self.config, self.args.sys)
+            gt.merge_upd_all(self.config, self.args.sys, upd_results)
 
         # Copy results
         upd_data = self.config.config.get("common", "upd_data")

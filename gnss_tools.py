@@ -308,13 +308,13 @@ def get_grg_wsb(config):
             file_object.write(line)
 
 
-def merge_upd_all(config, gsys):
+def merge_upd_all(config, gsys, files):
     """
     merge ewl, wl and nl UPD files
     inputs : config    config
              gsys      "GREC"
     """
-    for f in ["upd_ewl25", "upd_ewl24", "upd_ewl", "upd_wl", "upd_nl"]:
+    for f in files:
         config.update_process(sys=gsys)
         f_out = config.get_filename(f)
         if not f_out:
@@ -337,10 +337,12 @@ def merge_upd_all(config, gsys):
         elif f == "upd_wl":
             merge_upd(f_ins, f_out, "WL")
             logging.info(f"merge upd_wl  complete, file is {f_out}")
-        else:
+        elif f == "upd_nl":
             intv = config.config['process_scheme']['intv']
             merge_upd(f_ins, f_out, "NL", int(intv))
             logging.info(f"merge upd_nl  complete, file is {f_out}")
+        else:
+            logging.warning(f"unknown UPD type {f}")
 
     config.update_process(sys=gsys)
 

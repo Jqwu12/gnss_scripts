@@ -284,9 +284,9 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     else:
         proc.set('ambfix', 'false')
     if mode == "PCE_EST" or mode == "POD_EST":
-        proc.set('ref_clk', _set_ref_clk(config))
+        proc.set('ref_clk', _set_ref_clk(config, mode='site'))
         # proc.set('ref_clk', '')
-        proc.set('sig_ref_clk', '1')
+        # proc.set('sig_ref_clk', '1')
         proc.set('num_thread', '8')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
@@ -416,22 +416,22 @@ def _get_lsq_param(config, mode):
         else:
             ele.set("sigCLK", "5000")
         return param
-    for site in config.stalist():
-        ele = ET.SubElement(param, 'STA')
-        ele.set("ID", site.upper())
-        ele.set("sigCLK", "9000")
-        ele.set("sigPOS", "100_100_100")
-        ele.set("sigCLK", "9000")
-        ele.set("sigTropPd", "0.015")
-        ele.set("sigZTD", "0.201")
-    if mode == "PCE_EST":
-        for sat in config.all_gnssat():
-            ele = ET.SubElement(param, 'SAT')
-            ele.set("ID", sat)
-            ele.set("sigCLK", "5000")
-            ele.set("sigPOS", "10.000_10.000_10.000")
-            ele.set("sigVEL", "0.100_0.100_0.100")
-            ele.set("sigECOM", "10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000")
+    # for site in config.stalist():
+    #     ele = ET.SubElement(param, 'STA')
+    #     ele.set("ID", site.upper())
+    #     ele.set("sigCLK", "9000")
+    #     ele.set("sigPOS", "100_100_100")
+    #     ele.set("sigCLK", "9000")
+    #     ele.set("sigTropPd", "0.015")
+    #     ele.set("sigZTD", "0.201")
+    # if mode == "PCE_EST":
+    #     for sat in config.all_gnssat():
+    #         ele = ET.SubElement(param, 'SAT')
+    #         ele.set("ID", sat)
+    #         ele.set("sigCLK", "5000")
+    #         ele.set("sigPOS", "10.000_10.000_10.000")
+    #         ele.set("sigVEL", "0.100_0.100_0.100")
+    #         ele.set("sigECOM", "10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000")
 
     return param
 

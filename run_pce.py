@@ -20,9 +20,18 @@ class RunPce(RunGen):
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'rinexn', 'sp3', 'biabern']
 
+        self.ref_cen = ['com', 'gbm', 'wum']
+
     def update_path(self, all_path):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PCE')
+
+    def evl_clkdif(self, label=None):
+        for c in self.ref_cen:
+            self.config.update_process(cen=c)
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+            if label:
+                gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
@@ -30,7 +39,7 @@ class RunPce(RunGen):
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq')
-        gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+        self.evl_clkdif()
 
 
 if __name__ == '__main__':
