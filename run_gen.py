@@ -47,18 +47,26 @@ class RunGen:
     def get_args(self):
         parser = argparse.ArgumentParser(description=self.default_args['dsc'])
         # Time argument
-        parser.add_argument('-n', dest='num', type=int, default=self.default_args['num'], help='number of process days')
-        parser.add_argument('-l', dest='len', type=int, default=self.default_args['len'], help='process time length (hours)')
-        parser.add_argument('-i', dest='intv', type=int, default=self.default_args['intv'], help='process interval (seconds)')
+        parser.add_argument('-n', dest='num', type=int, default=self.default_args['num'],
+                            help='number of process days')
+        parser.add_argument('-l', dest='len', type=int, default=self.default_args['len'],
+                            help='process time length (hours)')
+        parser.add_argument('-i', dest='intv', type=int, default=self.default_args['intv'],
+                            help='process interval (seconds)')
         parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
         parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
         # Estimation argument
-        parser.add_argument('-c', dest='obs_comb', default=self.default_args['obs_comb'], choices={'UC', 'IF'}, help='observation combination')
-        parser.add_argument('-est', dest='est', default=self.default_args['est'], choices={'EPO', 'LSQ'}, help='estimator: LSQ or EPO')
-        parser.add_argument('-sys', dest='sys', default=self.default_args['sys'], help='used GNSS observations, e.g. G/GC/GREC')
-        parser.add_argument('-freq', dest='freq', type=int, default=self.default_args['freq'], help='used GNSS frequencies')
+        parser.add_argument('-c', dest='obs_comb', default=self.default_args['obs_comb'], choices={'UC', 'IF'},
+                            help='observation combination')
+        parser.add_argument('-est', dest='est', default=self.default_args['est'], choices={'EPO', 'LSQ'},
+                            help='estimator: LSQ or EPO')
+        parser.add_argument('-sys', dest='sys', default=self.default_args['sys'],
+                            help='used GNSS observations, e.g. G/GC/GREC')
+        parser.add_argument('-freq', dest='freq', type=int, default=self.default_args['freq'],
+                            help='used GNSS frequencies')
         # File argument
-        parser.add_argument('-cen', dest='cen', default=self.default_args['cen'], choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+        parser.add_argument('-cen', dest='cen', default=self.default_args['cen'],
+                            choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
                             help='GNSS precise orbits and clocks')
         parser.add_argument('-bia', dest='bia', default=self.default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
                             help='bias files')
@@ -128,15 +136,17 @@ class RunGen:
 
     def prepare_ics(self):
         logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
+        cen = self.config.config['process_scheme']['cen']
+        self.config.update_process(cen='brd')
         gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit')
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
-        gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
         gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit')
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
-        gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
+        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit')
         sat_rm = gt.check_brd_orbfit(self.config.get_filename('orbdif'))
         self.config.update_gnssinfo(sat_rm=sat_rm)
-        gt.copy_result_files(self.config, ['orbdif', 'ics'], 'BRD', 'gns')
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+        self.config.update_process(cen=cen)
         gt.backup_files(self.config, ['ics'])
         return True
 
@@ -189,7 +199,10 @@ class RunGen:
             self.init_daily(crt_time, seslen)
             logging.info(f"------------------------------------------------------------------------")
             logging.info(f"===> Process {crt_time.year}-{crt_time.doy:0>3d}")
-            workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.args.sys}")
+            if self.config.work_dir():
+                workdir = self.config.work_dir()
+            else:
+                workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.args.sys}")
             if not os.path.isdir(workdir):
                 os.makedirs(workdir)
             else:

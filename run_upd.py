@@ -30,7 +30,9 @@ class RunUpd(RunGen):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'UPD')
 
-    def process_daily(self):
+    def process_upd(self, obs_comb=None):
+        if obs_comb:
+            self.config.update_gnssinfo(obs_comb=obs_comb)
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
@@ -83,6 +85,13 @@ class RunUpd(RunGen):
         upd_data = self.config.config.get("common", "upd_data")
         logging.info(f"===> Copy UPD results to {upd_data}")
         gt.copy_result_files_to_path(self.config, upd_results, os.path.join(upd_data, f"{self.config.beg_time().year}"))
+
+    def process_daily(self):
+        with gt.timeblock("Finish process UC upd"):
+            self.process_upd(obs_comb='UC')
+
+        with gt.timeblock("Finish process IF upd"):
+            self.process_upd(obs_comb='IF')
 
     def ppp_clean(self):
         # detect outliers in carrier-range by PPP

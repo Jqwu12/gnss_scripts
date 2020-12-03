@@ -18,6 +18,8 @@ class RunGnsPod(RunGen):
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'rinexn', 'sp3', 'biabern']
 
+        self.ref_cen = ['com', 'gbm', 'wum']
+
     def update_path(self, all_path):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'POD')
@@ -33,16 +35,13 @@ class RunGnsPod(RunGen):
 
         return True
 
-    def process_one_pod(self, ambfix=False, lsq=True):
-        if lsq:
-            if not ambfix:
-                gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq')
-            else:
-                gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                             use_res_crd=True, label='podlsq')
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
-        gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
-        gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+    def evl_orbdif(self, label=None):
+        for c in self.ref_cen:
+            self.config.update_process(cen=c)
+            gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+            if label:
+                gt.copy_result_files(self.config, ['orbdif', 'clkdif'], label, 'gns')
 
     def detect_outliers(self):
         for i in range(4):
@@ -72,22 +71,27 @@ class RunGnsPod(RunGen):
         logging.info(f"===> 1st iteration for precise orbit determination")
         # quality control
         with gt.timeblock("Finished 1st POD"):
-            with gt.timeblock("Finished Detect outliers"):
-                self.detect_outliers()
-            self.process_one_pod(lsq=False)
-        gt.copy_result_files(self.config, ['orbdif', 'clkdif', 'ics'], 'F1', 'gns')
+            self.detect_outliers()
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+
+        self.evl_orbdif('F1')
         gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80, label='editres')
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
-            self.process_one_pod()
-        gt.copy_result_files(self.config, ['orbdif', 'clkdif', 'ics'], 'F2', 'gns')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq')
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+
+        self.evl_orbdif('F2')
         gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40, label='editres')
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with gt.timeblock("Finished 3rd POD"):
-            self.process_one_pod()
-        gt.copy_result_files(self.config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq')
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+
+        self.evl_orbdif('F3')
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
 
         logging.info(f"===> Double-difference ambiguity resolution")
         self.config.update_process(intv=30)
@@ -97,8 +101,12 @@ class RunGnsPod(RunGen):
         logging.info(f"===> 4th iteration for precise orbit determination")
         self.config.update_process(crd_constr='FIX')
         with gt.timeblock("Finished 4th POD"):
-            self.process_one_pod(ambfix=True)
-        gt.copy_result_files(self.config, ['orbdif', 'clkdif', 'ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
+                         use_res_crd=True, label='podlsq')
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+
+        self.evl_orbdif('AR')
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
 
 
 if __name__ == '__main__':

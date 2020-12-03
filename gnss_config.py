@@ -127,12 +127,13 @@ class GNSSconfig:
             if name in all_path.keys():
                 path = all_path[name]
                 self.config.set('common', name, os.path.abspath(path))
-            if not self.config.has_option('common', name):
-                logging.error(f"no {name} in config [common]!")
-            else:
-                path = self.config.get('common', name)
-                if not os.path.isdir(path):
-                    os.makedirs(path)
+            if check:
+                if not self.config.has_option('common', name):
+                    logging.error(f"no {name} in config [common]!")
+                else:
+                    path = self.config.get('common', name)
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
 
         path_sections = ['xml_template', 'process_files', 'source_files']
         if platform.system() == 'Windows':
@@ -316,6 +317,10 @@ class GNSSconfig:
         time = GNSStime()
         time.from_datetime(self.config['process_scheme']['time_end'])
         return time
+
+    def work_dir(self):
+        ss = self.get_file("work_dir", check=False)
+        return ss
 
     def gnssys(self):
         """ GNS system information """
