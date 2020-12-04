@@ -1,9 +1,8 @@
 #!/home/jqwu/anaconda3/bin/python3
-from gnss_config import GNSSconfig
-from gnss_time import GNSStime, hms2sod
-import gnss_tools as gt
-import gnss_run as gr
-from constants import read_site_list, _MAX_THREAD
+from funcs.gnss_config import GNSSconfig
+from funcs.gnss_time import GNSStime, hms2sod
+from funcs import gnss_tools as gt, gnss_run as gr
+from funcs.constants import read_site_list, _MAX_THREAD
 import os
 import shutil
 import logging
@@ -23,6 +22,7 @@ class RunGen:
         self.sta_list = []
         self.grt_bin = ''
         self.proj_dir = ''
+        self.xml_dir = 'xml'
         self.required_subdir = ['log_tb', 'tmp']
         self.required_opt = []
         self.required_file = ['rinexo']
@@ -120,13 +120,17 @@ class RunGen:
             logging.critical("Basic check failed! skip to next day")
             return False
 
-        logging.info(f"===> Preprocess RINEXO files with Turboedit")
+        logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit")
         self.config.update_process(intv=30)
         logging.info(f"number of stations = {len(self.config.stalist())}, number of threads = {self.nthread()}")
+        # gr.run_great(self.grt_bin, 'great_clockrepair', self.config, label='clockrepair',
+        #              xmldir=self.xml_dir, nthread=self.nthread())
+        # self.config.change_data_path('rinexo', 'obs_trimcor')
         tb_label = 'turboedit'
-        gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label, nthread=self.nthread())
+        gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label,
+                     xmldir=self.xml_dir, nthread=self.nthread())
         self.config.update_process(intv=self.args.intv)
-        gt.check_turboedit_log(self.config, self.nthread(), label=tb_label)
+        gt.check_turboedit_log(self.config, self.nthread(), label=tb_label, path=self.xml_dir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
             return True
@@ -138,14 +142,14 @@ class RunGen:
         logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
         cen = self.config.config['process_scheme']['cen']
         self.config.update_process(cen='brd')
-        gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit')
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
-        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit')
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
-        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit')
+        gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit', xmldir=self.xml_dir)
         sat_rm = gt.check_brd_orbfit(self.config.get_filename('orbdif'))
         self.config.update_gnssinfo(sat_rm=sat_rm)
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
         self.config.update_process(cen=cen)
         gt.backup_files(self.config, ['ics'])
         return True

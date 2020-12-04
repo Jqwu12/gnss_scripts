@@ -1,7 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
-import gnss_tools as gt
-import gnss_run as gr
-from run_gen import RunGen
+from funcs import gnss_tools as gt, gnss_run as gr
+from proc_gen import RunGen
 import os
 import logging
 
@@ -29,7 +28,7 @@ class RunIfcb(RunGen):
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
         with gt.timeblock("Finished IFCB estimation"):
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label='ifcb')
+            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label='ifcb', xmldir=self.xml_dir)
 
         upd_data = self.config.config.get("common", "upd_data")
         logging.info(f"===> Copy UPD results to {upd_data}")

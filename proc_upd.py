@@ -1,8 +1,7 @@
 #!/home/jqwu/anaconda3/bin/python3
-import gnss_tools as gt
-import gnss_run as gr
-from run_gen import RunGen
-from constants import get_gns_name
+from funcs import gnss_tools as gt, gnss_run as gr
+from proc_gen import RunGen
+from funcs.constants import get_gns_name
 import os
 import logging
 
@@ -41,38 +40,43 @@ class RunUpd(RunGen):
         # with gt.timeblock("Finished IFCB estimation"):
         #     if self.args.freq > 2 and "G" in self.args.sys:
         #         self.config.update_process(sys='G')
-        #         gt.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb")
+        #         gt.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
         #         self.config.update_process(sys=self.args.sys)
         #         upd_results.append('ifcb')
 
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
-                     label='ppplsq')
+                     label='ppplsq', xmldir=self.xml_dir)
 
         for gsys in self.args.sys:
             self.config.update_process(sys=gsys)
             mfreq = self.config.gnsfreq(gsys)
             logging.info(f"===> Start to process {get_gns_name(gsys)} UPD")
             if mfreq == 5:
-                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL25', label=f"upd_ewl25_{gsys}")
+                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL25',
+                             label=f"upd_ewl25_{gsys}", xmldir=self.xml_dir)
                 if 'upd_ewl25' not in upd_results:
                     upd_results.append('upd_ewl25')
 
             if mfreq >= 4:
-                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL24', label=f"upd_ewl24_{gsys}")
+                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL24',
+                             label=f"upd_ewl24_{gsys}", xmldir=self.xml_dir)
                 if 'upd_ewl24' not in upd_results:
                     upd_results.append('upd_ewl24')
 
             if mfreq >= 3:
-                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL', label=f"upd_ewl_{gsys}")
+                gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL',
+                             label=f"upd_ewl_{gsys}", xmldir=self.xml_dir)
                 if 'upd_ewl' not in upd_results:
                     upd_results.append('upd_ewl')
 
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='WL', label=f"upd_wl_{gsys}")
+            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='WL',
+                         label=f"upd_wl_{gsys}", xmldir=self.xml_dir)
             if 'upd_wl' not in upd_results:
                 upd_results.append('upd_wl')
 
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='NL', label=f"upd_nl_{gsys}")
+            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='NL',
+                         label=f"upd_nl_{gsys}", xmldir=self.xml_dir)
             if 'upd_nl' not in upd_results:
                 upd_results.append('upd_nl')
 
@@ -100,19 +104,20 @@ class RunUpd(RunGen):
         self.config.update_process(crd_constr='FIX')
         self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished PPP"):
-            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
-                         use_res_crd=True, label='ppplsq')
+            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(),
+                         fix_mode="NO", use_res_crd=True, label='ppplsq', xmldir=self.xml_dir)
         gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                     mode="L12", edt_amb=True, all_sites=True, label='editres12')
+                     mode="L12", edt_amb=True, all_sites=True, label='editres12', xmldir=self.xml_dir)
         if self.args.freq > 2:
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                         mode="L13", edt_amb=True, all_sites=True, label='editres13')
+                         mode="L13", edt_amb=True, all_sites=True, label='editres13', xmldir=self.xml_dir)
 
     def process_carrier_range(self):
         # not test yet!
         self.process_daily()
         self.ppp_clean()
-        gr.run_great(self.grt_bin, "great_convobs", self.config, nthread=self.nthread(), label='convobs')
+        gr.run_great(self.grt_bin, "great_convobs", self.config, nthread=self.nthread(),
+                     label='convobs', xmldir=self.xml_dir)
 
 
 if __name__ == '__main__':

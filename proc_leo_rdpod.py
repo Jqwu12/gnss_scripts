@@ -1,8 +1,7 @@
-from gnss_config import GNSSconfig
-from gnss_time import GNSStime, hms2sod
-import gnss_tools as gt
-import gnss_run as gr
-from constants import form_leolist
+from funcs.gnss_config import GNSSconfig
+from funcs.gnss_time import GNSStime, hms2sod
+from funcs import gnss_tools as gt, gnss_run as gr
+from funcs.constants import form_leolist
 import os
 import shutil
 import logging

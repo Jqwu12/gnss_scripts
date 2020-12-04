@@ -1,8 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
-from gnss_time import hms2sod
-import gnss_tools as gt
-import gnss_run as gr
-from run_gen import RunGen
+from funcs import gnss_tools as gt, gnss_run as gr
+from proc_gen import RunGen
 import os
 import logging
 
@@ -38,8 +36,8 @@ class RunGnsPod(RunGen):
     def evl_orbdif(self, label=None):
         for c in self.ref_cen:
             self.config.update_process(cen=c)
-            gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif')
-            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+            gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir)
             if label:
                 gt.copy_result_files(self.config, ['orbdif', 'clkdif'], label, 'gns')
 
@@ -47,7 +45,8 @@ class RunGnsPod(RunGen):
         for i in range(4):
             if i != 0:
                 logging.info(f"reprocess-{i} great_podlsq due to bad stations or satellites")
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-brdm", label='podlsq')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-brdm",
+                         label='podlsq', xmldir=self.xml_dir)
             bad_site, bad_sat = gt.check_pod_residuals(self.config)
             if i == 0 and not bad_site:
                 break
@@ -72,38 +71,40 @@ class RunGnsPod(RunGen):
         # quality control
         with gt.timeblock("Finished 1st POD"):
             self.detect_outliers()
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('F1')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80, label='editres')
+        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
+                     label='editres', xmldir=self.xml_dir)
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq')
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('F2')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40, label='editres')
+        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
+                     label='editres', xmldir=self.xml_dir)
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with gt.timeblock("Finished 3rd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq')
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('F3')
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
 
         logging.info(f"===> Double-difference ambiguity resolution")
         self.config.update_process(intv=30)
-        gr.run_great(self.grt_bin, 'great_ambfixDd', self.config, label="ambfix")
+        gr.run_great(self.grt_bin, 'great_ambfixDd', self.config, label="ambfix", xmldir=self.xml_dir)
         self.config.update_process(intv=self.args.intv)
 
         logging.info(f"===> 4th iteration for precise orbit determination")
         self.config.update_process(crd_constr='FIX')
         with gt.timeblock("Finished 4th POD"):
             gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                         use_res_crd=True, label='podlsq')
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi')
+                         use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('AR')
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')

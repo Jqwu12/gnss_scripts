@@ -1,7 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
-import gnss_run as gr
-import gnss_tools as gt
-from run_gen import RunGen
+from funcs import gnss_run as gr
+from proc_gen import RunGen
 import os
 import logging
 
@@ -33,10 +32,10 @@ class RunPpp(RunGen):
 
         if not fix:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="NO", label=f"ppplsq_{obs_comb}_{freq}_F")
+                         fix_mode="NO", label=f"ppplsq_{obs_comb}_{freq}_F", xmldir=self.xml_dir)
         else:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="SEARCH", label=f"ppplsq_{obs_comb}_{freq}_AR")
+                         fix_mode="SEARCH", label=f"ppplsq_{obs_comb}_{freq}_AR", xmldir=self.xml_dir)
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")

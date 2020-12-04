@@ -1,12 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
-from gnss_time import hms2sod
-import gnss_tools as gt
-import gnss_run as gr
-from run_gen import RunGen
+from proc_gen import RunGen
 import os
-import shutil
-import logging
-import platform
 
 
 class RunTurboedit(RunGen):

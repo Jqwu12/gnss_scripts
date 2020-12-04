@@ -1,7 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
-import gnss_tools as gt
-import gnss_run as gr
-from run_gen import RunGen
+from funcs import gnss_tools as gt, gnss_run as gr
+from proc_gen import RunGen
 import os
 import logging
 
@@ -29,7 +28,7 @@ class RunPce(RunGen):
     def evl_clkdif(self, label=None):
         for c in self.ref_cen:
             self.config.update_process(cen=c)
-            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif')
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir)
             if label:
                 gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
 
@@ -38,7 +37,7 @@ class RunPce(RunGen):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
-        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq')
+        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
         self.evl_clkdif()
 
 

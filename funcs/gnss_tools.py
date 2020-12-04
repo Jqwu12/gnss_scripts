@@ -2,7 +2,7 @@ import os
 import math
 import logging
 import shutil
-import gnss_files as gf
+from funcs import gnss_files as gf
 import pandas as pd
 import time
 from contextlib import contextmanager
@@ -146,11 +146,11 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     return site_rm, sat_rm
 
 
-def check_turboedit_log(config, nthread, label="turboedit"):
+def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     # LEO satellites need to be considered
     site_good = []
     if nthread == 1:
-        f_name = f"{label}.log"
+        f_name = os.path.join(path, f"{label}.log")
         try:
             with open(f_name) as f:
                 for line in f:
@@ -163,7 +163,7 @@ def check_turboedit_log(config, nthread, label="turboedit"):
             logging.warning(f"Cannot open turboedit log file {f_name}")
     else:
         for i in range(1, nthread + 1):
-            f_name = f"{label}{i:0>2d}.log"
+            f_name = os.path.join(path, f"{label}{i:0>2d}.log")
             try:
                 with open(f_name) as f:
                     for line in f:
