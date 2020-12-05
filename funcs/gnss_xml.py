@@ -492,10 +492,10 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern', 'ifcb']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
             elif mode == "EWL24":
-                f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag14', 'biabern', 'ifcb']
+                f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag14', 'biabern']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
             elif mode == "EWL25":
-                f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag15', 'biabern', 'ifcb']
+                f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag15', 'biabern']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
             elif mode == "NL":
                 inp = _get_element_io(config, 'inputs', ['rinexn'], check=True)

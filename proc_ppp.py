@@ -42,21 +42,15 @@ class RunPpp(RunGen):
         logging.info(f"Everything is ready: number of stations = {len(proc.config.stalist())}, "
                      f"number of satellites = {len(proc.config.all_gnssat())}")
 
-        self.process_ppp(obs_comb='UC', freq=3, fix=True)
-
         self.process_ppp(obs_comb='UC', freq=3, fix=False)
-
+        self.process_ppp(obs_comb='UC', freq=3, fix=True)
+        self.process_ppp(obs_comb='UC', freq=2, fix=False)
         self.process_ppp(obs_comb='UC', freq=2, fix=True)
 
-        self.process_ppp(obs_comb='UC', freq=2, fix=False)
-
-        self.process_ppp(obs_comb='IF', freq=3, fix=True)
-
         self.process_ppp(obs_comb='IF', freq=3, fix=False)
-
-        self.process_ppp(obs_comb='IF', freq=2, fix=True)
-
+        self.process_ppp(obs_comb='IF', freq=3, fix=True)
         self.process_ppp(obs_comb='IF', freq=2, fix=False)
+        self.process_ppp(obs_comb='IF', freq=2, fix=True)
 
 
 if __name__ == '__main__':
