@@ -36,8 +36,8 @@ class RunGnsPod(RunGen):
     def evl_orbdif(self, label=None):
         for c in self.ref_cen:
             self.config.update_process(cen=c)
-            gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif', xmldir=self.xml_dir, stop=False)
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir, stop=False)
             if label:
                 gt.copy_result_files(self.config, ['orbdif', 'clkdif'], label, 'gns')
 

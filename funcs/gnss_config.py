@@ -524,7 +524,7 @@ class GNSSconfig:
     def get_filename(self, f_type, sattype='gns', check=False, conf_opt='process_files'):
         """ get the name of process files according to config file """
         file_all = ""
-        if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambupd_in', 'recover_all']:
+        if f_type in ['rinexo', 'ambflag', 'ambflag13', 'ambflag14', 'ambflag15', 'ambupd_in', 'recover_all']:
             # LEO receivers
             leo_rm = []
             for leo in self.leolist():

@@ -20,10 +20,10 @@ class RunUpd(RunGen):
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
-    def init_proc(self, config=None):
-        super().init_proc(config)
-        if self.args.freq > 3 and self.args.obs_comb != "UC":
-            raise SystemExit("4- and 5-frequency UPD estimation currently only supports uncombined observation model")
+    # def init_proc(self, config=None):
+    #     super().init_proc(config)
+    #     if self.args.freq > 3 and self.args.obs_comb != "UC":
+    #         raise SystemExit("4- and 5-frequency UPD estimation currently only supports uncombined observation model")
 
     def update_path(self, all_path):
         super().update_path(all_path)
