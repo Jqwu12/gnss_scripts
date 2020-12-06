@@ -149,6 +149,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
 def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     # LEO satellites need to be considered
     site_good = []
+    site_rm = []
     if nthread == 1:
         f_name = os.path.join(path, f"{label}.log")
         try:
@@ -159,6 +160,9 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
                             site = line[58:62].lower()
                             if site not in site_good:
                                 site_good.append(site)
+                        if line[65:68] == 'BAD':
+                            site = line[58:62].lower()
+                            site_rm.append(site)
         except FileNotFoundError:
             logging.warning(f"Cannot open turboedit log file {f_name}")
     else:
@@ -172,14 +176,22 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
                                 site = line[58:62].lower()
                                 if site not in site_good:
                                     site_good.append(site)
+                            if line[65:68] == 'BAD':
+                                site = line[58:62].lower()
+                                site_rm.append(site)
             except FileNotFoundError:
                 logging.warning(f"Cannot open turboedit log file {f_name}")
                 continue
-    site_rm = list(set(config.stalist()).difference(set(site_good)))
-    if site_rm:
-        msg = f"BAD Turboedit results: {list2str(site_rm)}"
+    # site_rm = list(set(config.stalist()).difference(set(site_good)))
+    site_rm_final = []
+    for site in set(site_rm):
+        if site_rm.count(site) > 3:
+            site_rm_final.append(site)
+    if site_rm_final:
+        msg = f"BAD Turboedit results: {list2str(site_rm_final)}"
         logging.warning(msg)
-    config.update_stalist(site_good)
+    # config.update_stalist(site_good)
+    config.remove_sta(site_rm_final)
 
 
 def check_brd_orbfit(f_name):
@@ -209,6 +221,10 @@ def check_brd_orbfit(f_name):
 
     sat_rm = []
     for prn in val.keys():
+        # if num[prn] < 287:
+        #     sat_rm.append(prn)
+        #     logging.warning(f"Incomplete satellite BRD: {prn}")
+        #     continue
         result = math.sqrt(val[prn] / num[prn])
         if result > 100:
             sat_rm.append(prn)
@@ -255,7 +271,7 @@ def copy_result_files(config, files, scheme, sattype='gns'):
                 logging.warning(f"unable to copy file {file}")
 
 
-def copy_result_files_to_path(config, files, path, sattype='gns'):
+def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
     """
     Purpose: Copy result files to another path
     e,g, cp upd_nl_2019100_G ${upd_dir}
@@ -264,12 +280,26 @@ def copy_result_files_to_path(config, files, path, sattype='gns'):
         logging.warning(f"Input path {path} not exists, creating...")
         os.makedirs(path)
     for file in files:
-        file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)
+        file_olds = config.get_filename(file.lower(), check=False, sattype=sattype)
         for f_name in file_olds.split():
-            try:
-                shutil.copy(f_name, path)
-            except IOError as e:
-                logging.warning(f"unable to copy file {file}")
+            if not schemes:
+                if os.path.isfile(f_name):
+                    try:
+                        shutil.copy(f_name, path)
+                    except IOError as e:
+                        logging.warning(f"unable to copy file {f_name}")
+                else:
+                    logging.warning(f"file not found {f_name}")
+            else:
+                for sch in schemes:
+                    f_new = f"{f_name}_{sch}"
+                    if os.path.isfile(f_new):
+                        try:
+                            shutil.copy(f_new, path)
+                        except IOError as e:
+                            logging.warning(f"unable to copy file {f_new}")
+                    else:
+                        logging.warning(f"file not found {f_new}")
 
 
 def get_grg_wsb(config):

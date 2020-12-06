@@ -14,7 +14,7 @@ def _raise_error(msg):
     raise SystemExit(msg)
 
 
-class GNSSconfig:
+class GnssConfig:
 
     def __init__(self, f_config, conf=None):
         if conf:
@@ -38,7 +38,7 @@ class GNSSconfig:
 
     def copy(self):
         conf = copy.deepcopy(self.config)  # need python3.8 or higher!
-        return GNSSconfig("", conf)
+        return GnssConfig("", conf)
 
     def update_timeinfo(self, time_beg, time_end, intv):
         """ update the time information in config file """
@@ -63,8 +63,11 @@ class GNSSconfig:
                 self.config.set('process_scheme', 'obs_comb', "IF")
                 self.config.set('process_scheme', 'obs_combination', "IONO_FREE")
                 self.config.set('process_scheme', 'ion_model', "NONE")
-        if sat_rm:
-            self.config.set('process_scheme', 'sat_rm', gt.list2str(sat_rm))  # currently not used
+        if sat_rm is not None:
+            if sat_rm:
+                self.config.set('process_scheme', 'sat_rm', gt.list2str(sat_rm))
+            else:
+                self.config.set('process_scheme', 'sat_rm', '')
 
     def update_prodinfo(self, cen='grm', bia=''):
         """ update the IGS product settings in config file """
@@ -96,7 +99,7 @@ class GNSSconfig:
         else:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
-    
+
     def update_pathinfo(self, all_path={}, check=True):
         """ update the path information in config according to different OS """
         required_path = ['grt_bin', 'base_dir', 'sys_data', 'gns_data']
@@ -193,7 +196,7 @@ class GNSSconfig:
         old_path = self.config.get("process_files", file, raw=True)
         target_path = self.config.get("process_files", target, raw=True)
         ipos = old_path.rfind(sep)
-        old_file = old_path[ipos+1:]
+        old_file = old_path[ipos + 1:]
         new_path = f"{target_path}{sep}{old_file}"
         self.config.set("process_files", file, new_path)
         logging.info(f"change {file} directory to {target_path}")
@@ -253,7 +256,6 @@ class GNSSconfig:
         else:
             return False
 
-
     def xml_process(self):
         """ return a dict for xml <process> """
         proc_dict = {
@@ -281,8 +283,8 @@ class GNSSconfig:
         if not self.config.has_section('ambiguity_scheme'):
             logging.error("No [ambiguity_scheme] in config file")
             return {}
-        opt_list = ['dd_mode', 'is_ppprtk', 'fix_mode', 'ratio', 'part_fix', 'carrier_range', 'add_leo', 'all_baselines',
-                    'min_common_time', 'baseline_length_limit', 'widelane_interval']
+        opt_list = ['dd_mode', 'is_ppprtk', 'fix_mode', 'ratio', 'part_fix', 'carrier_range', 'add_leo',
+                    'all_baselines', 'min_common_time', 'baseline_length_limit', 'widelane_interval']
         amb_dict = {'carrier_range': "NO"}
         for opt in opt_list:
             if self.config.has_option('ambiguity_scheme', opt):
@@ -298,7 +300,8 @@ class GNSSconfig:
             amb_dict['min_common_time'] = '0'
         if self.config.has_option('ambiguity_scheme', 'extra_widelane_decision'):
             if len(self.config.get('ambiguity_scheme', 'extra_widelane_decision').split()) == 3:
-                amb_dict['extra_widelane_decision'] = self.config.get('ambiguity_scheme', 'extra_widelane_decision').split()
+                amb_dict['extra_widelane_decision'] = self.config.get('ambiguity_scheme',
+                                                                      'extra_widelane_decision').split()
         if self.config.has_option('ambiguity_scheme', 'widelane_decision'):
             if len(self.config.get('ambiguity_scheme', 'widelane_decision').split()) == 3:
                 amb_dict['widelane_decision'] = self.config.get('ambiguity_scheme', 'widelane_decision').split()

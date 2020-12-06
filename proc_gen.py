@@ -1,5 +1,5 @@
 #!/home/jqwu/anaconda3/bin/python3
-from funcs.gnss_config import GNSSconfig
+from funcs.gnss_config import GnssConfig
 from funcs.gnss_time import GNSStime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
 from funcs.constants import read_site_list, _MAX_THREAD
@@ -10,7 +10,7 @@ import argparse
 import platform
 
 
-class RunGen:
+class ProcGen:
     def __init__(self):
         self.default_args = {
             'dsc': 'GREAT Data Processing',
@@ -22,6 +22,7 @@ class RunGen:
         self.sta_list = []
         self.grt_bin = ''
         self.proj_dir = ''
+        self.result_dir = ''
         self.xml_dir = 'xml'
         self.required_subdir = ['log_tb', 'tmp']
         self.required_opt = []
@@ -30,7 +31,7 @@ class RunGen:
     def init_proc(self, config=None):
         self.args = self.get_args()
         if not config:
-            self.config = GNSSconfig(self.args.cf)
+            self.config = GnssConfig(self.args.cf)
             self.config.update_pathinfo(check=False)  # to be changed
             self.config.update_gnssinfo(self.args.sys, self.args.freq, self.args.obs_comb, self.args.est)
             if self.args.freq > 2:
@@ -106,6 +107,7 @@ class RunGen:
         self.config.update_timeinfo(crt_time, crt_time + (seslen - self.args.intv), self.args.intv)
         self.config.update_stalist(self.sta_list)
         self.config.update_gnssinfo(sat_rm=[])
+        # self.config.change_data_path('rinexo', 'obs')
         self.config.update_process(crd_constr='EST')
         if self.config.is_integer_clock() and not self.config.is_integer_clock_osb():
             gt.get_grg_wsb(self.config)

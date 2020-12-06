@@ -1,12 +1,12 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import RunGen
+from proc_gen import ProcGen
 from funcs.constants import get_gns_name
 import os
 import logging
 
 
-class RunUpd(RunGen):
+class ProcUpd(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -37,12 +37,15 @@ class RunUpd(RunGen):
                      f"number of satellites = {len(self.config.all_gnssat())}")
         upd_results = []
 
-        # with gt.timeblock("Finished IFCB estimation"):
-        #     if self.args.freq > 2 and "G" in self.args.sys:
-        #         self.config.update_process(sys='G')
-        #         gt.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
-        #         self.config.update_process(sys=self.args.sys)
-        #         upd_results.append('ifcb')
+        f_ifcb = self.config.get_filename('ifcb', check=True)
+        # if no ifcb file in current dir, run ifcb estimation
+        if f_ifcb.isspace():
+            if self.args.freq > 2 and "G" in self.args.sys:
+                with gt.timeblock("Finished IFCB estimation"):
+                    self.config.update_process(sys='G')
+                    gt.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
+                    self.config.update_process(sys=self.args.sys)
+                    upd_results.append('ifcb')
 
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
@@ -121,5 +124,5 @@ class RunUpd(RunGen):
 
 
 if __name__ == '__main__':
-    proc = RunUpd()
+    proc = ProcUpd()
     proc.process_batch()

@@ -49,20 +49,17 @@ def generate_great_xml(config, app, f_xml, **kwargs):
     elif app == 'great_clkdif':
         _generate_clkdif_xml(config, f_xml)
     elif app == 'great_orbdif':
-        fit = False
         trans = "STRD"
-        unit = "mm"
-        excsys = "CER"
+        excsys = "BDS GAL GLO"
+        excsat = "C01 C02 C03 C04 C05 G18"
         for key, val in kwargs.items():
-            if key == 'fit':
-                fit = val
-            elif key == 'trans':
+            if key == 'trans':
                 trans = val
-            elif key == 'unit':
-                unit = val
             elif key == "excsys":
                 excsys = val
-        _generate_orbdif_xml(config, f_xml, fit, trans, unit, excsys)
+            elif key == "excsat":
+                excsat = val
+        _generate_orbdif_xml(config, f_xml, trans, excsys, excsat)
     elif app == 'great_orbfit':
         _generate_orbfit_xml(config, f_xml)
     elif app == 'great_orbfitleo':
@@ -786,7 +783,7 @@ def _generate_orbfit_xml(config, f_xml_out):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm", excsys="CER"):
+def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", excsat="C01 C02 C03 C04 C05 G18"):
     # to be changed, because orbit and orbdif are two GREAT App
     root = ET.Element('config')
     tree = ET.ElementTree(root)
@@ -796,16 +793,12 @@ def _generate_orbdif_xml(config, f_xml_out, fit=False, trans="STRD", unit="mm", 
     root.append(inp)
     out = _get_element_io(config, 'outputs', ['orbdif'], check=False, sattype='gns')
     root.append(out)
-    # xml_log = ET.SubElement(out, 'log')
-    # xml_log.text = f"LOGRT.xml.log"
-    orbdif_ele = ET.SubElement(root, 'orbdif')  # to be changed
-    ele = ET.SubElement(orbdif_ele, 'trans')
+    orbdif = ET.SubElement(root, 'orbdif')
+    ele = ET.SubElement(orbdif, 'trans')
     ele.text = trans
-    ele = ET.SubElement(orbdif_ele, 'fit')
-    ele.text = str(fit)
-    ele = ET.SubElement(orbdif_ele, 'unit')
-    ele.text = unit
-    ele = ET.SubElement(orbdif_ele, 'escsys')
+    ele = ET.SubElement(orbdif, 'escsat')
+    ele.text = excsat
+    ele = ET.SubElement(orbdif, 'escsys')
     ele.text = excsys
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)

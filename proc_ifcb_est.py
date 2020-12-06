@@ -1,11 +1,11 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import RunGen
+from proc_gen import ProcGen
 import os
 import logging
 
 
-class RunIfcb(RunGen):
+class ProcIfcb(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -36,5 +36,5 @@ class RunIfcb(RunGen):
 
 
 if __name__ == '__main__':
-    proc = RunIfcb()
+    proc = ProcIfcb()
     proc.process_batch()

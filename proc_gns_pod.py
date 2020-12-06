@@ -1,11 +1,11 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import RunGen
+from proc_gen import ProcGen
 import os
 import logging
 
 
-class RunGnsPod(RunGen):
+class ProcGnsPod(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -21,6 +21,7 @@ class RunGnsPod(RunGen):
     def update_path(self, all_path):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'POD')
+        self.result_dir = os.path.join(self.proj_dir, 'results')
 
     def prepare(self):
         with gt.timeblock("Finished prepare obs"):
@@ -48,8 +49,6 @@ class RunGnsPod(RunGen):
             gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-brdm",
                          label='podlsq', xmldir=self.xml_dir)
             bad_site, bad_sat = gt.check_pod_residuals(self.config)
-            if i == 0 and not bad_site:
-                break
             if (not bad_site and not bad_sat) or i == 3:
                 if i != 0:
                     logging.info(f"After quality control: number of stations = {len(self.config.stalist())}, "
@@ -60,7 +59,7 @@ class RunGnsPod(RunGen):
             if bad_site:
                 self.config.remove_sta(bad_site)
             # second remove bad satellites
-            if bad_sat and i != 0:
+            if bad_sat:
                 self.config.update_gnssinfo(sat_rm=self.config.sat_rm() + bad_sat)
 
     def process_daily(self):
@@ -108,8 +107,15 @@ class RunGnsPod(RunGen):
 
         self.evl_orbdif('AR')
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
+        self.save_results(['F3', 'AR'])
+
+    def save_results(self, labels):
+        save_dir = os.path.join(self.result_dir, "orbdif", f"{self.config.beg_time().year}")
+        for c in self.ref_cen:
+            self.config.update_process(cen=c)
+            gt.copy_result_files_to_path(self.config, ['orbdif'], save_dir, labels)
 
 
 if __name__ == '__main__':
-    proc = RunGnsPod()
+    proc = ProcGnsPod()
     proc.process_batch()

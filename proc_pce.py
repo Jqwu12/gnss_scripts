@@ -1,11 +1,11 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import RunGen
+from proc_gen import ProcGen
 import os
 import logging
 
 
-class RunPce(RunGen):
+class ProcPce(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -42,5 +42,5 @@ class RunPce(RunGen):
 
 
 if __name__ == '__main__':
-    proc = RunPce()
+    proc = ProcPce()
     proc.process_batch()

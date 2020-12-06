@@ -1,11 +1,11 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_run as gr
-from proc_gen import RunGen
+from proc_gen import ProcGen
 import os
 import logging
 
 
-class RunPpp(RunGen):
+class ProcPpp(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -54,5 +54,5 @@ class RunPpp(RunGen):
 
 
 if __name__ == '__main__':
-    proc = RunPpp()
+    proc = ProcPpp()
     proc.process_batch()

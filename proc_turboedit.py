@@ -1,9 +1,9 @@
 #!/home/jqwu/anaconda3/bin/python3
-from proc_gen import RunGen
+from proc_gen import ProcGen
 import os
 
 
-class RunTurboedit(RunGen):
+class ProcTurboedit(ProcGen):
     def __init__(self):
         super().__init__()
 
@@ -22,5 +22,5 @@ class RunTurboedit(RunGen):
 
 
 if __name__ == '__main__':
-    proc = RunTurboedit()
+    proc = ProcTurboedit()
     proc.process_batch()

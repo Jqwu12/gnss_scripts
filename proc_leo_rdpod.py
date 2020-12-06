@@ -1,4 +1,4 @@
-from funcs.gnss_config import GNSSconfig
+from funcs.gnss_config import GnssConfig
 from funcs.gnss_time import GNSStime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
 from funcs.constants import form_leolist
@@ -62,7 +62,7 @@ if not leo_list:
 sta_list = args.sta_list
 if not os.path.isfile(args.cf):
     raise SystemExit("Cannot get config file >_<")
-config = GNSSconfig(args.cf)
+config = GnssConfig(args.cf)
 config.update_pathinfo(sys_data, gns_data, upd_data)
 config.update_gnssinfo(args.sys, args.freq, 'IF')
 config.update_prodinfo(args.cen, args.bia)
