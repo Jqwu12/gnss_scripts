@@ -796,9 +796,9 @@ def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", 
     orbdif = ET.SubElement(root, 'orbdif')
     ele = ET.SubElement(orbdif, 'trans')
     ele.text = trans
-    ele = ET.SubElement(orbdif, 'escsat')
+    ele = ET.SubElement(orbdif, 'excsat')
     ele.text = excsat
-    ele = ET.SubElement(orbdif, 'escsys')
+    ele = ET.SubElement(orbdif, 'excsys')
     ele.text = excsys
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
