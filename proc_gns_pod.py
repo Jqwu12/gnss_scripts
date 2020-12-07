@@ -21,7 +21,7 @@ class ProcGnsPod(ProcGen):
     def update_path(self, all_path):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'POD')
-        self.result_dir = os.path.join(self.proj_dir, 'results')
+        self.result_dir = os.path.join(self.proj_dir, f"results_{self.args.sys}")
 
     def prepare(self):
         with gt.timeblock("Finished prepare obs"):
