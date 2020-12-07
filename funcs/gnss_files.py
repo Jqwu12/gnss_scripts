@@ -72,7 +72,7 @@ def read_sp3file(f_sp3):
 
 def read_rnxc_file(f_name, mode="AS"):
     if not os.path.isfile(f_name):
-        logging.error(f"NO RINEXC file {f_name}")
+        logging.error(f"file not found {f_name}")
         return
 
     data = []

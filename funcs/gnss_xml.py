@@ -433,20 +433,27 @@ def _get_lsq_param(config, mode):
     return param
 
 
-def _set_ref_clk(config, mode='sat'):
+def _set_ref_clk(config, mode='sat', sats=None):
     ref_sats = ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']
     ref_sites = ['gop6', 'hob2', 'ptbb', 'algo']
     if mode == 'sat':
         for sat in ref_sats:
-            if sat in config.all_gnssat():
-                return sat
-        return config.all_gnssat()[0]
+            if not sats:
+                if sat in config.all_gnssat():
+                    return sat
+            else:
+                if sat in sats and sat in config.all_gnssat():
+                    return sat
+        sat = config.all_gnssat()[0]
+        logging.warning(f"Cannot find ref sat in {gt.list2str(ref_sats)}, use the first sat {sat}")
+        return sat
     else:
         for site in ref_sites:
             if site in config.stalist():
                 return site.upper()
-            else:
-                return config.stalist()[0].upper()
+        site = config.stalist()[0]
+        logging.warning(f"Cannot find ref site in {gt.list2str(ref_sites)}, use the first site {site}")
+        return site
 
 
 def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
@@ -833,16 +840,23 @@ def _generate_orbfitleo_xml(config, f_xml_out, fit=False, trans="", unit="mm"):
 def _generate_clkdif_xml(config, f_xml_out):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
+    f_clk_ref = config.get_filename("rinexc", check=True)
+    sats = []
+    if f_clk_ref:
+        sats = gt.get_rnxc_satlist(f_clk_ref.split()[0])
+    else:
+        return
+    # <gen>
     gen = _get_element_gen(config, ['sys', 'intv'])
     gen_ele = ET.SubElement(gen, "refsat")
-    gen_ele.text = _set_ref_clk(config)
+    gen_ele.text = _set_ref_clk(config, sats=sats)
     root.append(gen)
     # <inputs>
     inp = ET.SubElement(root, "inputs")
     inp_ele = ET.SubElement(inp, "rinexc_prd")
-    inp_ele.text = config.get_filename("satclk")
+    inp_ele.text = config.get_filename("satclk", check=True)
     inp_ele = ET.SubElement(inp, "rinexc_ref")
-    inp_ele.text = config.get_filename("rinexc")
+    inp_ele.text = config.get_filename("rinexc", check=True)
     # <outputs>
     out = ET.SubElement(root, "outputs")
     out_ele = ET.SubElement(out, 'log')

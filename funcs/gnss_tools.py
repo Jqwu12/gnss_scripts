@@ -256,6 +256,22 @@ def recover_files(config, files, sattype='gns', suffix="bak"):
                 logging.warning(f"unable to recover file {file}.{suffix}")
 
 
+def get_rnxc_satlist(f_name):
+    sats = []
+    try:
+        with open(f_name) as f:
+            for line in f:
+                if line.find("END OF HEADER") > 0:
+                    break
+                if line[60:68] == "PRN LIST":
+                    info = line[0:60]
+                    sats.extend(info.split())
+            return sats
+    except FileNotFoundError:
+        logging.error(f"file not found {f_name}")
+        return
+
+
 def copy_result_files(config, files, scheme, sattype='gns'):
     """
     Purpose: Copy result files
