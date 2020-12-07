@@ -23,6 +23,13 @@ class ProcGnsPod(ProcGen):
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'POD')
         self.result_dir = os.path.join(self.proj_dir, f"results_{self.args.sys}")
 
+    def init_daily(self, crt_time, seslen):
+        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.args.intv), self.args.intv)
+        self.config.update_stalist(self.sta_list)
+        self.config.update_gnssinfo(sat_rm=['C01', 'C02', 'C03', 'C04', 'C05'])
+        # self.config.change_data_path('rinexo', 'obs')
+        self.config.update_process(crd_constr='EST')
+
     def prepare(self):
         with gt.timeblock("Finished prepare obs"):
             if not self.prepare_obs():

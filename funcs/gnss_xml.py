@@ -282,8 +282,9 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     if mode == "PCE_EST" or mode == "POD_EST":
         proc.set('ref_clk', _set_ref_clk(config, mode='site'))
         # proc.set('ref_clk', '')
-        # proc.set('sig_ref_clk', '1')
+        proc.set('sig_ref_clk', '0.001')
         proc.set('num_thread', '8')
+        proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
         ifb_model.text = 'EST_REC_IFB'
@@ -433,23 +434,19 @@ def _get_lsq_param(config, mode):
 
 
 def _set_ref_clk(config, mode='sat'):
+    ref_sats = ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']
+    ref_sites = ['gop6', 'hob2', 'ptbb', 'algo']
     if mode == 'sat':
-        if "GPS" in config.gnssys().split():
-            return "G08"
-        else:
-            if "GAL" in config.gnssys().split():
-                return "E01"
-            else:
-                if "BDS" in config.gnssys().split():
-                    return "C08"  # the ref sat of BDS need to choose
-                else:
-                    if "GLO" in config.gnssys().split():
-                        return "R01"
+        for sat in ref_sats:
+            if sat in config.all_gnssat():
+                return sat
+        return config.all_gnssat()[0]
     else:
-        if "ALGO" in config.stalist() or "algo" in config.stalist():
-            return "ALGO"
-        else:
-            return config.stalist()[0].upper()
+        for site in ref_sites:
+            if site in config.stalist():
+                return site.upper()
+            else:
+                return config.stalist()[0].upper()
 
 
 def _generate_updlsq_xml(config, f_xml_out, mode="WL"):

@@ -149,7 +149,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
 def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     # LEO satellites need to be considered
     site_good = []
-    site_rm = []
+    # site_rm = []
     if nthread == 1:
         f_name = os.path.join(path, f"{label}.log")
         try:
@@ -160,9 +160,9 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
                             site = line[58:62].lower()
                             if site not in site_good:
                                 site_good.append(site)
-                        if line[65:68] == 'BAD':
-                            site = line[58:62].lower()
-                            site_rm.append(site)
+                        # if line[65:68] == 'BAD':
+                        #     site = line[58:62].lower()
+                        #     site_rm.append(site)
         except FileNotFoundError:
             logging.warning(f"Cannot open turboedit log file {f_name}")
     else:
@@ -176,22 +176,22 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
                                 site = line[58:62].lower()
                                 if site not in site_good:
                                     site_good.append(site)
-                            if line[65:68] == 'BAD':
-                                site = line[58:62].lower()
-                                site_rm.append(site)
+                            # if line[65:68] == 'BAD':
+                            #     site = line[58:62].lower()
+                            #     site_rm.append(site)
             except FileNotFoundError:
                 logging.warning(f"Cannot open turboedit log file {f_name}")
                 continue
-    # site_rm = list(set(config.stalist()).difference(set(site_good)))
-    site_rm_final = []
-    for site in set(site_rm):
-        if site_rm.count(site) > 3:
-            site_rm_final.append(site)
+    site_rm_final = list(set(config.stalist()).difference(set(site_good)))
+    # site_rm_final = []
+    # for site in set(site_rm):
+    #     if site_rm.count(site) > 3:
+    #         site_rm_final.append(site)
     if site_rm_final:
         msg = f"BAD Turboedit results: {list2str(site_rm_final)}"
         logging.warning(msg)
-    # config.update_stalist(site_good)
-    config.remove_sta(site_rm_final)
+    config.update_stalist(site_good)
+    # config.remove_sta(site_rm_final)
 
 
 def check_brd_orbfit(f_name):

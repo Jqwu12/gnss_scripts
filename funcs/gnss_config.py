@@ -222,6 +222,14 @@ class GnssConfig:
         else:
             _raise_error("Cannot find time_beg/time_end in [process_scheme]")
 
+    def intv(self):
+        """ interval """
+        if self.config.has_option('process_scheme', 'intv'):
+            val = self.config.getint('process_scheme', 'intv')
+            return val
+        else:
+            _raise_error("Cannot find intv in [process_scheme]")
+
     def band(self, gsys):
         """ Get the GNSS Band """
         gsys = get_gns_name(gsys)

@@ -29,8 +29,8 @@ class ProcGen:
         self.required_file = ['rinexo']
 
     def init_proc(self, config=None):
-        self.args = self.get_args()
         if not config:
+            self.args = self.get_args()
             self.config = GnssConfig(self.args.cf)
             self.config.update_pathinfo(check=False)  # to be changed
             self.config.update_gnssinfo(self.args.sys, self.args.freq, self.args.obs_comb, self.args.est)
@@ -109,10 +109,8 @@ class ProcGen:
         self.config.update_gnssinfo(sat_rm=[])
         # self.config.change_data_path('rinexo', 'obs')
         self.config.update_process(crd_constr='EST')
-        if self.config.is_integer_clock() and not self.config.is_integer_clock_osb():
-            gt.get_grg_wsb(self.config)
 
-    def prepare_obs(self):
+    def basic_check(self):
         # ---------- Basic check ---------
         gt.mkdir(self.required_subdir)
         self.config.copy_sys_data()
@@ -121,8 +119,13 @@ class ProcGen:
         else:
             logging.critical("Basic check failed! skip to next day")
             return False
+        if self.config.is_integer_clock() and not self.config.is_integer_clock_osb():
+            gt.get_grg_wsb(self.config)
+        return True
 
+    def prepare_obs(self):
         logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit")
+        intv = self.config.intv()
         self.config.update_process(intv=30)
         logging.info(f"number of stations = {len(self.config.stalist())}, number of threads = {self.nthread()}")
         # gr.run_great(self.grt_bin, 'great_clockrepair', self.config, label='clockrepair',
@@ -131,7 +134,7 @@ class ProcGen:
         tb_label = 'turboedit'
         gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label,
                      xmldir=self.xml_dir, nthread=self.nthread())
-        self.config.update_process(intv=self.args.intv)
+        self.config.update_process(intv=intv)
         gt.check_turboedit_log(self.config, self.nthread(), label=tb_label, path=self.xml_dir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
@@ -218,6 +221,10 @@ class ProcGen:
             os.chdir(workdir)
             logging.info(f"work directory = {workdir}")
             self.config.write_config('config.ini')
+
+            if not self.basic_check():
+                crt_time += step
+                continue
 
             with gt.timeblock("Finished prepare"):
                 if not self.prepare():
