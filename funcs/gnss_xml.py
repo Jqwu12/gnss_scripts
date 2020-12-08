@@ -245,8 +245,9 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     root.append(gen)
     # <receiver> <parameters>
     if config.stalist():
-        if os.path.isfile('great_preedit.xml'):
-            ref_tree = ET.parse("great_preedit.xml")
+        f_preedit = os.path.join('xml', 'preedit.xml')
+        if os.path.isfile(f_preedit):
+            ref_tree = ET.parse(f_preedit)
             ref_root = ref_tree.getroot()
             rec = ref_root.find('receiver')
         else:

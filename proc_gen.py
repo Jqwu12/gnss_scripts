@@ -148,6 +148,7 @@ class ProcGen:
         cen = self.config.config['process_scheme']['cen']
         self.config.update_process(cen='brd')
         gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit', xmldir=self.xml_dir)
+        # do not change the label and xmldir of preedit
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
         gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit', xmldir=self.xml_dir)
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
