@@ -5,7 +5,7 @@ import logging
 import platform
 import copy
 from funcs import gnss_files as gf, gnss_tools as gt
-from funcs.gnss_time import GNSStime
+from funcs.gnss_time import GnssTime
 from funcs.constants import get_gns_name, get_gns_sat, get_gns_info, _GNS_NAME, _LEO_INFO
 
 
@@ -214,8 +214,8 @@ class GnssConfig:
             end = self.config.get('process_scheme', 'time_end')
             if beg == 'NONE' or end == 'NONE':
                 _raise_error("Cannot find time_beg/time_end in [process_scheme]")
-            t_beg = GNSStime()
-            t_end = GNSStime()
+            t_beg = GnssTime()
+            t_end = GnssTime()
             t_beg.from_datetime(beg)
             t_end.from_datetime(end)
             return t_beg, t_end
@@ -319,12 +319,12 @@ class GnssConfig:
         return amb_dict
 
     def beg_time(self):
-        time = GNSStime()
+        time = GnssTime()
         time.from_datetime(self.config['process_scheme']['time_beg'])
         return time
 
     def end_time(self):
-        time = GNSStime()
+        time = GnssTime()
         time.from_datetime(self.config['process_scheme']['time_end'])
         return time
 
@@ -471,7 +471,7 @@ class GnssConfig:
         else:
             t_end -= 1
         crt_time = t_beg
-        end_time = GNSStime()
+        end_time = GnssTime()
         end_time.from_mjd(t_end.mjd, 86399.0)
         f_out = ""
         while crt_time < end_time:

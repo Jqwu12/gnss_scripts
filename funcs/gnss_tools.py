@@ -105,7 +105,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
         return [],[]
-    data = gf.read_resfile(f_res)
+    data = gf.read_res_file(f_res)
     type_P = ["PC", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9"]
     type_L = ["LC", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9"]
     idx_P = (data.ot == type_P[0])

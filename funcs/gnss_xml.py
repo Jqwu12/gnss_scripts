@@ -51,7 +51,7 @@ def generate_great_xml(config, app, f_xml, **kwargs):
     elif app == 'great_orbdif':
         trans = "STRD"
         excsys = "BDS GAL GLO"
-        excsat = "C01 C02 C03 C04 C05 G18"
+        excsat = "C01 C02 C03 C04 C05 G18 G23"
         for key, val in kwargs.items():
             if key == 'trans':
                 trans = val
@@ -788,7 +788,7 @@ def _generate_orbfit_xml(config, f_xml_out):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", excsat="C01 C02 C03 C04 C05 G18"):
+def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", excsat="C01 C02 C03 C04 C05 G18 G23"):
     # to be changed, because orbit and orbdif are two GREAT App
     root = ET.Element('config')
     tree = ET.ElementTree(root)

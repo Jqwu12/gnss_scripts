@@ -1,5 +1,5 @@
 from funcs.gnss_config import GnssConfig
-from funcs.gnss_time import GNSStime, hms2sod
+from funcs.gnss_time import GnssTime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
 from funcs.constants import form_leolist
 import os
@@ -94,7 +94,7 @@ else:
 
 count = args.num
 seslen = hms2sod(args.len + 2)
-t_beg0 = GNSStime()
+t_beg0 = GnssTime()
 t_beg0.from_ydoy(args.year, args.doy, sod)
 # ------- daily loop -------------
 while count > 0:

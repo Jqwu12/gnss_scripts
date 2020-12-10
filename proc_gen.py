@@ -1,6 +1,6 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs.gnss_config import GnssConfig
-from funcs.gnss_time import GNSStime, hms2sod
+from funcs.gnss_time import GnssTime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
 from funcs.constants import read_site_list, _MAX_THREAD
 import os
@@ -92,7 +92,7 @@ class ProcGen:
                 sod = hms2sod(self.args.hms[0])
         else:
             sod = hms2sod(0)
-        t_beg0 = GNSStime()
+        t_beg0 = GnssTime()
         t_beg0.from_ydoy(self.args.year, self.args.doy, sod)
         return t_beg0
 

@@ -1,13 +1,15 @@
 import time
+import numpy as np
 import pandas as pd
+import math
 import os
 import logging
 import math
-from funcs.gnss_time import GNSStime
-from funcs.constants import _LEO_INFO
+from funcs.gnss_time import GnssTime
+from funcs.constants import _LEO_INFO, get_sat_sys, get_gns_sat, get_gns_name
 
 
-def read_sp3file(f_sp3):
+def read_sp3_file(f_sp3):
     start = time.time()
     if not os.path.isfile(f_sp3):
         logging.error(f"NO SP3 file {f_sp3}")
@@ -42,7 +44,7 @@ def read_sp3file(f_sp3):
     data = []
     # header = ['time', 'sod', 'sat', 'px', 'py', 'pz']
     while True:
-        epoch = GNSStime()
+        epoch = GnssTime()
         for i in range(nsat + 1):
             if lines[i][0] == '*':
                 info = lines[i].split()
@@ -67,7 +69,6 @@ def read_sp3file(f_sp3):
     msg = f"{f_sp3} file is read in {end - start:.2f} seconds"
     logging.info(msg)
     return pd.DataFrame(data)
-    #return data
 
 
 def read_rnxc_file(f_name, mode="AS"):
@@ -82,7 +83,7 @@ def read_rnxc_file(f_name, mode="AS"):
                 continue
             if len(line) < 59:
                 continue
-            epoch = GNSStime()
+            epoch = GnssTime()
             name = line[3:7].strip()
             year = int(line[8:12])
             mon = int(line[13:15])
@@ -94,7 +95,6 @@ def read_rnxc_file(f_name, mode="AS"):
             data.append(sat_dict)
 
     return pd.DataFrame(data)
-    #return data
 
 
 def read_rnxo_file(f_name):
@@ -131,7 +131,7 @@ def read_rnxo_file(f_name):
     data = []
     nline = 0
     while True:
-        epoch = GNSStime()
+        epoch = GnssTime()
         # =============================================================================
         while True:
             if 'COMMENT' in lines[0]:
@@ -201,10 +201,9 @@ def read_rnxo_file(f_name):
     msg = f"{f_name} file is read in {end - start:.2f} seconds"
     logging.info(msg)
     return pd.DataFrame(data)
-    #return data
 
 
-def read_resfile(f_res):
+def read_res_file(f_res):
     try:
         with open(f_res) as file_object:
             lines = file_object.readlines()
@@ -213,7 +212,7 @@ def read_resfile(f_res):
         return
 
     lfound = False
-    tbeg = GNSStime()
+    tbeg = GnssTime()
     intv = 30
     for line in lines:
         if line[0:2] != '##':
@@ -233,7 +232,7 @@ def read_resfile(f_res):
         if line.find("RES") != 0:
             continue
         rec_dict = {}
-        tt = GNSStime()
+        tt = GnssTime()
         tt.from_datetime(line[11:30])
         epo = int(tt.diff(tbeg) / intv) + 1
         rec_dict['epo'] = epo
@@ -245,6 +244,265 @@ def read_resfile(f_res):
         rec_dict['res'] = float(line[74:89])
         data.append(rec_dict)
     return pd.DataFrame(data)
+
+
+def read_clkdif_sum(f_name, mjd):
+    try:
+        with open(f_name) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.error(f"file not found {f_name}")
+        return
+
+    sats = []
+    str_val = ''
+    for line in lines:
+        if line[0:4] == 'NAME':
+            sats = line[4:].replace('\n', '').rstrip().split()
+        if line[0:3] == 'STD':
+            str_val = line[4:].replace('\n', '')
+
+    if not sats or not str_val:
+        return
+
+    info = str_val.split()
+    data = []
+    for i in range(len(sats)):
+        data.append({
+            'sat': sats[i], 'gsys': get_gns_name(sats[i][0]), 'val': float(info[i]), 'mjd': int(mjd)
+        })
+    dd = pd.DataFrame(data)
+    # find ref clock
+    ref_sat = 'G08'
+    for sat in ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']:
+        if sat in set(dd.sat):
+            ref_sat = sat
+            break
+    dd = dd[dd.sat != ref_sat]
+    return dd
+
+
+def sum_clkdif(f_list, mjds, mode=None):
+    if not f_list:
+        logging.error(f"input clkdif file list is empty")
+        return
+    if len(f_list) != len(mjds):
+        logging.error(f"mjd is required for summarizing clkdif")
+        return
+    data = pd.DataFrame()
+    for i in range(len(f_list)):
+        data_tmp = read_clkdif_sum(f_list[i], mjds[i])
+        if data_tmp is None:
+            continue
+        else:
+            if data_tmp.empty:
+                continue
+        data = data.append(data_tmp)
+
+    sats = list(set(data.sat))
+    sats.sort()
+    ndays = len(mjds)
+    if mode == 'sat':
+        data_new = []
+        for sat in sats:
+            dd = data[data.sat == sat]
+            if len(dd) < ndays * 0.6:
+                continue
+            data_new.append({
+                'sat': sat, 'gsys': get_gns_name(sat[0]), 'val': dd['val'].mean()
+            })
+        return pd.DataFrame(data_new)
+    elif mode == 'mjd':
+        data_new = []
+        gsys = list(set(data.gsys))
+        gsys.sort()
+        for mjd in mjds:
+            for gs in gsys:
+                dd = data[(data.mjd == mjd) & (data.gsys == gs)]
+                data_new.append({
+                    'mjd': mjd, 'gsys': gs, 'val': dd['val'].mean()
+                })
+        return pd.DataFrame(data_new)
+    else:
+        return data
+
+
+def read_orbdif_sum(f_name):
+    try:
+        with open(f_name) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.error(f"file not found {f_name}")
+        return
+
+    sats = []
+    i = 0
+    for line in lines:
+        i += 1
+        if line[0:19] == '                SAT':
+            sats = line[27:].replace('\n', '').rstrip().split('               ')
+            break
+
+    if not sats:
+        logging.error(f"not satellite in {f_name}")
+        return
+
+    del lines[0:i]
+    nsats = len(sats)
+
+    data = []
+    mjd0 = 0
+    sod0 = 0
+    for line in lines:
+        if line[0:3] == 'ACR':
+            mjd0 = float(line[4:9])
+            sod0 = float(line[10:19])
+            break
+
+    if mjd0 == 0:
+        return
+    mjd = mjd0 + sod0/86400
+    str_rms = ''
+    for line in lines:
+        if line[0:6] == 'FITRMS':
+            str_rms = line[19:].replace('\n', '')
+            break
+
+    if not str_rms:
+        return
+
+    for i in range(nsats):
+        str_a = str_rms[i * 18:i * 18 + 6].strip()
+        str_c = str_rms[i * 18 + 7:i * 18 + 12].strip()
+        str_r = str_rms[i * 18 + 13:i * 18 + 18].strip()
+        val_a = int(str_a) / 10  # unit: cm
+        val_c = int(str_c) / 10
+        val_r = int(str_r) / 10
+        val_3d = math.sqrt(val_a ** 2 + val_c ** 2 + val_r ** 2)
+        if val_3d > 200:
+            continue
+        data.append({'mjd': mjd, 'sat': sats[i], 'val': val_a, 'type': 'along'})
+        data.append({'mjd': mjd, 'sat': sats[i], 'val': val_c, 'type': 'cross'})
+        data.append({'mjd': mjd, 'sat': sats[i], 'val': val_r, 'type': 'radial'})
+        data.append({'mjd': mjd, 'sat': sats[i], 'val': val_3d, 'type': '3d'})
+    return pd.DataFrame(data)
+
+
+def read_orbdif_file(f_name):
+    try:
+        with open(f_name) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.error(f"file not found {f_name}")
+        return
+
+    sats = []
+    i = 0
+    for line in lines:
+        i += 1
+        if line[0:19] == '                SAT':
+            sats = line[27:].replace('\n', '').rstrip().split('               ')
+            break
+
+    if not sats:
+        logging.error(f"not satellite in {f_name}")
+        return
+
+    del lines[0:i]
+    nsats = len(sats)
+
+    data = []
+    mjd0 = 0
+    sod0 = 0
+    for line in lines:
+        if line[0:3] == 'ACR':
+            mjd = float(line[4:9])
+            sod = float(line[10:19])
+            if mjd0 == 0 and sod0 == 0:
+                mjd0 = mjd
+                sod0 = sod
+            sec = (mjd - mjd0)*86400 + sod - sod0
+            fmjd = mjd + sod/86400
+            str_rms = line[19:]
+            for i in range(nsats):
+                str_a = str_rms[i * 18:i * 18 + 6].strip()
+                str_c = str_rms[i * 18 + 7:i * 18 + 12].strip()
+                str_r = str_rms[i * 18 + 13:i * 18 + 18].strip()
+                val_a = int(str_a) / 10  # unit: cm
+                val_c = int(str_c) / 10
+                val_r = int(str_r) / 10
+                val_3d = math.sqrt(val_a ** 2 + val_c ** 2 + val_r ** 2)
+                if val_3d > 200:
+                    continue
+                data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_a, 'type': 'along'})
+                data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_c, 'type': 'cross'})
+                data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_r, 'type': 'radial'})
+                data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_3d, 'type': '3d'})
+
+    if data:
+        return pd.DataFrame(data)
+    else:
+        return
+
+
+def sum_orbdif(f_list, mode=None):
+    if not f_list:
+        return
+    data_sum = []
+    for file in f_list:
+        data_tmp = read_orbdif_sum(file)
+        if data_tmp is None:
+            continue
+        else:
+            if data_tmp.empty:
+                continue
+        mjd = int(data_tmp.mjd[0])
+        sats = list(set(data_tmp.sat))
+        sats.sort()
+        for sat in sats:
+            data_a = data_tmp[(data_tmp.sat == sat) & (data_tmp['type'] == 'along')]
+            if 230 > len(data_a) > 1:
+                continue
+            for tp in ['along', 'cross', 'radial', '3d']:
+                data = data_tmp[(data_tmp.sat == sat) & (data_tmp['type'] == tp)]
+                data_sum.append({
+                    'mjd': mjd, 'sat': sat, 'gsys': get_gns_name(sat[0]), 'rms': rms_val(data['val']), 'type': tp
+                })
+    data_pd = pd.DataFrame(data_sum)
+    sats = list(set(data_pd.sat))
+    sats.sort()
+    mjds = list(set(data_pd.mjd))
+    ndays = len(mjds)
+    if mode == 'sat':
+        data_new = []
+        for sat in sats:
+            dd = data_pd[data_pd.sat == sat]
+            if len(dd) < ndays * 0.6 * 4:
+                continue
+            for tp in ['along', 'cross', 'radial', '3d']:
+                dd = data_pd[(data_pd.sat == sat) & (data_pd.type == tp)]
+                data_new.append({
+                    'sat': sat, 'gsys': get_gns_name(sat[0]), 'rms': dd.rms.mean(), 'type': tp
+                })
+        return pd.DataFrame(data_new)
+    elif mode == 'mjd':
+        data_new = []
+        gsys = list(set(data_pd.gsys))
+        gsys.sort()
+        for mjd in mjds:
+            for gs in gsys:
+                for tp in ['along', 'cross', 'radial', '3d']:
+                    dd = data_pd[(data_pd.mjd == mjd) & (data_pd.gsys == gs) & (data_pd['type'] == tp)]
+                    data_new.append({
+                        'mjd': mjd, 'gsys': gs, 'rms': dd.rms.mean(), 'type': tp
+                    })
+        return pd.DataFrame(data_new)
+    else:
+        return data_pd
+
+
+def rms_val(x):
+    return math.sqrt(np.dot(x,x)/len(x))
 
 
 def isfloat(value):
@@ -344,10 +602,10 @@ def check_att_file(f_att):
         if len(lines) < 100:
             logging.warning(f"records in attitude file too few: {len(lines)}")
             return False
-        first = GNSStime()
-        second = GNSStime()
-        third = GNSStime()
-        last = GNSStime()
+        first = GnssTime()
+        second = GnssTime()
+        third = GnssTime()
+        last = GnssTime()
         first.from_mjd(int(lines[0].split()[0]), float(lines[0].split()[1]))
         second.from_mjd(int(lines[1].split()[0]), float(lines[1].split()[1]))
         third.from_mjd(int(lines[2].split()[0]), float(lines[2].split()[1]))

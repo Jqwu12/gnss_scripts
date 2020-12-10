@@ -94,23 +94,20 @@ def hms2sod(hh, mm=0, ss=0.0):
     return int(hh)*3600 + int(mm)*60 + float(ss)
 
 
-class GNSStime:
+class GnssTime:
 
     def __init__(self):
         self.year = 2019
-        self.yr = 19
         self.doy = 100
         self.month = 4
         self.day = 1
-        self.gwk = 0
-        self.gwkd = 0
         self.mjd = 0
         self.sod = 0.0
 
     def __add__(self, other):
         """ return a new GNSSTime with time increasing by dsec seconds """
         try:
-            time_new = GNSStime()
+            time_new = GnssTime()
             time_new.from_mjd(self.mjd, self.sod + float(other))
             return time_new
         except TypeError:
@@ -119,7 +116,7 @@ class GNSStime:
     def __sub__(self, other):
         """ return a new GNSSTime with time decreasing by dsec seconds """
         try:
-            time_new = GNSStime()
+            time_new = GnssTime()
             time_new.from_mjd(self.mjd, self.sod - float(other))
             return time_new
         except TypeError:
@@ -168,8 +165,6 @@ class GNSStime:
         """ set all time according to mjd and seconds of day """
         self.doy, self.year = mjd2ydoy(self.mjd)
         self.month, self.day = doy2ymd(self.year, self.doy)
-        self.yr = int(str(self.year)[2:])
-        self.gwk, self.gwkd = ymd2gpsweek(self.year, self.month, self.day)
 
     def from_ymd(self, year, mon, day, sod=0.0):
         """ set GNSSTime by year, mon, day and seconds of day """
@@ -218,8 +213,23 @@ class GNSStime:
         sod = hh * 3600 + mm * 60 + ss
         self.from_ymd(year, month, day, sod)
 
-    def dmjd(self):
+    def fmjd(self):
         return self.mjd + self.sod / 86400.0
+
+    def gwkd(self):
+        doy, year = mjd2ydoy(self.mjd)
+        month, day = doy2ymd(year, doy)
+        gwk, gwkd = ymd2gpsweek(year, month, day)
+        return gwkd
+
+    def gwk(self):
+        doy, year = mjd2ydoy(self.mjd)
+        month, day = doy2ymd(year, doy)
+        gwk, gwkd = ymd2gpsweek(year, month, day)
+        return gwk
+
+    def yr(self):
+        return int(str(self.year)[2:])
 
     def datetime(self):
         """ format: 2019-07-19 00:00:00 """
@@ -232,5 +242,5 @@ class GNSStime:
 
     def config_timedic(self):
         """ return a dictionary of time information for config file """
-        return {'yyyy': f"{self.year:4d}", 'ddd': f"{self.doy:0>3d}", 'yy': f"{self.yr:0>2d}",
-                'mm': f"{self.month:0>2d}", 'gwk': f"{self.gwk:0>4d}", 'gwkd': f"{self.gwk:0>4d}{self.gwkd:1d}"}
+        return {'yyyy': f"{self.year:4d}", 'ddd': f"{self.doy:0>3d}", 'yy': f"{self.yr():0>2d}",
+                'mm': f"{self.month:0>2d}", 'gwk': f"{self.gwk():0>4d}", 'gwkd': f"{self.gwk():0>4d}{self.gwkd():1d}"}

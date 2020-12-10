@@ -98,6 +98,15 @@ def get_gns_info(gsys, sat_rm=[], band=[]):
     return info
 
 
+def get_sat_sys(sats):
+    gsys = []
+    for sat in sats:
+        gs = get_gns_name(sat[0])
+        if gs not in gsys:
+            gsys.append(gs)
+    return gsys
+
+
 _LEO_INFO = {
     'grace-a': {'abbr': 'graa', 'slrnam': 'gracea', 'ant': 'GRAALEOANNTE'},
     'grace-b': {'abbr': 'grab', 'slrnam': 'graceb', 'ant': 'GRABLEOANNTE'},

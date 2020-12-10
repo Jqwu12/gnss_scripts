@@ -12,9 +12,9 @@ class ProcGnsPod(ProcGen):
         self.default_args['dsc'] = "GREAT GNSS Precise Orbit Determination"
         self.default_args['cf'] = 'cf_gnspod.ini'
 
-        self.required_subdir = ['log_tb', 'tmp', 'orbdif', 'clkdif']
+        self.required_subdir = ['log_tb', 'tmp', 'orbdif', 'clkdif', 'figs']
         self.required_opt = ['estimator']
-        self.required_file = ['rinexo', 'rinexn', 'sp3', 'biabern']
+        self.required_file = ['rinexo', 'rinexn', 'biabern']
 
         self.ref_cen = ['com', 'gbm', 'wum']
 
@@ -117,10 +117,12 @@ class ProcGnsPod(ProcGen):
         self.save_results(['F3', 'AR'])
 
     def save_results(self, labels):
-        save_dir = os.path.join(self.result_dir, "orbdif", f"{self.config.beg_time().year}")
+        orbdif_dir = os.path.join(self.result_dir, "orbdif", f"{self.config.beg_time().year}")
+        clkdif_dir = os.path.join(self.result_dir, "clkdif", f"{self.config.beg_time().year}")
         for c in self.ref_cen:
             self.config.update_process(cen=c)
-            gt.copy_result_files_to_path(self.config, ['orbdif'], save_dir, labels)
+            gt.copy_result_files_to_path(self.config, ['orbdif'], orbdif_dir, labels)
+            gt.copy_result_files_to_path(self.config, ['clkdif'], clkdif_dir, labels)
 
 
 if __name__ == '__main__':
