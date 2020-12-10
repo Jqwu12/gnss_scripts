@@ -278,7 +278,7 @@ def read_clkdif_sum(f_name, mjd):
         if sat in set(dd.sat):
             ref_sat = sat
             break
-    dd = dd[dd.sat != ref_sat]
+    dd = dd[(dd.sat != ref_sat) & (dd['val'] < 3)]
     return dd
 
 
