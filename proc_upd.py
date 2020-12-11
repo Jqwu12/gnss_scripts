@@ -29,6 +29,11 @@ class ProcUpd(ProcGen):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'UPD')
 
+    def process_ppp(self):
+        logging.info(f"===> Calculate float ambiguities by precise point positioning")
+        gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
+                     label='ppplsq', xmldir=self.xml_dir)
+
     def process_upd(self, obs_comb=None):
         if obs_comb:
             self.config.update_gnssinfo(obs_comb=obs_comb)
@@ -39,17 +44,15 @@ class ProcUpd(ProcGen):
 
         f_ifcb = self.config.get_filename('ifcb', check=True)
         # if no ifcb file in current dir, run ifcb estimation
-        if f_ifcb.isspace():
+        if not f_ifcb:
             if self.args.freq > 2 and "G" in self.args.sys:
                 with gt.timeblock("Finished IFCB estimation"):
                     self.config.update_process(sys='G')
-                    gt.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
+                    gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
                     self.config.update_process(sys=self.args.sys)
                     upd_results.append('ifcb')
 
-        logging.info(f"===> Calculate float ambiguities by precise point positioning")
-        gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
-                     label='ppplsq', xmldir=self.xml_dir)
+        self.process_ppp()
 
         for gsys in self.args.sys:
             self.config.update_process(sys=gsys)
@@ -88,6 +91,9 @@ class ProcUpd(ProcGen):
             logging.info(f"===> Merge UPD: {gt.list2str(upd_results)}")
             gt.merge_upd_all(self.config, self.args.sys, upd_results)
 
+        return upd_results
+
+    def save_results(self, upd_results):
         # Copy results
         upd_data = self.config.config.get("common", "upd_data")
         logging.info(f"===> Copy UPD results to {upd_data}")
@@ -95,32 +101,14 @@ class ProcUpd(ProcGen):
 
     def process_daily(self):
         with gt.timeblock("Finish process UC upd"):
-            self.process_upd(obs_comb='UC')
+            upd_results = self.process_upd(obs_comb='UC')
+            self.save_results(upd_results)
+            gt.backup_dir('ambupd', 'ambupd_UC')
 
         with gt.timeblock("Finish process IF upd"):
-            self.process_upd(obs_comb='IF')
-
-    def ppp_clean(self):
-        # detect outliers in carrier-range by PPP
-        if not os.path.isdir("ambupd_save"):
-            os.rename("ambupd", "ambupd_save")
-        self.config.update_process(crd_constr='FIX')
-        self.config.update_process(apply_carrier_range='true', append=True)
-        with gt.timeblock("Finished PPP"):
-            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(),
-                         fix_mode="NO", use_res_crd=True, label='ppplsq', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                     mode="L12", edt_amb=True, all_sites=True, label='editres12', xmldir=self.xml_dir)
-        if self.args.freq > 2:
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                         mode="L13", edt_amb=True, all_sites=True, label='editres13', xmldir=self.xml_dir)
-
-    def process_carrier_range(self):
-        # not test yet!
-        self.process_daily()
-        self.ppp_clean()
-        gr.run_great(self.grt_bin, "great_convobs", self.config, nthread=self.nthread(),
-                     label='convobs', xmldir=self.xml_dir)
+            upd_results = self.process_upd(obs_comb='IF')
+            self.save_results(upd_results)
+            gt.backup_dir('ambupd', 'ambupd_IF')
 
 
 if __name__ == '__main__':

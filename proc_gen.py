@@ -170,6 +170,9 @@ class ProcGen:
     def process_daily(self):
         pass
 
+    def save_results(self, x):
+        pass
+
     def process_batch(self):
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s - %(filename)20s[line:%(lineno)5d] - %(levelname)8s: %(message)s')

@@ -234,6 +234,21 @@ def check_brd_orbfit(f_name):
     return sat_rm
 
 
+def backup_dir(dir1, dir2):
+    if not os.path.isdir(dir1):
+        logging.error(f"directory not exists {dir1}")
+        return
+    if not os.path.isdir(dir2):
+        os.makedirs(dir2)
+
+    f2 = [file for file in os.listdir(dir2)]
+    for file in os.listdir(dir1):
+        if file not in f2:
+            f_org = os.path.join(dir1, file)
+            f_est = os.path.join(dir2, file)
+            shutil.copy(f_org, f_est)
+
+
 def backup_files(config, files, sattype='gns', suffix="bak"):
     for file in files:
         file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)

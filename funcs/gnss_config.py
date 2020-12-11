@@ -165,13 +165,13 @@ class GnssConfig:
                 self.config.set('process_scheme', key, f"{val}")
 
     def update_ambiguity(self, append=False, **kwargs):
-        """ Update any process item in config """
+        """ Update any ambiguity item in config """
         for key, val in kwargs.items():
             if not append:
                 if self.config.has_option('ambiguity_scheme', key):
-                    self.config.set('ambiguity_scheme', key, val)
+                    self.config.set('ambiguity_scheme', key, f"{val}")
             else:
-                self.config.set('ambiguity_scheme', key, val)
+                self.config.set('ambiguity_scheme', key, f"{val}")
 
     def change_data_path(self, file, target):
         """
