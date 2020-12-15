@@ -104,7 +104,7 @@ class ProcGen:
         self.grt_bin = self.config.config.get('common', 'grt_bin')
 
     def init_daily(self, crt_time, seslen):
-        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.args.intv), self.args.intv)
+        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
         self.config.update_stalist(self.sta_list)
         self.config.update_gnssinfo(sat_rm=[])
         # self.config.change_data_path('rinexo', 'obs')
@@ -174,8 +174,9 @@ class ProcGen:
         pass
 
     def process_batch(self):
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s - %(filename)20s[line:%(lineno)5d] - %(levelname)8s: %(message)s')
+        # logging.basicConfig(level=logging.INFO,
+        #                     format='%(asctime)s - %(filename)20s[line:%(lineno)5d] - %(levelname)8s: %(message)s')
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)8s: %(message)s')
         # ------ Path information --------
         if platform.system() == 'Windows':
             all_path = {

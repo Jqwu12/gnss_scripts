@@ -71,8 +71,8 @@ class ProcGnsPod(ProcGen):
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
-        logging.info(f"Everything is ready: number of stations = {len(proc.config.stalist())}, "
-                     f"number of satellites = {len(proc.config.all_gnssat())}")
+        logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
+                     f"number of satellites = {len(self.config.all_gnssat())}")
         logging.info(f"===> 1st iteration for precise orbit determination")
         # quality control
         with gt.timeblock("Finished 1st POD"):

@@ -540,6 +540,26 @@ def check_ambflag(f_ambflag):
         return False
 
 
+def switch_ambflag(config, old='AMB ', new='IAM ', mode='123'):
+    if '2' in mode:
+        f_ambflag = config.get_filename('ambflag', check=True)
+        for f_name in f_ambflag.split():
+            alter_file(f_name, old, new)
+    if '3' in mode:
+        f_ambflag = config.get_filename('ambflag13', check=True)
+        for f_name in f_ambflag.split():
+            alter_file(f_name, old, new)
+    if '4' in mode:
+        f_ambflag = config.get_filename('ambflag14', check=True)
+        for f_name in f_ambflag.split():
+            alter_file(f_name, old, new)
+    if '5' in mode:
+        f_ambflag = config.get_filename('ambflag15', check=True)
+        for f_name in f_ambflag.split():
+            alter_file(f_name, old, new)
+
+
+
 def check_rnxo_ant(f_rnxo, f_atx, change=True):
     """ check if the antenna of RINEXO file in igs14.atx """
     if os.path.isfile(f_rnxo):

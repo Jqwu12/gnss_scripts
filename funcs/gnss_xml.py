@@ -50,16 +50,13 @@ def generate_great_xml(config, app, f_xml, **kwargs):
         _generate_clkdif_xml(config, f_xml)
     elif app == 'great_orbdif':
         trans = "STRD"
-        excsys = "BDS GAL GLO"
         excsat = "C01 C02 C03 C04 C05 G18 G23"
         for key, val in kwargs.items():
             if key == 'trans':
                 trans = val
-            elif key == "excsys":
-                excsys = val
             elif key == "excsat":
                 excsat = val
-        _generate_orbdif_xml(config, f_xml, trans, excsys, excsat)
+        _generate_orbdif_xml(config, f_xml, trans, excsat)
     elif app == 'great_orbfit':
         _generate_orbfit_xml(config, f_xml)
     elif app == 'great_orbfitleo':
@@ -788,7 +785,18 @@ def _generate_orbfit_xml(config, f_xml_out):
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 
 
-def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", excsat="C01 C02 C03 C04 C05 G18 G23"):
+def get_excsys(config):
+    if 'GPS' in config.gnssys():
+        return "BDS GAL GLO"
+    elif 'GAL' in config.gnssys():
+        return "BDS GLO"
+    elif "GLO" in config.gnssys():
+        return "BDS"
+    else:
+        return ""
+
+
+def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsat="C01 C02 C03 C04 C05 G18 G23"):
     # to be changed, because orbit and orbdif are two GREAT App
     root = ET.Element('config')
     tree = ET.ElementTree(root)
@@ -804,7 +812,7 @@ def _generate_orbdif_xml(config, f_xml_out, trans="STRD", excsys="BDS GAL GLO", 
     ele = ET.SubElement(orbdif, 'excsat')
     ele.text = excsat
     ele = ET.SubElement(orbdif, 'excsys')
-    ele.text = excsys
+    ele.text = get_excsys(config)
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 

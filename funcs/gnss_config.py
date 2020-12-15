@@ -267,7 +267,7 @@ class GnssConfig:
     def xml_process(self):
         """ return a dict for xml <process> """
         proc_dict = {
-            "grad_mf": "BAR_SEVER", "gradient": "false", "minimum_elev": "7", "minimum_elev_leo": "1",
+            "grad_mf": "BAR_SEVER", "gradient": "false", "minimum_elev": "9", "minimum_elev_leo": "1",
             "obs_weight": "PARTELE", "phase": "true", "slip_model": "turboedit"
         }
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
@@ -551,10 +551,10 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and f_type == 'ambflag':
+                if f_out.strip() != '' and 'ambflag' in f_type:
                     if not gf.check_ambflag(f_out.strip()):
                         f_out = ''
-                if len(f_out.strip()) == 0:
+                if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     leo_rm.append(leo)
                 else:
                     file_all = file_all + " " + f_out
@@ -572,10 +572,10 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and f_type == 'ambflag':
+                if f_out.strip() != '' and 'ambflag' in f_type:
                     if not gf.check_ambflag(f_out.strip()):
                         f_out = ''
-                if len(f_out.strip()) == 0:
+                if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     sta_rm.append(sta)
                 else:
                     file_all = file_all + " " + f_out
