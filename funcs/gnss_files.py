@@ -559,6 +559,48 @@ def switch_ambflag(config, old='AMB ', new='IAM ', mode='123'):
             alter_file(f_name, old, new)
 
 
+def conv_ambflag_all(old_dir, new_dir):
+    if not os.path.isdir(old_dir):
+        logging.error(f"path not exists {old_dir}")
+        return
+    if not os.path.isdir(new_dir):
+        os.makedirs(new_dir)
+    num = 0
+    for file in os.listdir(old_dir):
+        n = len(file)
+        if n < 7:
+            continue
+        if file[n-5: n] == "o.log" or file[n-7: n] in ["o.log13", "o.log14", "o.log15"]:
+            file_new = os.path.join(new_dir, file)
+            conv_ambflag_panda2great(os.path.join(old_dir, file), file_new)
+            num += 1
+    logging.info(f"{num} ambflag files are converted to GREAT format")
+
+
+def conv_ambflag_panda2great(file, file_new):
+    try:
+        with open(file) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {file}")
+        return
+    # get ambflag header
+    file_data = ""
+    data = []
+    for line in lines:
+        if line[0] == '%':
+            file_data += line
+        elif line[0:3] in ['IAM', 'AMB', 'DEL', 'BAD']:
+            data.append({'sat': line[4:7], 'iepo': int(line[7:14]), 'jepo': int(line[14:21]),
+                         'flag': line[0:3], 'other': line[21:]})
+
+    df = pd.DataFrame(data)
+    df = df.sort_values(by=['sat', 'iepo'])
+    for index, row in df.iterrows():
+        file_data += f"{row['flag']} {row['sat']}{row['iepo']:>7d}{row['jepo']:>7d}{row['other']}"
+    with open(file_new, 'w') as f:
+        f.write(file_data)
+
 
 def check_rnxo_ant(f_rnxo, f_atx, change=True):
     """ check if the antenna of RINEXO file in igs14.atx """
