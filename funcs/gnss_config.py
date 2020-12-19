@@ -629,6 +629,10 @@ class GnssConfig:
                 f_out = self.get_file('upd_wl', check=check, conf_opt=conf_opt)
                 if int(self.config['process_scheme']['frequency']) > 2:
                     f_out = f_out + " " + self.get_file('upd_ewl', check=check, conf_opt=conf_opt)
+                if int(self.config['process_scheme']['frequency']) > 3:
+                    f_out = f_out + " " + self.get_file('upd_ewl24', check=check, conf_opt=conf_opt)
+                if int(self.config['process_scheme']['frequency']) > 4:
+                    f_out = f_out + " " + self.get_file('upd_ewl25', check=check, conf_opt=conf_opt)
                 if not self.is_integer_clock():
                     f_nlupd = self.get_file('upd_nl', check=check, conf_opt=conf_opt)
                     f_out = f_out + " " + f_nlupd

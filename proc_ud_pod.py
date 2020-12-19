@@ -41,7 +41,7 @@ class ProcUdPod(ProcGnsPod):
             gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('AR1')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=50, jump=50,
+        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
                      label='editres', xmldir=self.xml_dir)
         gf.switch_ambflag(self.config, mode='12')
 
@@ -51,8 +51,8 @@ class ProcUdPod(ProcGnsPod):
             gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('AR2')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, jump=50, label='editamb',
-                     edt_amb=True, xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
+                     label='editres', xmldir=self.xml_dir)
         gf.switch_ambflag(self.config, mode='12')
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
@@ -61,6 +61,16 @@ class ProcUdPod(ProcGnsPod):
             gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
 
         self.evl_orbdif('AR3')
+        gr.run_great(self.grt_bin, 'great_editres', self.config, jump=40, edt_amb=True,
+                     label='editres', xmldir=self.xml_dir)
+
+        logging.info(f"===> 4th iteration for precise orbit determination")
+        with gt.timeblock("Finished 4th POD"):
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+
+        self.evl_orbdif('AR4')
+        self.save_results(['AR4'])
 
 
 if __name__ == '__main__':

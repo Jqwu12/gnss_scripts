@@ -29,6 +29,7 @@ class ProcPpp(ProcGen):
             self.config.update_gnssinfo(freq=int(freq))
         if obs_comb:
             self.config.update_gnssinfo(obs_comb=str(obs_comb))
+            self.config.copy_sys_data()
 
         if not fix:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),

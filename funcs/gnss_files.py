@@ -231,18 +231,13 @@ def read_res_file(f_res):
     for line in lines:
         if line.find("RES") != 0:
             continue
-        rec_dict = {}
         tt = GnssTime()
         tt.from_datetime(line[11:30])
         epo = int(tt.diff(tbeg) / intv) + 1
-        rec_dict['epo'] = epo
-        rec_dict['mjd'] = tt.mjd + tt.sod / 86400.0
-        rec_dict['sod'] = tt.sod
-        rec_dict['site'] = line[39:43]
-        rec_dict['sat'] = line[48:51]
-        rec_dict['ot'] = line[57:59]
-        rec_dict['res'] = float(line[74:89])
-        data.append(rec_dict)
+        data.append({
+            'epo': epo, 'mjd': tt.mjd + tt.sod / 86400.0, 'sod': tt.sod,
+            'site': line[39:43], 'sat': line[48:51], 'ot': line[57:59], 'res': float(line[74:89])
+        })
     return pd.DataFrame(data)
 
 
@@ -599,6 +594,39 @@ def conv_ambflag_panda2great(file, file_new):
     for index, row in df.iterrows():
         file_data += f"{row['flag']} {row['sat']}{row['iepo']:>7d}{row['jepo']:>7d}{row['other']}"
     with open(file_new, 'w') as f:
+        f.write(file_data)
+
+
+def clean_ambflag(f_name, data):
+    try:
+        with open(f_name) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {f_name}")
+        return
+
+    file_data = ""
+    data = []
+    for line in lines:
+        if line[0] == '%':
+            file_data += line
+        elif line[0:3] in ['AMB', 'DEL', 'BAD']:
+            file_data += line
+        elif line[0:3] == 'IAM':
+            flag = line[0:3]
+            sat = line[4:7]
+            iepo = int(line[7:14])
+            jepo = int(line[14:21])
+            x = data[(data.sat == sat) & (data.iepo * 10 > iepo - 9) & (data.jepo * 10 < jepo + 10)]
+            if not x.empty:
+                line = line.replace('IAM', 'AMB')
+                file_data += line
+            else:
+                file_data += line
+
+    if not os.path.isfile(f"{f_name}.bak"):
+        os.rename(f_name, f"{f_name}.bak")
+    with open(f_name, 'w') as f:
         f.write(file_data)
 
 

@@ -411,23 +411,14 @@ def _get_lsq_param(config, mode):
         else:
             ele.set("sigCLK", "5000")
         return param
-    # for site in config.stalist():
-    #     ele = ET.SubElement(param, 'STA')
-    #     ele.set("ID", site.upper())
-    #     ele.set("sigCLK", "9000")
-    #     ele.set("sigPOS", "100_100_100")
-    #     ele.set("sigCLK", "9000")
-    #     ele.set("sigTropPd", "0.015")
-    #     ele.set("sigZTD", "0.201")
-    # if mode == "PCE_EST":
-    #     for sat in config.all_gnssat():
-    #         ele = ET.SubElement(param, 'SAT')
-    #         ele.set("ID", sat)
-    #         ele.set("sigCLK", "5000")
-    #         ele.set("sigPOS", "10.000_10.000_10.000")
-    #         ele.set("sigVEL", "0.100_0.100_0.100")
-    #         ele.set("sigECOM", "10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000_10.000")
-
+    for site in config.stalist():
+        ele = ET.SubElement(param, 'STA')
+        ele.set("ID", site.upper())
+        ele.set("sigCLK", "9000")
+        ele.set("sigPOS", "100_100_100")
+        ele.set("sigCLK", "9000")
+        ele.set("sigTropPd", "0.015")
+        ele.set("sigZTD", "0.201")
     return param
 
 
@@ -477,12 +468,17 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
             ele.text = config.get_filename("ambupd_in", check=True)
             if mode == "NL":
                 ele = ET.SubElement(inp, "upd")
-                ele.text = config.get_filename("upd_wl", check=True) + " " + config.get_filename("upd_ewl", check=True)
+                if int(config.config['process_scheme']['frequency']) > 2:
+                    ele.text = config.get_filename("upd_wl", check=True) + " " + \
+                               config.get_filename("upd_ewl", check=True)
+                else:
+                    ele.text = config.get_filename("upd_wl", check=True)
                 if amb_dict['carrier_range'].upper() == "YES":
                     ele = ET.SubElement(inp, "ambflag")
                     ele.text = config.get_filename("ambflag", check=True)
-                    ele = ET.SubElement(inp, "ambflag13")
-                    ele.text = config.get_filename("ambflag13", check=True)
+                    if int(config.config['process_scheme']['frequency']) > 2:
+                        ele = ET.SubElement(inp, "ambflag13")
+                        ele.text = config.get_filename("ambflag13", check=True)
         else:
             if mode == "WL":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'biabern']
