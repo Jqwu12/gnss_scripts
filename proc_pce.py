@@ -28,7 +28,7 @@ class ProcPce(ProcGen):
     def evl_clkdif(self, label=None):
         for c in self.ref_cen:
             self.config.update_process(cen=c)
-            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir, stop=False)
             if label:
                 gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
 
@@ -38,14 +38,14 @@ class ProcPce(ProcGen):
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
         self.config.update_gnssinfo(freq=2)
-        self.config.update_band('G', '12')
+        self.config.update_band('G', '12')  # chang GPS bands to 1 2
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
-        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b12')
+        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b12')  # save 12 results
         self.evl_clkdif('b12')
 
-        self.config.update_band('G', '15')
+        self.config.update_band('G', '15')  # chang GPS bands to 1 5
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
-        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b15')
+        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b15')  # save 15 results
         self.evl_clkdif('b15')
 
 

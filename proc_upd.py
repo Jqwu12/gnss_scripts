@@ -45,7 +45,7 @@ class ProcUpd(ProcGen):
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
                      label='ppplsq', xmldir=self.xml_dir)
-        self.config.basic_check(files=['recover_all'])
+        self.config.basic_check(files=['recover_all', 'ambupd_in'])
 
     def process_upd_onesys(self, gsys):
         self.config.update_process(sys=gsys)

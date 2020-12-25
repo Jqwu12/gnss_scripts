@@ -103,8 +103,10 @@ class GnssConfig:
             info = sta_list
         self.config.set('process_scheme', 'sta_list', info)
 
-    def update_pathinfo(self, all_path={}, check=True):
+    def update_pathinfo(self, all_path=None, check=True):
         """ update the path information in config according to different OS """
+        if all_path is None:
+            all_path = {}
         required_path = ['grt_bin', 'base_dir', 'sys_data', 'gns_data']
         option_path = ['upd_data']
         if all_path:
@@ -238,6 +240,7 @@ class GnssConfig:
         gsys = get_gns_name(gsys)
         if not gsys:
             return
+        word = 'band_X'
         if gsys == "GPS":
             word = 'band_G'
         elif gsys == "BDS":
@@ -355,9 +358,9 @@ class GnssConfig:
 
     def gnsfreq(self, gsys):
         """ freq of one system """
-        GNS_INFO = get_gns_info(gsys, self.sat_rm(), self.band(gsys))
+        gns_info = get_gns_info(gsys, self.sat_rm(), self.band(gsys))
         nfreq = self.config.get('process_scheme', 'frequency')
-        mfreq = min(int(nfreq), len(GNS_INFO['band']))
+        mfreq = min(int(nfreq), len(gns_info['band']))
         return mfreq
 
     def freq(self):
@@ -559,7 +562,7 @@ class GnssConfig:
         if f_type == 'rinexo':
             f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
         elif f_type == 'recover_all':
-            f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
+            f_out = self.get_file('recover_in', config_vars, check=check, conf_opt=conf_opt)
         else:
             f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
 
@@ -580,7 +583,7 @@ class GnssConfig:
                 if f_type == 'rinexo':
                     f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
                 elif f_type == 'recover_all':
-                    f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
+                    f_out = self.get_file('recover_in', config_vars, check=check, conf_opt=conf_opt)
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
@@ -616,7 +619,7 @@ class GnssConfig:
                 self.remove_leo(leo_rm)
                 self.remove_sta(sta_rm)
                 if 'ambflag' in f_type:
-                    gt.remove_ambflag_file(self, sta_rm)
+                    self.remove_ambflag_file(sta_rm)
             return file_all.strip()
         elif f_type == 'kin':
             for leo in self.leolist():
@@ -714,7 +717,8 @@ class GnssConfig:
             for file in files:
                 f_name = self.get_filename(file, check=True)
                 if len(f_name) == 0:
-                    _raise_error(f"{file} file missing")
+                    logging.error(f"{file} file missing")
+                    return False
                 f_check = ""
                 if file == 'rinexo' and len(self.leolist()) > 0:
                     f_atx = self.get_filename('atx')
@@ -727,8 +731,10 @@ class GnssConfig:
                             f_check = f_check + " " + f_sub
                 else:
                     f_check = f_name
-                if f_check.isspace():
-                    _raise_error(f"No usable {file}")
+                f_check = f_check.strip()
+                if not f_check:
+                    logging.error(f"no usable {file}")
+                    return False
         return True
 
     def copy_sys_data(self):
@@ -750,3 +756,23 @@ class GnssConfig:
                 else:
                     logging.warning(f"Number of source files ({f_type}, {len(f_source)}) is not equal to target "
                                     f"files ({len(f_dest)})")
+
+    def remove_ambflag_file(self, sites):
+        if not sites:
+            return
+        for site in sites:
+            f_log12 = self.get_filename_site('ambflag', site, check=True)
+            if f_log12:
+                os.remove(f_log12)
+            if self.freq() > 2:
+                f_log13 = self.get_filename_site('ambflag13', site, check=True)
+                if f_log13:
+                    os.remove(f_log13)
+            if self.freq() > 3:
+                f_log14 = self.get_filename_site('ambflag14', site, check=True)
+                if f_log14:
+                    os.remove(f_log14)
+            if self.freq() > 4:
+                f_log15 = self.get_filename_site('ambflag15', site, check=True)
+                if f_log15:
+                    os.remove(f_log15)

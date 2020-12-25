@@ -1,10 +1,10 @@
-from proc_gns_pod import ProcGnsPod
+from proc_pod import ProcPod
 from funcs import gnss_tools as gt, gnss_run as gr, gnss_files as gf
 import os
 import logging
 
 
-class ProcUdPod(ProcGnsPod):
+class ProcUdPod(ProcPod):
     def __init__(self):
         super().__init__()
         self.default_args['cf'] = 'cf_udpod.ini'
@@ -33,14 +33,22 @@ class ProcUdPod(ProcGnsPod):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
         logging.info(f"===> 1st iteration for precise orbit determination")
-        # gt.recover_files(self.config, ['ics'])
-        gf.switch_ambflag(self.config, mode='12')
-        # quality control
-        with gt.timeblock("Finished 1st POD"):
-            self.detect_outliers()
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        gt.recover_files(self.config, ['ics', 'orb'])
+        if os.path.isfile('rec_2020100'):
+            os.remove('rec_2020100')
+        if os.path.isfile('clk_2020100'):
+            os.remove('clk_2020100')
+        # gf.switch_ambflag(self.config, old='AMB', new='DEL', mode='12')
 
-        self.evl_orbdif('AR1')
+        with gt.timeblock("Finished 1st POD"):
+            self.process_1st_pod('AR1', True, False)
+
+        gr.run_great(self.grt_bin, 'great_editres', self.config, jump=40, edt_amb=True,
+                     label='editres', xmldir=self.xml_dir)
+
+        with gt.timeblock("Finished 2nd POD"):
+            self.process_float_pod('AR2', True, False)
+
         gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
                      label='editres', xmldir=self.xml_dir)
         gf.switch_ambflag(self.config, mode='12')

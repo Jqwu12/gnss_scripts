@@ -190,30 +190,9 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     if site_rm_final:
         msg = f"BAD Turboedit results: {list2str(site_rm_final)}, removing the ambflag files..."
         logging.warning(msg)
-        remove_ambflag_file(config, site_rm_final)
+        config.remove_ambflag_file(site_rm_final)
     config.update_stalist(site_good)
     # config.remove_sta(site_rm_final)
-
-
-def remove_ambflag_file(config, sites):
-    if not sites:
-        return
-    for site in sites:
-        f_log12 = config.get_filename_site('ambflag', site, check=True)
-        if f_log12:
-            os.remove(f_log12)
-        if config.freq() > 2:
-            f_log13 = config.get_filename_site('ambflag13', site, check=True)
-            if f_log13:
-                os.remove(f_log13)
-        if config.freq() > 3:
-            f_log14 = config.get_filename_site('ambflag14', site, check=True)
-            if f_log14:
-                os.remove(f_log14)
-        if config.freq() > 4:
-            f_log15 = config.get_filename_site('ambflag15', site, check=True)
-            if f_log15:
-                os.remove(f_log15)
 
 
 def check_brd_orbfit(f_name):
@@ -254,6 +233,33 @@ def check_brd_orbfit(f_name):
     if sat_rm:
         logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
     return sat_rm
+
+
+def check_res_sigma(config, max_sig=10):
+    site_rm = []
+    for site in config.stalist():
+        file = config.get_file('recover_in', {'recnam': site}, check=True)
+        if not file:
+            logging.warning(f"cannot find resfile for {site}")
+            site_rm.append(site)
+            continue
+        sig = -1
+        with open(file) as f:
+            for line in f:
+                if line[0:2] != '##':
+                    break
+                if line[0:7] == '##Sigma':
+                    sig = float(line[10:23])
+                    if sig > max_sig:
+                        logging.warning(f"sigma0 too large in {file}: {sig:8.3f}")
+                        site_rm.append(site)
+                    break
+        if sig < 0:
+            logging.warning(f"sigma0 not find in {file}")
+            site_rm.append(site)
+
+    if site_rm:
+        config.remove_sta(site_rm)
 
 
 def backup_dir(dir1, dir2):
