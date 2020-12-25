@@ -2,15 +2,16 @@
 from funcs import gnss_tools as gt, gnss_run as gr
 from proc_gen import ProcGen
 import os
+import shutil
 import logging
 
 
-class ProcGnsPod(ProcGen):
+class ProcPod(ProcGen):
     def __init__(self):
         super().__init__()
 
         self.default_args['dsc'] = "GREAT GNSS Precise Orbit Determination"
-        self.default_args['cf'] = 'cf_gnspod.ini'
+        self.default_args['cf'] = 'cf_pod.ini'
 
         self.required_subdir = ['log_tb', 'tmp', 'orbdif', 'clkdif', 'figs']
         self.required_opt = ['estimator']
@@ -61,7 +62,7 @@ class ProcGnsPod(ProcGen):
                     logging.info(f"After quality control: number of stations = {len(self.config.stalist())}, "
                                  f"number of satellites = {len(self.config.all_gnssat())}")
                 break
-            gt.recover_files(self.config, ['ics'])
+            gt.recover_files(self.config, ['ics', 'orb'])
             # first remove bad stations
             if bad_site:
                 self.config.remove_sta(bad_site)
@@ -69,52 +70,36 @@ class ProcGnsPod(ProcGen):
             if bad_sat:
                 self.config.update_gnssinfo(sat_rm=self.config.sat_rm() + bad_sat)
 
-    def process_daily(self):
-        logging.info(f"------------------------------------------------------------------------")
-        logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
-                     f"number of satellites = {len(self.config.all_gnssat())}")
-        logging.info(f"===> 1st iteration for precise orbit determination")
-        # quality control
-        with gt.timeblock("Finished 1st POD"):
-            self.detect_outliers()
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+    def process_1st_pod(self, label='F1', evl=True, prod=False):
+        self.detect_outliers()
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        if evl:
+            self.evl_orbdif(label)
+        if prod:
+            self.generate_products(label)
 
-        self.evl_orbdif('F1')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
-                     label='editres', xmldir=self.xml_dir)
+    def process_float_pod(self, label='F1', evl=True, prod=False):
+        gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        if evl:
+            self.evl_orbdif(label)
+        if prod:
+            self.generate_products(label)
 
-        logging.info(f"===> 2nd iteration for precise orbit determination")
-        with gt.timeblock("Finished 2nd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+    def process_fix_pod(self, label='AR', evl=True, prod=False):
+        gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
+                     use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        if evl:
+            self.evl_orbdif(label)
+        if prod:
+            self.generate_products(label)
 
-        self.evl_orbdif('F2')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
-                     label='editres', xmldir=self.xml_dir)
-
-        logging.info(f"===> 3rd iteration for precise orbit determination")
-        with gt.timeblock("Finished 3rd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-
-        self.evl_orbdif('F3')
-        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
-
-        logging.info(f"===> Double-difference ambiguity resolution")
+    def process_ambfix(self):
+        intv = self.config.intv()
         self.config.update_process(intv=30)
         gr.run_great(self.grt_bin, 'great_ambfixDd', self.config, label="ambfix", xmldir=self.xml_dir)
-        self.config.update_process(intv=self.args.intv)
-
-        logging.info(f"===> 4th iteration for precise orbit determination")
-        self.config.update_process(crd_constr='FIX')
-        with gt.timeblock("Finished 4th POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                         use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-
-        self.evl_orbdif('AR')
-        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
-        self.save_results(['F3', 'AR'])
+        self.config.update_process(intv=intv)
 
     def save_results(self, labels):
         orbdif_dir = os.path.join(self.result_dir, "orbdif", f"{self.config.beg_time().year}")
@@ -124,7 +109,55 @@ class ProcGnsPod(ProcGen):
             gt.copy_result_files_to_path(self.config, ['orbdif'], orbdif_dir, labels)
             gt.copy_result_files_to_path(self.config, ['clkdif'], clkdif_dir, labels)
 
+    def generate_products(self, label=None):
+        gr.run_great(self.grt_bin, 'great_orbsp3', self.config, label='orb2sp3', xmldir=self.xml_dir)
+        f_sp31 = self.config.get_filename('sp3_out', check=True)
+        f_clk0 = self.config.get_filename('satclk', check=True)
+        f_clk1 = self.config.get_filename('clk_out', check=False)
+        if f_clk0:
+            shutil.copy(f_clk0, f_clk1)
+        else:
+            logging.warning(f"failed to find clk file {f_clk0}")
+        if label:
+            if f_sp31:
+                shutil.copy(f_sp31, f"{f_sp31}_{label}")
+            if os.path.isfile(f_clk1):
+                shutil.copy(f_clk1, f"{f_clk1}_{label}")
+
+    def process_daily(self):
+        logging.info(f"------------------------------------------------------------------------")
+        logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
+                     f"number of satellites = {len(self.config.all_gnssat())}")
+
+        logging.info(f"===> 1st iteration for precise orbit determination")
+        with gt.timeblock("Finished 1st POD"):
+            self.process_1st_pod('F1', True, False)
+            gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
+                         label='editres', xmldir=self.xml_dir)
+
+        logging.info(f"===> 2nd iteration for precise orbit determination")
+        with gt.timeblock("Finished 2nd POD"):
+            self.process_float_pod('F2', True, False)
+            gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
+                         label='editres', xmldir=self.xml_dir)
+
+        logging.info(f"===> 3rd iteration for precise orbit determination")
+        with gt.timeblock("Finished 3rd POD"):
+            self.process_float_pod('F3', True, True)
+
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
+        logging.info(f"===> Double-difference ambiguity resolution")
+        self.process_ambfix()
+
+        logging.info(f"===> 4th iteration for precise orbit determination")
+        self.config.update_process(crd_constr='FIX')
+        with gt.timeblock("Finished 4th POD"):
+            self.process_fix_pod('AR', True, True)
+
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
+        self.save_results(['F3', 'AR'])
+
 
 if __name__ == '__main__':
-    proc = ProcGnsPod()
+    proc = ProcPod()
     proc.process_batch()

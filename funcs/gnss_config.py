@@ -40,11 +40,14 @@ class GnssConfig:
         conf = copy.deepcopy(self.config)  # need python3.8 or higher!
         return GnssConfig("", conf)
 
-    def update_timeinfo(self, time_beg, time_end, intv):
+    def update_timeinfo(self, time_beg=None, time_end=None, intv=None):
         """ update the time information in config file """
-        self.config.set('process_scheme', 'time_beg', time_beg.datetime())
-        self.config.set('process_scheme', 'time_end', time_end.datetime())
-        self.config.set('process_scheme', 'intv', f"{intv:d}")
+        if time_beg:
+            self.config.set('process_scheme', 'time_beg', time_beg.datetime())
+        if time_end:
+            self.config.set('process_scheme', 'time_end', time_end.datetime())
+        if intv:
+            self.config.set('process_scheme', 'intv', f"{intv:d}")
 
     def update_gnssinfo(self, sys=None, freq=None, obs_comb=None, est=None, sat_rm=None):
         """ update the gnss settings in config file """
@@ -107,7 +110,7 @@ class GnssConfig:
         if all_path:
             logging.info("set path information from outside...")
         else:
-            logging.info("path information in config...")
+            logging.info("find path information in config...")
         for name in required_path:
             if name in all_path.keys():
                 path = all_path[name]
@@ -357,6 +360,22 @@ class GnssConfig:
         mfreq = min(int(nfreq), len(GNS_INFO['band']))
         return mfreq
 
+    def freq(self):
+        return int(self.config['process_scheme']['frequency'])
+
+    def update_band(self, gsys, bands):
+        gsys = get_gns_name(gsys)
+        if gsys == 'GPS':
+            self.config['process_scheme']['band_G'] = str(bands)
+        elif gsys == 'BDS':
+            self.config['process_scheme']['band_C'] = str(bands)
+        elif gsys == 'GAL':
+            self.config['process_scheme']['band_E'] = str(bands)
+        elif gsys == 'GLO':
+            self.config['process_scheme']['band_R'] = str(bands)
+        elif gsys == 'QZS':
+            self.config['process_scheme']['band_J'] = str(bands)
+
     def all_gnssat(self):
         """ Get all GNSS sats """
         sats = []
@@ -532,6 +551,20 @@ class GnssConfig:
             else:
                 return False
 
+    def get_filename_site(self, f_type, site, check=False, conf_opt='process_files'):
+        if f_type == 'ambupd_in' or f_type == 'recover_all':
+            config_vars = {'recnam': site.upper()}
+        else:
+            config_vars = {'recnam': site}
+        if f_type == 'rinexo':
+            f_out = self.get_dailyfile(f_type, config_vars, check=check, conf_opt=conf_opt)
+        elif f_type == 'recover_all':
+            f_out = self.get_dailyfile('recover_in', config_vars, check=check, conf_opt=conf_opt)
+        else:
+            f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
+
+        return f_out
+
     def get_filename(self, f_type, sattype='gns', check=False, conf_opt='process_files'):
         """ get the name of process files according to config file """
         file_all = ""
@@ -582,6 +615,8 @@ class GnssConfig:
             if check:
                 self.remove_leo(leo_rm)
                 self.remove_sta(sta_rm)
+                if 'ambflag' in f_type:
+                    gt.remove_ambflag_file(self, sta_rm)
             return file_all.strip()
         elif f_type == 'kin':
             for leo in self.leolist():
@@ -627,11 +662,11 @@ class GnssConfig:
             f_out = ""
             if not self.is_integer_clock_osb():
                 f_out = self.get_file('upd_wl', check=check, conf_opt=conf_opt)
-                if int(self.config['process_scheme']['frequency']) > 2:
+                if self.freq() > 2:
                     f_out = f_out + " " + self.get_file('upd_ewl', check=check, conf_opt=conf_opt)
-                if int(self.config['process_scheme']['frequency']) > 3:
+                if self.freq() > 3:
                     f_out = f_out + " " + self.get_file('upd_ewl24', check=check, conf_opt=conf_opt)
-                if int(self.config['process_scheme']['frequency']) > 4:
+                if self.freq() > 4:
                     f_out = f_out + " " + self.get_file('upd_ewl25', check=check, conf_opt=conf_opt)
                 if not self.is_integer_clock():
                     f_nlupd = self.get_file('upd_nl', check=check, conf_opt=conf_opt)

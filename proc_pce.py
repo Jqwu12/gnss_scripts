@@ -37,8 +37,16 @@ class ProcPce(ProcGen):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
+        self.config.update_gnssinfo(freq=2)
+        self.config.update_band('G', '12')
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
-        self.evl_clkdif()
+        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b12')
+        self.evl_clkdif('b12')
+
+        self.config.update_band('G', '15')
+        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
+        gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b15')
+        self.evl_clkdif('b15')
 
 
 if __name__ == '__main__':

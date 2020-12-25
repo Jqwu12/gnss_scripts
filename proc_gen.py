@@ -15,7 +15,7 @@ class ProcGen:
         self.default_args = {
             'dsc': 'GREAT Data Processing',
             'num': 1, 'len': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-            'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_gnspod.ini'
+            'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pod.ini'
         }
         self.args = None
         self.config = None
@@ -36,6 +36,7 @@ class ProcGen:
             self.config.update_gnssinfo(self.args.sys, self.args.freq, self.args.obs_comb, self.args.est)
             if self.args.freq > 2:
                 self.args.bia = "CAS"
+            self.config.update_timeinfo(intv=self.args.intv)
             self.config.update_prodinfo(self.args.cen, self.args.bia)
             self.sta_list = read_site_list(self.args.f_list)
             self.grt_bin = self.config.config.get('common', 'grt_bin')
@@ -157,7 +158,7 @@ class ProcGen:
         self.config.update_gnssinfo(sat_rm=sat_rm)
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
         self.config.update_process(cen=cen)
-        gt.backup_files(self.config, ['ics'])
+        gt.backup_files(self.config, ['ics', 'orb'])
         return True
 
     def prepare(self):
@@ -171,6 +172,9 @@ class ProcGen:
         pass
 
     def save_results(self, x):
+        pass
+
+    def generate_products(self, x=None):
         pass
 
     def process_batch(self):
@@ -225,7 +229,6 @@ class ProcGen:
                     os.makedirs(workdir)
             os.chdir(workdir)
             logging.info(f"work directory = {workdir}")
-            self.config.write_config('config.ini')
 
             if not self.basic_check():
                 crt_time += step
@@ -236,6 +239,7 @@ class ProcGen:
                     crt_time += step
                     continue
 
+            self.config.write_config('config.ini')
             with gt.timeblock(f"Finished process {crt_time.year}-{crt_time.doy:0>3d}"):
                 self.process_daily()
 

@@ -46,6 +46,8 @@ def generate_great_xml(config, app, f_xml, **kwargs):
             if key == 'sattype':
                 sattype = val
         _generate_sp3orb_xml(config, f_xml, sattype=sattype)
+    elif app == 'great_orbsp3':
+        _generate_orbsp3_xml(config, f_xml)
     elif app == 'great_clkdif':
         _generate_clkdif_xml(config, f_xml)
     elif app == 'great_orbdif':
@@ -213,7 +215,7 @@ def _generate_convobs_xml(config, f_xml_out):
     root.append(gen)
     # <inputs>
     f_inputs = ['rinexo', 'ambflag']
-    if int(config.config['process_scheme']['frequency']) > 2:
+    if config.freq() > 2:
         f_inputs.append('ambflag13')
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     root.append(inp)
@@ -315,7 +317,7 @@ def _get_element_lsq_io(config, mode):
         if file == 'ifcb':
             if "GPS" not in config.gnssys():
                 continue
-            if int(config.config['process_scheme']['frequency']) < 3:
+            if config.freq() < 3:
                 continue
         if file == 'ics' and mode.upper() == "LEO_DYN":
             inp_ele = ET.SubElement(inputs, 'icsleo')
@@ -468,7 +470,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
             ele.text = config.get_filename("ambupd_in", check=True)
             if mode == "NL":
                 ele = ET.SubElement(inp, "upd")
-                if int(config.config['process_scheme']['frequency']) > 2:
+                if config.freq() > 2:
                     ele.text = config.get_filename("upd_wl", check=True) + " " + \
                                config.get_filename("upd_ewl", check=True)
                 else:
@@ -476,7 +478,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
                 if amb_dict['carrier_range'].upper() == "YES":
                     ele = ET.SubElement(inp, "ambflag")
                     ele.text = config.get_filename("ambflag", check=True)
-                    if int(config.config['process_scheme']['frequency']) > 2:
+                    if config.freq() > 2:
                         ele = ET.SubElement(inp, "ambflag13")
                         ele.text = config.get_filename("ambflag13", check=True)
         else:
@@ -759,6 +761,29 @@ def _generate_sp3orb_xml(config, f_xml_out, sattype='gns', frame='crs'):
     force_model = _get_force_model_from_template(config, sattype)
     if force_model:
         root.append(force_model)
+    _pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
+
+
+def _generate_orbsp3_xml(config, f_xml_out, sattype='gns'):
+    root = ET.Element('config')
+    tree = ET.ElementTree(root)
+    gen = _get_element_gen(config, ['intv'])
+    root.append(gen)
+    inp = _get_element_io(config, 'inputs', ['orb', 'poleut1'], check=True, sattype='gns')
+    root.append(inp)
+    out = ET.SubElement(root, 'outputs')
+    out_ele = ET.SubElement(out, 'sp3')
+    out_ele.text = config.get_filename('sp3_out')
+    proc = ET.SubElement(root, 'orbsp3')
+    sat = ET.SubElement(proc, 'sat')
+    sat_all = ""
+    if sattype == 'leo':
+        sat_all = gt.list2str(config.leolist())
+    else:
+        for gns_sys in config.gnssys().split():
+            sat_all = sat_all + " " + gt.list2str(get_gns_sat(gns_sys, config.sat_rm()))
+    sat.text = sat_all
     _pretty_xml(root, '\t', '\n', 0)
     tree.write(f_xml_out, encoding='utf-8', xml_declaration=True)
 

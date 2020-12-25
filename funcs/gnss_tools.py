@@ -188,10 +188,32 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     #     if site_rm.count(site) > 3:
     #         site_rm_final.append(site)
     if site_rm_final:
-        msg = f"BAD Turboedit results: {list2str(site_rm_final)}"
+        msg = f"BAD Turboedit results: {list2str(site_rm_final)}, removing the ambflag files..."
         logging.warning(msg)
+        remove_ambflag_file(config, site_rm_final)
     config.update_stalist(site_good)
     # config.remove_sta(site_rm_final)
+
+
+def remove_ambflag_file(config, sites):
+    if not sites:
+        return
+    for site in sites:
+        f_log12 = config.get_filename_site('ambflag', site, check=True)
+        if f_log12:
+            os.remove(f_log12)
+        if config.freq() > 2:
+            f_log13 = config.get_filename_site('ambflag13', site, check=True)
+            if f_log13:
+                os.remove(f_log13)
+        if config.freq() > 3:
+            f_log14 = config.get_filename_site('ambflag14', site, check=True)
+            if f_log14:
+                os.remove(f_log14)
+        if config.freq() > 4:
+            f_log15 = config.get_filename_site('ambflag15', site, check=True)
+            if f_log15:
+                os.remove(f_log15)
 
 
 def check_brd_orbfit(f_name):
