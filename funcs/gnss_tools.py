@@ -106,15 +106,26 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
         logging.warning(f"file not found {f_res}")
         return [],[]
     data = gf.read_res_file(f_res)
-    type_P = ["PC", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9"]
-    type_L = ["LC", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9"]
+    type_P = config.code_type()
+    type_L = config.phase_type()
     idx_P = (data.ot == type_P[0])
     for i in range(1, len(type_P)):
         idx_P = idx_P | (data.ot == type_P[i])
     idx_L = (data.ot == type_L[0])
     for i in range(1, len(type_L)):
         idx_L = idx_L | (data.ot == type_L[i])
-    # get code and phase possible outliers
+    # find satellite with too less observations
+    sat_rm = []
+    sats = list(set(data.sat))
+    sats.sort()
+    ntot = len(data)
+    nmin = ntot / len(sats) / 4
+    for sat in sats:
+        num = len(data[data.sat == sat])
+        if num < nmin:
+            logging.warning(f"satellite {sat} observation too less: {num}")
+            sat_rm.append(sat)
+    # find code and phase possible outliers
     data_out_P = data[idx_P & ((data.res > max_res_P) | (data.res < -1 * max_res_P))]
     data_out_L = data[idx_L & ((data.res > max_res_L) | (data.res < -1 * max_res_L))]
     site_P = pd.DataFrame({'counts': data_out_P['site'].value_counts(),
@@ -141,7 +152,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     sat_rm_L = list(sat_L[(sat_L.counts > max_count) & (sat_L.freq > max_freq)].index)
     if sat_rm_L:
         logging.warning(f"too many bad phase residuals for satellite: {list2str(sat_rm_L)}")
-    sat_rm = sat_rm_P + sat_rm_L
+    sat_rm += sat_rm_P + sat_rm_L
     sat_rm = list(set(sat_rm))
     return site_rm, sat_rm
 

@@ -373,6 +373,21 @@ class GnssConfig:
     def freq(self):
         return int(self.config['process_scheme']['frequency'])
 
+    def obs_comb(self):
+        return self.config['process_scheme']['obs_comb']
+
+    def code_type(self):
+        if self.obs_comb() == "UC":
+            return [f"P{i}" for i in range(1, self.freq()+1)]
+        else:
+            return [f"P1{i}" for i in range(1, self.freq() + 1)]
+
+    def phase_type(self):
+        if self.obs_comb() == "UC":
+            return [f"L{i}" for i in range(1, self.freq()+1)]
+        else:
+            return [f"L1{i}" for i in range(1, self.freq() + 1)]
+
     def update_band(self, gsys, bands):
         gsys = get_gns_name(gsys)
         if gsys == 'GPS':
