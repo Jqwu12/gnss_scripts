@@ -518,17 +518,24 @@ def isint(value):
         return False
 
 
-def check_ambflag(f_ambflag):
+def check_ambflag(f_ambflag, nobs=1000):
     """ check if the ambflag file is correct"""
     try:
         with open(f_ambflag) as f:
             lfound = False
+            num = 0
             for line in f:
+                if line[0:23] == '%Available observations':
+                    num = int(line[27:38])
                 if line[0:3] == "AMB" or line[0:3] == "IAM":
                     lfound = True
                     break
             if not lfound:
                 logging.warning(f"no valid ambiguity in {f_ambflag}")
+            else:
+                if num < nobs:
+                    logging.warning(f"too few obs in {f_ambflag}: {num:8d}")
+                    lfound = False
             return lfound
     except FileNotFoundError:
         logging.warning(f"ambflag file not found {f_ambflag}")

@@ -25,9 +25,9 @@ class ProcPod(ProcGen):
         self.result_dir = os.path.join(self.proj_dir, f"results_{self.args.sys}")
 
     def init_daily(self, crt_time, seslen):
-        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.args.intv), self.args.intv)
+        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
         self.config.update_stalist(self.sta_list)
-        self.config.update_gnssinfo(sat_rm=['C01', 'C02', 'C03', 'C04', 'C05'])
+        self.config.update_gnssinfo(sat_rm=['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60'])
         # self.config.change_data_path('rinexo', 'obs')
         self.config.update_process(crd_constr='EST')
 
@@ -43,12 +43,14 @@ class ProcPod(ProcGen):
         return True
 
     def evl_orbdif(self, label=None):
+        cen = self.config.igs_ac()
         for c in self.ref_cen:
             self.config.update_process(cen=c)
             gr.run_great(self.grt_bin, 'great_orbdif', self.config, label='orbdif', xmldir=self.xml_dir, stop=False)
             gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir, stop=False)
             if label:
                 gt.copy_result_files(self.config, ['orbdif', 'clkdif'], label, 'gns')
+        self.config.update_process(cen=cen)
 
     def detect_outliers(self):
         for i in range(4):

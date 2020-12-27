@@ -235,7 +235,7 @@ def check_brd_orbfit(f_name):
     return sat_rm
 
 
-def check_res_sigma(config, max_sig=10):
+def check_res_sigma(config, max_sig=8):
     site_rm = []
     for site in config.stalist():
         file = config.get_file('recover_in', {'recnam': site}, check=True)
@@ -260,6 +260,7 @@ def check_res_sigma(config, max_sig=10):
 
     if site_rm:
         config.remove_sta(site_rm)
+        config.remove_ambflag_file(site_rm)
 
 
 def backup_dir(dir1, dir2):

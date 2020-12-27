@@ -26,11 +26,13 @@ class ProcPce(ProcGen):
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PCE')
 
     def evl_clkdif(self, label=None):
+        cen = self.config.igs_ac()
         for c in self.ref_cen:
             self.config.update_process(cen=c)
             gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir, stop=False)
             if label:
                 gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
+        self.config.update_process(cen=cen)
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
@@ -44,6 +46,7 @@ class ProcPce(ProcGen):
         self.evl_clkdif('b12')
 
         self.config.update_band('G', '15')  # chang GPS bands to 1 5
+        self.prepare_obs()
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
         gt.copy_result_files(self.config, ['satclk', 'recclk', 'recover'], 'b15')  # save 15 results
         self.evl_clkdif('b15')

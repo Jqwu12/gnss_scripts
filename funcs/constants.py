@@ -1,6 +1,6 @@
 import logging
 
-_MAX_THREAD = 10
+MAX_THREAD = 10
 
 _GNS_NAME = {'G': 'GPS',
              'R': 'GLO',
@@ -42,7 +42,9 @@ def get_gns_name(gsys):
             return gsys
 
 
-def get_gns_sat(gsys, sats_rm=[]):
+def get_gns_sat(gsys, sats_rm=None):
+    if sats_rm is None:
+        sats_rm = []
     gsys = get_gns_name(gsys)
     if not gsys:
         return
@@ -83,7 +85,11 @@ def get_gns_sat(gsys, sats_rm=[]):
         return _QZS_SAT
 
 
-def get_gns_info(gsys, sat_rm=[], band=[]):
+def get_gns_info(gsys, sat_rm=None, band=None):
+    if band is None:
+        band = []
+    if sat_rm is None:
+        sat_rm = []
     gsys = get_gns_name(gsys)
     if not gsys:
         return

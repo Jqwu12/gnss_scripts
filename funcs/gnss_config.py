@@ -334,9 +334,16 @@ class GnssConfig:
         time.from_datetime(self.config['process_scheme']['time_end'])
         return time
 
+    def seslen(self):
+        return self.end_time().diff(self.beg_time())
+
     def work_dir(self):
         ss = self.get_file("work_dir", check=False)
         return ss
+
+    def igs_ac(self):
+        if self.config.has_option('process_scheme', 'cen'):
+            return self.config.get('process_scheme', 'cen')
 
     def gnssys(self):
         """ GNS system information """
@@ -587,8 +594,9 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and 'ambflag' in f_type:
-                    if not gf.check_ambflag(f_out.strip()):
+                if f_out.strip() != '' and 'ambflag' in f_type and check:
+                    nobs = self.seslen() / 30 * 2
+                    if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
                 if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     leo_rm.append(leo)
@@ -608,8 +616,9 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and 'ambflag' in f_type:
-                    if not gf.check_ambflag(f_out.strip()):
+                if f_out.strip() != '' and 'ambflag' in f_type and check:
+                    nobs = self.seslen() / 30 * 2
+                    if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
                 if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     sta_rm.append(sta)
@@ -761,18 +770,18 @@ class GnssConfig:
         if not sites:
             return
         for site in sites:
-            f_log12 = self.get_filename_site('ambflag', site, check=True)
-            if f_log12:
+            f_log12 = self.get_filename_site('ambflag', site, check=False)
+            if os.path.isfile(f_log12):
                 os.remove(f_log12)
             if self.freq() > 2:
-                f_log13 = self.get_filename_site('ambflag13', site, check=True)
-                if f_log13:
+                f_log13 = self.get_filename_site('ambflag13', site, check=False)
+                if os.path.isfile(f_log13):
                     os.remove(f_log13)
             if self.freq() > 3:
-                f_log14 = self.get_filename_site('ambflag14', site, check=True)
-                if f_log14:
+                f_log14 = self.get_filename_site('ambflag14', site, check=False)
+                if os.path.isfile(f_log14):
                     os.remove(f_log14)
             if self.freq() > 4:
-                f_log15 = self.get_filename_site('ambflag15', site, check=True)
-                if f_log15:
+                f_log15 = self.get_filename_site('ambflag15', site, check=False)
+                if os.path.isfile(f_log15):
                     os.remove(f_log15)
