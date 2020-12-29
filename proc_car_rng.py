@@ -17,8 +17,7 @@ class ProcCarRng(ProcUpd):
                      label='ppplsq', xmldir=self.xml_dir)
         self.config.basic_check(files=['recover_all', 'ambupd_in'])
 
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), nshort=750, bad=80, jump=80,
-                     mode="L12", all_sites=True, label='editres12', xmldir=self.xml_dir)
+        self.process_edtres(bad=80, jump=80, nshort=750, all_sites=True)
         self.config.basic_check(files=['ambflag'])
 
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
@@ -26,8 +25,7 @@ class ProcCarRng(ProcUpd):
         self.config.basic_check(files=['recover_all', 'ambupd_in'])
         gt.check_res_sigma(self.config)
 
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), nshort=750, bad=40, jump=40,
-                     mode="L12", all_sites=True, label='editres12', xmldir=self.xml_dir)
+        self.process_edtres(bad=40, jump=40, nshort=750, all_sites=True)
         self.config.basic_check(files=['ambflag'])
 
     def ppp_clean(self):
@@ -36,11 +34,7 @@ class ProcCarRng(ProcUpd):
         self.config.update_process(apply_carrier_range='true', append=True)
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(),
                      fix_mode="NO", use_res_crd=True, label='ppplsq', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                     mode="L12", edt_amb=True, all_sites=True, label='editres12', xmldir=self.xml_dir)
-        if self.args.freq > 2:
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=self.nthread(), jump=50,
-                         mode="L13", edt_amb=True, all_sites=True, label='editres13', xmldir=self.xml_dir)
+        self.process_edtres(jump=50, edt_amb=True, all_sites=True)
 
     def process_daily(self):
         self.config.update_process(apply_carrier_range='false', append=True)

@@ -43,15 +43,14 @@ class ProcUdPod(ProcPod):
         self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished 1st POD"):
             self.process_1st_pod('AR1', True, False)
-            gr.run_great(self.grt_bin, 'great_editres', self.config, jump=40, edt_amb=True,
-                         label='editres', xmldir=self.xml_dir)
+            self.process_edtres(jump=40, edt_amb=True)
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
             self.process_float_pod('AR2', True, False)
 
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
-                     label='editres', xmldir=self.xml_dir)
+        # gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
+        #              label='editres', xmldir=self.xml_dir)
         # gf.switch_ambflag(self.config, mode='12')
 
 

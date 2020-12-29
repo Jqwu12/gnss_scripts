@@ -187,6 +187,37 @@ class ProcGen:
     def process_daily(self):
         pass
 
+    def process_edtres(self, bad=80, jump=80, nshort=600, edt_amb=False, all_sites=False):
+        if self.config.obs_comb() == "IF":
+            gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L12', freq='LC12', nshort=nshort, bad=bad,
+                         jump=jump, edt_amb=edt_amb, all_sites=all_sites, label='editres12', xmldir=self.xml_dir)
+            if self.config.freq() > 2:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L13', freq='LC13',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres13', xmldir=self.xml_dir)
+            if self.config.freq() > 3:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L14', freq='LC14',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres14', xmldir=self.xml_dir)
+            if self.config.freq() > 4:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L15', freq='LC15',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres15', xmldir=self.xml_dir)
+        else:
+            gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L12', freq='L1', nshort=nshort, bad=bad,
+                         jump=jump, label='editres01', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
+            gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L12', freq='L2', nshort=nshort, bad=bad,
+                         jump=jump, label='editres02', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
+            if self.config.freq() > 2:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L13', freq='L3', nshort=nshort, bad=bad,
+                             jump=jump, label='editres03', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
+            if self.config.freq() > 3:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L14', freq='L4', nshort=nshort, bad=bad,
+                             jump=jump, label='editres04', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
+            if self.config.freq() > 4:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L15', freq='L5', nshort=nshort, bad=bad,
+                             jump=jump, label='editres05', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
+
     def save_results(self, x):
         pass
 

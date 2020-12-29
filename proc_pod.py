@@ -134,14 +134,12 @@ class ProcPod(ProcGen):
         logging.info(f"===> 1st iteration for precise orbit determination")
         with gt.timeblock("Finished 1st POD"):
             self.process_1st_pod('F1', True, False)
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
-                         label='editres', xmldir=self.xml_dir)
+            self.process_edtres(bad=80, jump=80, nshort=600)
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
             self.process_float_pod('F2', True, False)
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
-                         label='editres', xmldir=self.xml_dir)
+            self.process_edtres(bad=40, jump=40, nshort=600)
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with gt.timeblock("Finished 3rd POD"):

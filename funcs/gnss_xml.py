@@ -77,6 +77,7 @@ def generate_great_xml(config, app, f_xml, **kwargs):
         nshort = 120
         jump = 100
         bad = 100
+        freq = "LC12"
         mode = "L12"
         edt_amb = False
         all_sites = False
@@ -89,11 +90,13 @@ def generate_great_xml(config, app, f_xml, **kwargs):
                 bad = val
             elif key == 'mode':
                 mode = val
+            elif key == 'freq':
+                freq = val
             elif key == 'edt_amb':
                 edt_amb = val
             elif key == 'all_sites':
                 all_sites = val
-        _generate_edtres_xml(config, f_xml, nshort, jump, bad, mode, edt_amb, all_sites)
+        _generate_edtres_xml(config, f_xml, nshort, jump, bad, freq, mode, edt_amb, all_sites)
     elif app == 'great_ambfixD':
         _generate_ambfix_xml(config, f_xml, "SD")
     elif app == 'great_ambfixDd':
@@ -633,13 +636,15 @@ def _get_ambfix(config, fix_mode="ROUND"):
     return ambfix
 
 
-def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, mode="L12", edt_amb=False, all_sites=False):
+def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, freq="LC12", mode="L12",
+                         edt_amb=False, all_sites=False):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
+    f_inputs = []
     if mode == "L12":
         f_inputs = ['ambflag']
-    elif mode == "L13":
-        f_inputs = ['ambflag13']
+    else:
+        f_inputs = [f"ambflag{mode[1:2]}"]
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     ele = ET.SubElement(inp, "recover")
     if all_sites:
@@ -654,6 +659,8 @@ def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, mode=
     if edt_amb:
         ele_proc = ET.SubElement(proc, 'edt_amb')
         ele_proc.text = 'YES'
+    ele_proc = ET.SubElement(proc, 'freq')
+    ele_proc.text = freq
     ele_proc = ET.SubElement(proc, 'mode')
     ele_proc.text = str(mode)
     ele_proc = ET.SubElement(proc, 'short_elisp')
