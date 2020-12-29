@@ -610,7 +610,8 @@ class GnssConfig:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
                 if f_out.strip() != '' and 'ambflag' in f_type and check:
-                    nobs = self.seslen() / 30 * 2
+                    intv = min(self.intv(), 30)
+                    nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
                 if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
@@ -632,7 +633,8 @@ class GnssConfig:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
                 if f_out.strip() != '' and 'ambflag' in f_type and check:
-                    nobs = self.seslen() / 30 * 2
+                    intv = min(self.intv(), 30)
+                    nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
                 if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
