@@ -609,12 +609,12 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and 'ambflag' in f_type and check:
+                if f_out.strip() and f_type == 'ambflag' and check:
                     intv = min(self.intv(), 30)
                     nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
-                if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
+                if not f_out.strip() and f_type == 'ambflag':
                     leo_rm.append(leo)
                 else:
                     file_all = file_all + " " + f_out
@@ -632,12 +632,12 @@ class GnssConfig:
                 else:
                     f_out = self.get_file(f_type, config_vars, check=check, conf_opt=conf_opt)
                 # check ambflag
-                if f_out.strip() != '' and 'ambflag' in f_type and check:
+                if f_out.strip() and f_type == 'ambflag' and check:
                     intv = min(self.intv(), 30)
                     nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
-                if len(f_out.strip()) == 0 and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
+                if not f_out.strip() and f_type == 'ambflag':
                     sta_rm.append(sta)
                 else:
                     file_all = file_all + " " + f_out
