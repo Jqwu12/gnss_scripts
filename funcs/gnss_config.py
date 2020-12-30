@@ -614,7 +614,7 @@ class GnssConfig:
                     nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
-                if not f_out.strip() and f_type == 'ambflag':
+                if not f_out.strip() and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     leo_rm.append(leo)
                 else:
                     file_all = file_all + " " + f_out
@@ -637,7 +637,7 @@ class GnssConfig:
                     nobs = self.seslen() / intv * 2
                     if not gf.check_ambflag(f_out.strip(), nobs):
                         f_out = ''
-                if not f_out.strip() and f_type == 'ambflag':
+                if not f_out.strip() and f_type not in ['ambflag13', 'ambflag14', 'ambflag15']:
                     sta_rm.append(sta)
                 else:
                     file_all = file_all + " " + f_out
