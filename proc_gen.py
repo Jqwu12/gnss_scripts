@@ -284,11 +284,13 @@ class ProcGen:
             logging.info(f"work directory = {workdir}")
 
             if not self.check():
+                logger.removeHandler(fh)
                 crt_time += step
                 continue
 
             with gt.timeblock("Finished prepare"):
                 if not self.prepare():
+                    logger.removeHandler(fh)
                     crt_time += step
                     continue
 
@@ -298,6 +300,7 @@ class ProcGen:
 
             # next day
             logging.info(f"------------------------------------------------------------------------\n")
+            logger.removeHandler(fh)
             crt_time += step
 
 
