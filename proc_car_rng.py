@@ -18,7 +18,6 @@ class ProcCarRng(ProcUpd):
         self.config.basic_check(files=['recover_all', 'ambupd_in'])
 
         self.process_edtres(bad=80, jump=80, nshort=750, all_sites=True)
-        self.config.basic_check(files=['ambflag'])
 
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
                      use_res_crd=True, label='ppplsq', xmldir=self.xml_dir)
@@ -26,7 +25,6 @@ class ProcCarRng(ProcUpd):
         gt.check_res_sigma(self.config)
 
         self.process_edtres(bad=40, jump=40, nshort=750, all_sites=True)
-        self.config.basic_check(files=['ambflag'])
 
     def ppp_clean(self):
         logging.info(f"===> Detect outliers in carrier-range by PPP")

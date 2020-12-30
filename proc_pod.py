@@ -27,7 +27,10 @@ class ProcPod(ProcGen):
     def init_daily(self, crt_time, seslen):
         self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
         self.config.update_stalist(self.sta_list)
-        self.config.update_gnssinfo(sat_rm=['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60'])
+        self.config.update_gnssinfo(sat_rm=[
+            'C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60',
+            'C39', 'C40', 'C41', 'C42', 'C43', 'C44', 'C45', 'C46'
+        ]) # BDS GEO satellites and new satellites
         # self.config.change_data_path('rinexo', 'obs')
         self.config.update_process(crd_constr='EST')
 

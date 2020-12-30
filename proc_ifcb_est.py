@@ -1,11 +1,11 @@
 #!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import ProcGen
+from proc_upd import ProcUpd
 import os
 import logging
 
 
-class ProcIfcb(ProcGen):
+class ProcIfcb(ProcUpd):
     def __init__(self):
         super().__init__()
 
@@ -13,26 +13,23 @@ class ProcIfcb(ProcGen):
         self.default_args['intv'] = 30
         self.default_args['freq'] = 3
         self.default_args['obs_comb'] = 'UC'
-        self.default_args['cf'] = 'cf_upd.ini'
+        self.default_args['cf'] = 'cf_ifcb.ini'
 
+        self.keep_dir = True
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'biabern']
 
-    def update_path(self, all_path):
-        super().update_path(all_path)
-        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'UPD')
-
-    def process_daily(self):
+    def process_upd(self, obs_comb=None):
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
+        upd_results = []
 
-        with gt.timeblock("Finished IFCB estimation"):
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label='ifcb', xmldir=self.xml_dir)
+        if self.process_ifcb():
+            upd_results.append('ifcb')
 
-        upd_data = self.config.config.get("common", "upd_data")
-        logging.info(f"===> Copy UPD results to {upd_data}")
-        gt.copy_result_files_to_path(self.config, ['ifcb'], os.path.join(upd_data, f"{self.config.beg_time().year}"))
+    def process_daily(self):
+        self.save_results(self.process_upd())
 
 
 if __name__ == '__main__':

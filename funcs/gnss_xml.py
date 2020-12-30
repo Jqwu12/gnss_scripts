@@ -248,12 +248,15 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     # <receiver> <parameters>
     if config.stalist():
         f_preedit = os.path.join('xml', 'preedit.xml')
-        if os.path.isfile(f_preedit):
-            ref_tree = ET.parse(f_preedit)
-            ref_root = ref_tree.getroot()
-            rec = ref_root.find('receiver')
+        if use_res_crd:
+            rec = _get_receiver(config, True)
         else:
-            rec = _get_receiver(config, use_res_crd)
+            if os.path.isfile(f_preedit):
+                ref_tree = ET.parse(f_preedit)
+                ref_root = ref_tree.getroot()
+                rec = ref_root.find('receiver')
+            else:
+                rec = _get_receiver(config, False)
         par = _get_lsq_param(config, mode)
         root.append(rec)
         root.append(par)

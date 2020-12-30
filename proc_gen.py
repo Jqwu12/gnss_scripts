@@ -218,6 +218,8 @@ class ProcGen:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, mode='L15', freq='L5', nshort=nshort, bad=bad,
                              jump=jump, label='editres05', edt_amb=edt_amb, all_sites=all_sites, xmldir=self.xml_dir)
 
+        self.config.basic_check(files=['ambflag'])
+
     def save_results(self, x):
         pass
 
