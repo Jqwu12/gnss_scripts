@@ -644,10 +644,14 @@ def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, freq=
     root = ET.Element('config')
     tree = ET.ElementTree(root)
     f_inputs = []
-    if mode == "L12":
+    if mode == "L12" or mode == "L1" or mode == "L2":
         f_inputs = ['ambflag']
-    else:
-        f_inputs = [f"ambflag{mode[1:2]}"]
+    elif mode == "L13" or mode == "L3":
+        f_inputs = [f"ambflag13"]
+    elif mode == "L14" or mode == "L4":
+        f_inputs = [f"ambflag14"]
+    elif mode == "L15" or mode == "L5":
+        f_inputs = [f"ambflag15"]
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     ele = ET.SubElement(inp, "recover")
     if all_sites:

@@ -28,6 +28,8 @@ class ProcIfcb(ProcUpd):
         if self.process_ifcb():
             upd_results.append('ifcb')
 
+        return upd_results
+
     def process_daily(self):
         self.save_results(self.process_upd())
 

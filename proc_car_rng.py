@@ -37,7 +37,7 @@ class ProcCarRng(ProcUpd):
     def process_daily(self):
         self.config.update_process(apply_carrier_range='false', append=True)
         self.config.update_ambiguity(carrier_range='YES', append=True)
-        super().process_upd(obs_comb='UC')
+        self.process_upd(obs_comb='UC')
         # gt.backup_dir('ambupd', 'ambupd_save')
         # # self.ppp_clean()
         # logging.info(f"===> Generate RINEX Carrier-range observation")

@@ -24,8 +24,8 @@ class ProcUdPod(ProcPod):
         #         return False
 
         # with gt.timeblock("Finished prepare ics"):
-        #    if not self.prepare_ics():
-        #        return False
+        #     if not self.prepare_ics():
+        #         return False
         self.config.basic_check(files=['ambflag'])
         return True
 
@@ -42,6 +42,7 @@ class ProcUdPod(ProcPod):
         # gf.switch_ambflag(self.config, old='AMB', new='DEL', mode='12')
         self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished 1st POD"):
+            self.process_fix_pod('AR')
             self.process_1st_pod('AR1', True, False)
             self.process_edtres(jump=40, edt_amb=True)
 
