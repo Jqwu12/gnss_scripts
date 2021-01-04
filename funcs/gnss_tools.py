@@ -249,7 +249,7 @@ def check_brd_orbfit(f_name):
 def check_res_sigma(config, max_sig=8):
     site_rm = []
     for site in config.stalist():
-        file = config.get_file('recover_in', {'recnam': site}, check=True)
+        file = config.get_file('recover_in', {'recnam': site.upper()}, check=True)
         if not file:
             logging.warning(f"cannot find resfile for {site}")
             site_rm.append(site)
