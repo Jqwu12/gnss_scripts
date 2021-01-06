@@ -1,6 +1,7 @@
 from proc_pod import ProcPod
 from funcs import gnss_tools as gt, gnss_run as gr, gnss_files as gf
 import os
+import shutil
 import logging
 
 
@@ -18,15 +19,37 @@ class ProcUdPod(ProcPod):
         super().init_daily(crt_time, seslen)
         # self.config.change_data_path('rinexo', 'obs_fix')
 
+    def prepare_obs(self):
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_mgex", 'log_tb')
+        if not os.path.isdir(ambflagdir):
+            logging.warning(f"cannot find source ambflag dir {ambflagdir}")
+            return False
+        if not os.path.isdir('log_tb'):
+            os.makedirs('log_tb')
+        for file in os.listdir(ambflagdir):
+            n = len(file)
+            if n < 7:
+                continue
+            if file[n - 5: n] == "o.log" or file[n - 7: n] in ["o.log13", "o.log14", "o.log15"]:
+                f0 = os.path.join(ambflagdir, file)
+                f1 = os.path.join('log_tb', file)
+                shutil.copy(f0, f1)
+        if self.config.basic_check(files=['ambflag']):
+            logging.info("Ambflag is ok ^_^")
+            return True
+        else:
+            logging.critical("NO ambflag files ! skip to next day")
+            return False
+
     def prepare(self):
-        # with gt.timeblock("Finished prepare obs"):
-        #     if not self.prepare_obs():
-        #         return False
+        with gt.timeblock("Finished prepare obs"):
+            if not self.prepare_obs():
+                return False
 
         # with gt.timeblock("Finished prepare ics"):
         #     if not self.prepare_ics():
         #         return False
-        self.config.basic_check(files=['ambflag'])
+
         return True
 
     def process_daily(self):
@@ -35,14 +58,13 @@ class ProcUdPod(ProcPod):
                      f"number of satellites = {len(self.config.all_gnssat())}")
         logging.info(f"===> 1st iteration for precise orbit determination")
         gt.recover_files(self.config, ['ics', 'orb'])
-        if os.path.isfile('rec_2020100'):
-            os.remove('rec_2020100')
-        if os.path.isfile('clk_2020100'):
-            os.remove('clk_2020100')
+        if os.path.isfile(f"rec_{self.year()}{self.doy():0>3d}"):
+            os.remove(f"rec_{self.year()}{self.doy():0>3d}")
+        if os.path.isfile(f"clk_{self.year()}{self.doy():0>3d}"):
+            os.remove(f"clk_{self.year()}{self.doy():0>3d}")
         # gf.switch_ambflag(self.config, old='AMB', new='DEL', mode='12')
         self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished 1st POD"):
-            self.process_fix_pod('AR')
             self.process_1st_pod('AR1', True, False)
             self.process_edtres(jump=40, edt_amb=True)
 

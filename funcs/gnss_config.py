@@ -363,6 +363,20 @@ class GnssConfig:
         else:
             logging.warning("Cannot find sys in [process_scheme]")
 
+    def gsys(self):
+        gs = ''
+        if 'GPS' in self.gnssys():
+            gs += 'G'
+        if 'BDS' in self.gnssys():
+            gs += 'C'
+        if 'GAL' in self.gnssys():
+            gs += 'E'
+        if 'GLO' in self.gnssys():
+            gs += 'R'
+        if 'QZS' in self.gnssys():
+            gs += 'J'
+        return gs
+
     def gnsfreq(self, gsys):
         """ freq of one system """
         gns_info = get_gns_info(gsys, self.sat_rm(), self.band(gsys))

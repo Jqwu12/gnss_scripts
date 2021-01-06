@@ -21,6 +21,7 @@ class ProcGen:
         self.config = None
         self.sta_list = []
         self.grt_bin = ''
+        self.base_dir = ''
         self.proj_dir = ''
         self.result_dir = ''
         self.xml_dir = 'xml'
@@ -50,13 +51,16 @@ class ProcGen:
             self.keep_dir = self.args.keep_dir
             self.sta_list = read_site_list(self.args.f_list)
             self.grt_bin = self.config.config.get('common', 'grt_bin')
+            self.base_dir = self.config.config.get('common', 'base_dir')
         else:
             self.config = config
+            self.gsys = config.gsys()
             self.intv = config.intv()
             self.seslen = config.seslen() + config.intv()
             self.keep_dir = True
             self.sta_list = config.stalist()
             self.grt_bin = config.config.get('common', 'grt_bin')
+            self.base_dir = config.config.get('common', 'base_dir')
 
     # ------ Get args ----------------
     def get_args(self):
@@ -113,12 +117,25 @@ class ProcGen:
         else:
             return self.config.beg_time()
 
+    def year(self):
+        return self.config.beg_time().year
+
+    def doy(self):
+        return self.config.beg_time().doy
+
+    def sod(self):
+        return self.config.beg_time().sod
+
+    def mjd(self):
+        return self.config.beg_time().mjd
+
     def nthread(self):
         return min(len(self.config.all_receiver().split()), MAX_THREAD)
 
     def update_path(self, all_path):
         self.config.update_pathinfo(all_path)
         self.grt_bin = self.config.config.get('common', 'grt_bin')
+        self.base_dir = self.config.config.get('common', 'base_dir')
 
     def init_daily(self, crt_time, seslen):
         self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
@@ -196,39 +213,54 @@ class ProcGen:
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='LC12',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                          label='editres12', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
             if self.config.freq() > 2:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='LC13',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres13', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag13'])
+
             if self.config.freq() > 3:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='LC14',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres14', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag14'])
+
             if self.config.freq() > 4:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='LC15',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres15', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag15'])
+
         else:
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L1',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                          label='editres01', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L2',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                          label='editres02', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
             if self.config.freq() > 2:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='L3',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres03', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag13'])
+
             if self.config.freq() > 3:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='L4',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres04', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag14'])
+
             if self.config.freq() > 4:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='L5',
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres05', xmldir=self.xml_dir)
-
-        self.config.basic_check(files=['ambflag'])
+                self.config.basic_check(files=['ambflag15'])
 
     def save_results(self, x):
         pass

@@ -613,7 +613,6 @@ def clean_ambflag(f_name, data):
         return
 
     file_data = ""
-    data = []
     for line in lines:
         if line[0] == '%':
             file_data += line

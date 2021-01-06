@@ -48,8 +48,9 @@ class ProcUpd(ProcGen):
         self.config.basic_check(files=['recover_all', 'ambupd_in'])
 
     def process_upd_onesys(self, gsys):
-        self.config.update_process(sys=gsys)
+        nfreq = self.config.freq()
         mfreq = self.config.gnsfreq(gsys)
+        self.config.update_gnssinfo(sys=gsys, freq=mfreq)
         upd_results = []
         logging.info(f"===> Start to process {get_gns_name(gsys)} UPD")
         if mfreq == 5:
@@ -74,6 +75,8 @@ class ProcUpd(ProcGen):
         gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='NL',
                      label=f"upd_nl_{gsys}", xmldir=self.xml_dir)
         upd_results.append('upd_nl')
+        self.config.update_process(sys=self.gsys(), frequency=nfreq)
+
         return upd_results
 
     def process_upd(self, obs_comb=None):
@@ -89,16 +92,16 @@ class ProcUpd(ProcGen):
 
         self.process_ppp()
 
-        for gsys in self.args.sys:
+        for gsys in self.gsys:
             upd_results.extend(self.process_upd_onesys(gsys))
 
         upd_results = list(set(upd_results))
         upd_results.sort()
 
         # Merge multi-GNSS UPD
-        if len(self.args.sys) > 1:
+        if len(self.gsys) > 1:
             logging.info(f"===> Merge UPD: {gt.list2str(upd_results)}")
-            gt.merge_upd_all(self.config, self.args.sys, upd_results)
+            gt.merge_upd_all(self.config, self.gsys, upd_results)
 
         return upd_results
 

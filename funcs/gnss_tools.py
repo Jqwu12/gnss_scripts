@@ -199,7 +199,7 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     #     if site_rm.count(site) > 3:
     #         site_rm_final.append(site)
     if site_rm_final:
-        msg = f"BAD Turboedit results: {list2str(site_rm_final)}, removing the ambflag files..."
+        msg = f"STATIONS {list2str(site_rm_final)} are removed due to BAD Turboedit results"
         logging.warning(msg)
         config.remove_ambflag_file(site_rm_final)
     config.update_stalist(site_good)

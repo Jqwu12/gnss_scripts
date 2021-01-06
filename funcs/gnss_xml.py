@@ -532,29 +532,33 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         out_ele.text = config.get_filename("ambflagdir")
     out.set('verb', '2')
     # <gps> <bds> <gal> <glo>
-    for gns_sys in config.gnssys().split():
-        gns = ET.Element(gns_sys.lower())
-        GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
-        sat = ET.SubElement(gns, 'sat')
-        sat.text = gt.list2str(GNS_INFO['sat'])
-        mfreq = config.gnsfreq(gns_sys)
-        if mode == "EWL25" and mfreq < 5:
-            logging.critical(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
-            raise SystemExit(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
-        if mode == "EWL24" and mfreq < 4:
-            logging.critical(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
-            raise SystemExit(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
-        if mode == "EWL25":
-            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][4]]
-        elif mode == "EWL24":
-            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][3]]
-        else:
-            upd_band = GNS_INFO['band'][0:3]
-        band = ET.SubElement(gns, 'band')
-        band.text = gt.list2str(upd_band)
-        freq = ET.SubElement(gns, 'freq')
-        freq.text = gt.list2str(list(range(1, 4)))
-        root.append(gns)
+    if mode == "WL" or mode == "NL" or mode == "ifcb":
+        for gns in _get_element_gns(config):
+            root.append(gns)
+    else:
+        for gns_sys in config.gnssys().split():
+            gns = ET.Element(gns_sys.lower())
+            GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
+            sat = ET.SubElement(gns, 'sat')
+            sat.text = gt.list2str(GNS_INFO['sat'])
+            mfreq = config.gnsfreq(gns_sys)
+            if mode == "EWL25" and mfreq < 5:
+                logging.critical(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+                raise SystemExit(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+            if mode == "EWL24" and mfreq < 4:
+                logging.critical(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+                raise SystemExit(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+            if mode == "EWL25":
+                upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][4]]
+            elif mode == "EWL24":
+                upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][3]]
+            else:
+                upd_band = GNS_INFO['band'][0:3]
+            band = ET.SubElement(gns, 'band')
+            band.text = gt.list2str(upd_band)
+            freq = ET.SubElement(gns, 'freq')
+            freq.text = gt.list2str(list(range(1, 4)))
+            root.append(gns)
     # <process>
     proc = ET.SubElement(root, 'process')
     for key, val in config.xml_process().items():
