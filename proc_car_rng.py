@@ -8,9 +8,6 @@ class ProcCarRng(ProcUpd):
     def __init__(self):
         super().__init__()
 
-    # def prepare(self):
-    #     return True
-
     def process_ppp(self):
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
