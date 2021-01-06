@@ -20,10 +20,11 @@ class ProcUdPod(ProcPod):
         # self.config.change_data_path('rinexo', 'obs_fix')
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_mgex", 'log_tb')
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_A6", 'log_tb')
         if not os.path.isdir(ambflagdir):
             logging.warning(f"cannot find source ambflag dir {ambflagdir}")
             return False
+        logging.info(f"ambflag files copy from {ambflagdir}")
         if not os.path.isdir('log_tb'):
             os.makedirs('log_tb')
         for file in os.listdir(ambflagdir):
@@ -46,9 +47,9 @@ class ProcUdPod(ProcPod):
             if not self.prepare_obs():
                 return False
 
-        # with gt.timeblock("Finished prepare ics"):
-        #     if not self.prepare_ics():
-        #         return False
+        with gt.timeblock("Finished prepare ics"):
+            if not self.prepare_ics():
+                return False
 
         return True
 

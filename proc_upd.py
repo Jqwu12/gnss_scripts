@@ -75,7 +75,7 @@ class ProcUpd(ProcGen):
         gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='NL',
                      label=f"upd_nl_{gsys}", xmldir=self.xml_dir)
         upd_results.append('upd_nl')
-        self.config.update_process(sys=self.gsys(), frequency=nfreq)
+        self.config.update_gnssinfo(sys=self.gsys, freq=nfreq)
 
         return upd_results
 
