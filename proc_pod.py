@@ -138,17 +138,19 @@ class ProcPod(ProcGen):
         with gt.timeblock("Finished 1st POD"):
             self.process_1st_pod('F1', True, False)
             self.process_edtres(bad=80, jump=80, nshort=600)
+        gt.copy_result_files(self.config, ['recover'], 'F1', 'gns')
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
             self.process_float_pod('F2', True, False)
             self.process_edtres(bad=40, jump=40, nshort=600)
+        gt.copy_result_files(self.config, ['recover'], 'F2', 'gns')
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with gt.timeblock("Finished 3rd POD"):
             self.process_float_pod('F3', True, True)
 
-        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'F3', 'gns')
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'F3', 'gns')
         logging.info(f"===> Double-difference ambiguity resolution")
         self.process_ambfix()
 
@@ -157,7 +159,7 @@ class ProcPod(ProcGen):
         with gt.timeblock("Finished 4th POD"):
             self.process_fix_pod('AR', True, True)
 
-        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk'], 'AR', 'gns')
+        gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'AR', 'gns')
         self.save_results(['F3', 'AR'])
 
 
