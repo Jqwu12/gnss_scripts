@@ -1,7 +1,6 @@
 from proc_pod import ProcPod
 from funcs import gnss_tools as gt, gnss_run as gr, gnss_files as gf
 import os
-import shutil
 import logging
 
 
@@ -20,21 +19,8 @@ class ProcUdPod(ProcPod):
         # self.config.change_data_path('rinexo', 'obs_fix')
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_A6", 'log_tb')
-        if not os.path.isdir(ambflagdir):
-            logging.warning(f"cannot find source ambflag dir {ambflagdir}")
-            return False
-        logging.info(f"ambflag files copy from {ambflagdir}")
-        if not os.path.isdir('log_tb'):
-            os.makedirs('log_tb')
-        for file in os.listdir(ambflagdir):
-            n = len(file)
-            if n < 7:
-                continue
-            if file[n - 5: n] == "o.log" or file[n - 7: n] in ["o.log13", "o.log14", "o.log15"]:
-                f0 = os.path.join(ambflagdir, file)
-                f1 = os.path.join('log_tb', file)
-                shutil.copy(f0, f1)
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_A3", 'log_tb')
+        gt.copy_ambflag_from(ambflagdir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
             return True

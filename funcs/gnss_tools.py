@@ -327,6 +327,23 @@ def get_rnxc_satlist(f_name):
         return
 
 
+def copy_ambflag_from(ambflagdir):
+    if not os.path.isdir(ambflagdir):
+        logging.warning(f"cannot find source ambflag dir {ambflagdir}")
+        return False
+    logging.info(f"ambflag files are copied from {ambflagdir}")
+    if not os.path.isdir('log_tb'):
+        os.makedirs('log_tb')
+    for file in os.listdir(ambflagdir):
+        n = len(file)
+        if n < 7:
+            continue
+        if file[n - 5: n] == "o.log" or file[n - 7: n] in ["o.log13", "o.log14", "o.log15"]:
+            f0 = os.path.join(ambflagdir, file)
+            f1 = os.path.join('log_tb', file)
+            shutil.copy(f0, f1)
+
+
 def copy_result_files(config, files, scheme, sattype='gns'):
     """
     Purpose: Copy result files
