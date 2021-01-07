@@ -1,10 +1,11 @@
-from proc_gns_pod import ProcGnsPod
+from proc_pod import ProcPod
 from funcs import gnss_tools as gt, gnss_run as gr, gnss_files as gf
 import os
+import shutil
 import logging
 
 
-class ProcUdPod(ProcGnsPod):
+class ProcUdPod(ProcPod):
     def __init__(self):
         super().__init__()
         self.default_args['cf'] = 'cf_udpod.ini'
@@ -16,61 +17,65 @@ class ProcUdPod(ProcGnsPod):
 
     def init_daily(self, crt_time, seslen):
         super().init_daily(crt_time, seslen)
-        self.config.change_data_path('rinexo', 'obs_fix')
+        # self.config.change_data_path('rinexo', 'obs_fix')
 
-    # def prepare(self):
-    #     # with gt.timeblock("Finished prepare obs"):
-    #     #     if not self.prepare_obs():
-    #     #         return False
-    #     tb_label = 'turboedit'
-    #     gt.check_turboedit_log(self.config, self.nthread(), label=tb_label, path=self.xml_dir)
-    #     if self.config.basic_check(files=['ambflag']):
-    #         logging.info("Ambflag is ok ^_^")
-    #         return True
+    def prepare_obs(self):
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_A6", 'log_tb')
+        if not os.path.isdir(ambflagdir):
+            logging.warning(f"cannot find source ambflag dir {ambflagdir}")
+            return False
+        logging.info(f"ambflag files copy from {ambflagdir}")
+        if not os.path.isdir('log_tb'):
+            os.makedirs('log_tb')
+        for file in os.listdir(ambflagdir):
+            n = len(file)
+            if n < 7:
+                continue
+            if file[n - 5: n] == "o.log" or file[n - 7: n] in ["o.log13", "o.log14", "o.log15"]:
+                f0 = os.path.join(ambflagdir, file)
+                f1 = os.path.join('log_tb', file)
+                shutil.copy(f0, f1)
+        if self.config.basic_check(files=['ambflag']):
+            logging.info("Ambflag is ok ^_^")
+            return True
+        else:
+            logging.critical("NO ambflag files ! skip to next day")
+            return False
+
+    def prepare(self):
+        with gt.timeblock("Finished prepare obs"):
+            if not self.prepare_obs():
+                return False
+
+        with gt.timeblock("Finished prepare ics"):
+            if not self.prepare_ics():
+                return False
+
+        return True
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
         logging.info(f"===> 1st iteration for precise orbit determination")
-        # gt.recover_files(self.config, ['ics'])
-        gf.switch_ambflag(self.config, mode='12')
-        # quality control
+        gt.recover_files(self.config, ['ics', 'orb'])
+        if os.path.isfile(f"rec_{self.year()}{self.doy():0>3d}"):
+            os.remove(f"rec_{self.year()}{self.doy():0>3d}")
+        if os.path.isfile(f"clk_{self.year()}{self.doy():0>3d}"):
+            os.remove(f"clk_{self.year()}{self.doy():0>3d}")
+        # gf.switch_ambflag(self.config, old='AMB', new='DEL', mode='12')
+        self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished 1st POD"):
-            self.detect_outliers()
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-
-        self.evl_orbdif('AR1')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
-                     label='editres', xmldir=self.xml_dir)
-        gf.switch_ambflag(self.config, mode='12')
+            self.process_1st_pod('AR1', True, False)
+            self.process_edtres(jump=40, edt_amb=True)
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+            self.process_float_pod('AR2', True, False)
 
-        self.evl_orbdif('AR2')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=40, jump=40,
-                     label='editres', xmldir=self.xml_dir)
-        gf.switch_ambflag(self.config, mode='12')
-
-        logging.info(f"===> 3rd iteration for precise orbit determination")
-        with gt.timeblock("Finished 3rd POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-
-        self.evl_orbdif('AR3')
-        gr.run_great(self.grt_bin, 'great_editres', self.config, jump=40, edt_amb=True,
-                     label='editres', xmldir=self.xml_dir)
-
-        logging.info(f"===> 4th iteration for precise orbit determination")
-        with gt.timeblock("Finished 4th POD"):
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-            gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-
-        self.evl_orbdif('AR4')
-        self.save_results(['AR4'])
+        # gr.run_great(self.grt_bin, 'great_editres', self.config, nshort=600, bad=80, jump=80,
+        #              label='editres', xmldir=self.xml_dir)
+        # gf.switch_ambflag(self.config, mode='12')
 
 
 if __name__ == '__main__':

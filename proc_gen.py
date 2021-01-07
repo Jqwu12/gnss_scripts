@@ -2,7 +2,7 @@
 from funcs.gnss_config import GnssConfig
 from funcs.gnss_time import GnssTime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
-from funcs.constants import read_site_list, _MAX_THREAD
+from funcs.constants import read_site_list, MAX_THREAD
 import os
 import shutil
 import logging
@@ -21,9 +21,15 @@ class ProcGen:
         self.config = None
         self.sta_list = []
         self.grt_bin = ''
+        self.base_dir = ''
         self.proj_dir = ''
         self.result_dir = ''
         self.xml_dir = 'xml'
+        self.seslen = 86400
+        self.num = 1
+        self.intv = 30
+        self.gsys = ''
+        self.keep_dir = False
         self.required_subdir = ['log_tb', 'tmp']
         self.required_opt = []
         self.required_file = ['rinexo']
@@ -38,12 +44,23 @@ class ProcGen:
                 self.args.bia = "CAS"
             self.config.update_timeinfo(intv=self.args.intv)
             self.config.update_prodinfo(self.args.cen, self.args.bia)
+            self.seslen = hms2sod(self.args.len)
+            self.gsys = self.args.sys
+            self.intv = self.args.intv
+            self.num = self.args.num
+            self.keep_dir = self.args.keep_dir
             self.sta_list = read_site_list(self.args.f_list)
             self.grt_bin = self.config.config.get('common', 'grt_bin')
+            self.base_dir = self.config.config.get('common', 'base_dir')
         else:
             self.config = config
+            self.gsys = config.gsys()
+            self.intv = config.intv()
+            self.seslen = config.seslen() + config.intv()
+            self.keep_dir = True
             self.sta_list = config.stalist()
             self.grt_bin = config.config.get('common', 'grt_bin')
+            self.base_dir = config.config.get('common', 'base_dir')
 
     # ------ Get args ----------------
     def get_args(self):
@@ -81,28 +98,44 @@ class ProcGen:
         args = parser.parse_args()
         return args
 
-    def beg_time(self):
-        if self.args.sod:
-            sod = self.args.sod
-        elif self.args.hms:
-            if len(self.args.hms) > 2:
-                sod = hms2sod(self.args.hms[0], self.args.hms[1], self.args.hms[2])
-            elif len(self.args.hms) > 1:
-                sod = hms2sod(self.args.hms[0], self.args.hms[1])
+    def get_beg_time(self):
+        if self.args:
+            if self.args.sod:
+                sod = self.args.sod
+            elif self.args.hms:
+                if len(self.args.hms) > 2:
+                    sod = hms2sod(self.args.hms[0], self.args.hms[1], self.args.hms[2])
+                elif len(self.args.hms) > 1:
+                    sod = hms2sod(self.args.hms[0], self.args.hms[1])
+                else:
+                    sod = hms2sod(self.args.hms[0])
             else:
-                sod = hms2sod(self.args.hms[0])
+                sod = hms2sod(0)
+            t_beg0 = GnssTime()
+            t_beg0.from_ydoy(self.args.year, self.args.doy, sod)
+            return t_beg0
         else:
-            sod = hms2sod(0)
-        t_beg0 = GnssTime()
-        t_beg0.from_ydoy(self.args.year, self.args.doy, sod)
-        return t_beg0
+            return self.config.beg_time()
+
+    def year(self):
+        return self.config.beg_time().year
+
+    def doy(self):
+        return self.config.beg_time().doy
+
+    def sod(self):
+        return self.config.beg_time().sod
+
+    def mjd(self):
+        return self.config.beg_time().mjd
 
     def nthread(self):
-        return min(len(self.config.all_receiver().split()), _MAX_THREAD)
+        return min(len(self.config.all_receiver().split()), MAX_THREAD)
 
     def update_path(self, all_path):
         self.config.update_pathinfo(all_path)
         self.grt_bin = self.config.config.get('common', 'grt_bin')
+        self.base_dir = self.config.config.get('common', 'base_dir')
 
     def init_daily(self, crt_time, seslen):
         self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
@@ -111,7 +144,7 @@ class ProcGen:
         # self.config.change_data_path('rinexo', 'obs')
         self.config.update_process(crd_constr='EST')
 
-    def basic_check(self):
+    def check(self):
         # ---------- Basic check ---------
         gt.mkdir(self.required_subdir)
         self.config.copy_sys_data()
@@ -171,6 +204,64 @@ class ProcGen:
     def process_daily(self):
         pass
 
+    def process_edtres(self, bad=80, jump=80, nshort=600, edt_amb=False, all_sites=False):
+        if all_sites:
+            nthread = self.nthread()
+        else:
+            nthread = 1
+        if self.config.obs_comb() == "IF":
+            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='LC12',
+                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                         label='editres12', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
+            if self.config.freq() > 2:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='LC13',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres13', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag13'])
+
+            if self.config.freq() > 3:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='LC14',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres14', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag14'])
+
+            if self.config.freq() > 4:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='LC15',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres15', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag15'])
+
+        else:
+            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L1',
+                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                         label='editres01', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
+            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L2',
+                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                         label='editres02', xmldir=self.xml_dir)
+            self.config.basic_check(files=['ambflag'])
+
+            if self.config.freq() > 2:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='L3',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres03', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag13'])
+
+            if self.config.freq() > 3:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='L4',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres04', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag14'])
+
+            if self.config.freq() > 4:
+                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='L5',
+                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
+                             label='editres05', xmldir=self.xml_dir)
+                self.config.basic_check(files=['ambflag15'])
+
     def save_results(self, x):
         pass
 
@@ -206,36 +297,44 @@ class ProcGen:
         self.update_path(all_path)
         # ------ Set process time --------
         step = 86400
-        beg_time = self.beg_time()
-        end_time = beg_time + self.args.num * step - self.args.intv
-        seslen = hms2sod(self.args.len)
+        beg_time = self.get_beg_time()
+        end_time = beg_time + self.num * step - self.intv
 
         # ------- daily loop -------------
         crt_time = beg_time
         while crt_time < end_time:
             # reset daily config
-            self.init_daily(crt_time, seslen)
-            logging.info(f"------------------------------------------------------------------------")
-            logging.info(f"===> Process {crt_time.year}-{crt_time.doy:0>3d}")
+            self.init_daily(crt_time, self.seslen)
             if self.config.work_dir():
                 workdir = self.config.work_dir()
             else:
-                workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.args.sys}")
+                workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.gsys}")
             if not os.path.isdir(workdir):
                 os.makedirs(workdir)
             else:
-                if not self.args.keep_dir:
+                if not self.keep_dir:
                     shutil.rmtree(workdir)
                     os.makedirs(workdir)
             os.chdir(workdir)
+
+            # set logger
+            logger = logging.getLogger()
+            fh = logging.FileHandler(f"proc_{crt_time.year}{crt_time.doy:0>3d}.log")
+            formatter = logging.Formatter('%(asctime)s - %(levelname)8s: %(message)s')
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+            logging.info(f"------------------------------------------------------------------------")
+            logging.info(f"===> Process {crt_time.year}-{crt_time.doy:0>3d}")
             logging.info(f"work directory = {workdir}")
 
-            if not self.basic_check():
+            if not self.check():
+                logger.removeHandler(fh)
                 crt_time += step
                 continue
 
             with gt.timeblock("Finished prepare"):
                 if not self.prepare():
+                    logger.removeHandler(fh)
                     crt_time += step
                     continue
 
@@ -245,6 +344,7 @@ class ProcGen:
 
             # next day
             logging.info(f"------------------------------------------------------------------------\n")
+            logger.removeHandler(fh)
             crt_time += step
 
 

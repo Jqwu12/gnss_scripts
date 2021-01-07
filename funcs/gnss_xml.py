@@ -77,6 +77,7 @@ def generate_great_xml(config, app, f_xml, **kwargs):
         nshort = 120
         jump = 100
         bad = 100
+        freq = "LC12"
         mode = "L12"
         edt_amb = False
         all_sites = False
@@ -89,11 +90,13 @@ def generate_great_xml(config, app, f_xml, **kwargs):
                 bad = val
             elif key == 'mode':
                 mode = val
+            elif key == 'freq':
+                freq = val
             elif key == 'edt_amb':
                 edt_amb = val
             elif key == 'all_sites':
                 all_sites = val
-        _generate_edtres_xml(config, f_xml, nshort, jump, bad, mode, edt_amb, all_sites)
+        _generate_edtres_xml(config, f_xml, nshort, jump, bad, freq, mode, edt_amb, all_sites)
     elif app == 'great_ambfixD':
         _generate_ambfix_xml(config, f_xml, "SD")
     elif app == 'great_ambfixDd':
@@ -245,12 +248,15 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
     # <receiver> <parameters>
     if config.stalist():
         f_preedit = os.path.join('xml', 'preedit.xml')
-        if os.path.isfile(f_preedit):
-            ref_tree = ET.parse(f_preedit)
-            ref_root = ref_tree.getroot()
-            rec = ref_root.find('receiver')
+        if use_res_crd:
+            rec = _get_receiver(config, True)
         else:
-            rec = _get_receiver(config, use_res_crd)
+            if os.path.isfile(f_preedit):
+                ref_tree = ET.parse(f_preedit)
+                ref_root = ref_tree.getroot()
+                rec = ref_root.find('receiver')
+            else:
+                rec = _get_receiver(config, False)
         par = _get_lsq_param(config, mode)
         root.append(rec)
         root.append(par)
@@ -526,29 +532,33 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
         out_ele.text = config.get_filename("ambflagdir")
     out.set('verb', '2')
     # <gps> <bds> <gal> <glo>
-    for gns_sys in config.gnssys().split():
-        gns = ET.Element(gns_sys.lower())
-        GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
-        sat = ET.SubElement(gns, 'sat')
-        sat.text = gt.list2str(GNS_INFO['sat'])
-        mfreq = config.gnsfreq(gns_sys)
-        if mode == "EWL25" and mfreq < 5:
-            logging.critical(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
-            raise SystemExit(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
-        if mode == "EWL24" and mfreq < 4:
-            logging.critical(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
-            raise SystemExit(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
-        if mode == "EWL25":
-            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][4]]
-        elif mode == "EWL24":
-            upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][3]]
-        else:
-            upd_band = GNS_INFO['band'][0:3]
-        band = ET.SubElement(gns, 'band')
-        band.text = gt.list2str(upd_band)
-        freq = ET.SubElement(gns, 'freq')
-        freq.text = gt.list2str(list(range(1, 4)))
-        root.append(gns)
+    if mode == "WL" or mode == "NL" or mode == "ifcb":
+        for gns in _get_element_gns(config):
+            root.append(gns)
+    else:
+        for gns_sys in config.gnssys().split():
+            gns = ET.Element(gns_sys.lower())
+            GNS_INFO = get_gns_info(gns_sys, config.sat_rm(), config.band(gns_sys))
+            sat = ET.SubElement(gns, 'sat')
+            sat.text = gt.list2str(GNS_INFO['sat'])
+            mfreq = config.gnsfreq(gns_sys)
+            if mode == "EWL25" and mfreq < 5:
+                logging.critical(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+                raise SystemExit(f"UPD mode is EWL25 while {gns_sys} frequency is {mfreq}")
+            if mode == "EWL24" and mfreq < 4:
+                logging.critical(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+                raise SystemExit(f"UPD mode is EWL24 while {gns_sys} frequency is {mfreq}")
+            if mode == "EWL25":
+                upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][4]]
+            elif mode == "EWL24":
+                upd_band = GNS_INFO['band'][0:2] + [GNS_INFO['band'][3]]
+            else:
+                upd_band = GNS_INFO['band'][0:3]
+            band = ET.SubElement(gns, 'band')
+            band.text = gt.list2str(upd_band)
+            freq = ET.SubElement(gns, 'freq')
+            freq.text = gt.list2str(list(range(1, 4)))
+            root.append(gns)
     # <process>
     proc = ET.SubElement(root, 'process')
     for key, val in config.xml_process().items():
@@ -633,13 +643,19 @@ def _get_ambfix(config, fix_mode="ROUND"):
     return ambfix
 
 
-def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, mode="L12", edt_amb=False, all_sites=False):
+def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, freq="LC12", mode="L12",
+                         edt_amb=False, all_sites=False):
     root = ET.Element('config')
     tree = ET.ElementTree(root)
-    if mode == "L12":
+    f_inputs = []
+    if mode == "L12" or mode == "L1" or mode == "L2":
         f_inputs = ['ambflag']
-    elif mode == "L13":
-        f_inputs = ['ambflag13']
+    elif mode == "L13" or mode == "L3":
+        f_inputs = [f"ambflag13"]
+    elif mode == "L14" or mode == "L4":
+        f_inputs = [f"ambflag14"]
+    elif mode == "L15" or mode == "L5":
+        f_inputs = [f"ambflag15"]
     inp = _get_element_io(config, 'inputs', f_inputs, check=True)
     ele = ET.SubElement(inp, "recover")
     if all_sites:
@@ -654,6 +670,8 @@ def _generate_edtres_xml(config, f_xml_out, nshort=120, jump=100, bad=100, mode=
     if edt_amb:
         ele_proc = ET.SubElement(proc, 'edt_amb')
         ele_proc.text = 'YES'
+    ele_proc = ET.SubElement(proc, 'freq')
+    ele_proc.text = freq
     ele_proc = ET.SubElement(proc, 'mode')
     ele_proc.text = str(mode)
     ele_proc = ET.SubElement(proc, 'short_elisp')

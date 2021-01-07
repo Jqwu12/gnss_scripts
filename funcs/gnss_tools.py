@@ -106,15 +106,26 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
         logging.warning(f"file not found {f_res}")
         return [],[]
     data = gf.read_res_file(f_res)
-    type_P = ["PC", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9"]
-    type_L = ["LC", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9"]
+    type_P = config.code_type()
+    type_L = config.phase_type()
     idx_P = (data.ot == type_P[0])
     for i in range(1, len(type_P)):
         idx_P = idx_P | (data.ot == type_P[i])
     idx_L = (data.ot == type_L[0])
     for i in range(1, len(type_L)):
         idx_L = idx_L | (data.ot == type_L[i])
-    # get code and phase possible outliers
+    # find satellite with too less observations
+    sat_rm = []
+    sats = list(set(data.sat))
+    sats.sort()
+    ntot = len(data)
+    nmin = ntot / len(sats) / 4
+    for sat in sats:
+        num = len(data[data.sat == sat])
+        if num < nmin:
+            logging.warning(f"satellite {sat} observation too less: {num}")
+            sat_rm.append(sat)
+    # find code and phase possible outliers
     data_out_P = data[idx_P & ((data.res > max_res_P) | (data.res < -1 * max_res_P))]
     data_out_L = data[idx_L & ((data.res > max_res_L) | (data.res < -1 * max_res_L))]
     site_P = pd.DataFrame({'counts': data_out_P['site'].value_counts(),
@@ -141,7 +152,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     sat_rm_L = list(sat_L[(sat_L.counts > max_count) & (sat_L.freq > max_freq)].index)
     if sat_rm_L:
         logging.warning(f"too many bad phase residuals for satellite: {list2str(sat_rm_L)}")
-    sat_rm = sat_rm_P + sat_rm_L
+    sat_rm += sat_rm_P + sat_rm_L
     sat_rm = list(set(sat_rm))
     return site_rm, sat_rm
 
@@ -188,32 +199,11 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     #     if site_rm.count(site) > 3:
     #         site_rm_final.append(site)
     if site_rm_final:
-        msg = f"BAD Turboedit results: {list2str(site_rm_final)}, removing the ambflag files..."
+        msg = f"STATIONS {list2str(site_rm_final)} are removed due to BAD Turboedit results"
         logging.warning(msg)
-        remove_ambflag_file(config, site_rm_final)
+        config.remove_ambflag_file(site_rm_final)
     config.update_stalist(site_good)
     # config.remove_sta(site_rm_final)
-
-
-def remove_ambflag_file(config, sites):
-    if not sites:
-        return
-    for site in sites:
-        f_log12 = config.get_filename_site('ambflag', site, check=True)
-        if f_log12:
-            os.remove(f_log12)
-        if config.freq() > 2:
-            f_log13 = config.get_filename_site('ambflag13', site, check=True)
-            if f_log13:
-                os.remove(f_log13)
-        if config.freq() > 3:
-            f_log14 = config.get_filename_site('ambflag14', site, check=True)
-            if f_log14:
-                os.remove(f_log14)
-        if config.freq() > 4:
-            f_log15 = config.get_filename_site('ambflag15', site, check=True)
-            if f_log15:
-                os.remove(f_log15)
 
 
 def check_brd_orbfit(f_name):
@@ -254,6 +244,34 @@ def check_brd_orbfit(f_name):
     if sat_rm:
         logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
     return sat_rm
+
+
+def check_res_sigma(config, max_sig=8):
+    site_rm = []
+    for site in config.stalist():
+        file = config.get_file('recover_in', {'recnam': site.upper()}, check=True)
+        if not file:
+            logging.warning(f"cannot find resfile for {site}")
+            site_rm.append(site)
+            continue
+        sig = -1
+        with open(file) as f:
+            for line in f:
+                if line[0:2] != '##':
+                    break
+                if line[0:7] == '##Sigma':
+                    sig = float(line[10:23])
+                    if sig > max_sig:
+                        logging.warning(f"sigma0 too large in {file}: {sig:8.3f}")
+                        site_rm.append(site)
+                    break
+        if sig < 0:
+            logging.warning(f"sigma0 not find in {file}")
+            site_rm.append(site)
+
+    if site_rm:
+        config.remove_sta(site_rm)
+        config.remove_ambflag_file(site_rm)
 
 
 def backup_dir(dir1, dir2):

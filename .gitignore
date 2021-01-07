@@ -1,0 +1,4 @@
+/.vscode/
+site_list*
+*.sh
+*.out
