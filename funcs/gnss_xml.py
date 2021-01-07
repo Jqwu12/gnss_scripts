@@ -290,8 +290,8 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         # proc.set('ref_clk', '')
         proc.set('sig_ref_clk', '0.001')
         proc.set('num_threads', '4')
-        proc.set('matrix_remove', 'true')
-        proc.set('cmb_equ_multi_thread', 'false')
+        proc.set('matrix_remove', 'false')
+        proc.set('cmb_equ_multi_thread', 'true')
         proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
