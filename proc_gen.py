@@ -192,9 +192,9 @@ class ProcGen:
             }
         else:
             all_path = {
-                'grt_bin': "/home/jqwu/softwares/GREAT/GREAT/build/Bin",
-                'base_dir': "/home/jqwu/projects",
-                'sys_data': "/home/jqwu/projects/sys_data",
+                'grt_bin': "/cache/jqwu/softwares/GREAT/GREAT/build/Bin",
+                'base_dir': "/cache/jqwu/projects",
+                'sys_data': "/cache/jqwu/projects/sys_data",
                 'gns_data': "/home/jqwu/gns_data",
                 'upd_data': "/home/jqwu/gns_data/upd"
             }
