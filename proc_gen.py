@@ -165,6 +165,8 @@ class ProcGen:
         # gr.run_great(self.grt_bin, 'great_clockrepair', self.config, label='clockrepair',
         #              xmldir=self.xml_dir, nthread=self.nthread())
         # self.config.change_data_path('rinexo', 'obs_trimcor')
+        # if not self.config.basic_check(files=['rinexo']):
+        #     return False
         tb_label = 'turboedit'
         gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label,
                      xmldir=self.xml_dir, nthread=self.nthread())

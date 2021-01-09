@@ -22,7 +22,7 @@ class ProcPod(ProcGen):
     def update_path(self, all_path):
         super().update_path(all_path)
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'POD')
-        self.result_dir = os.path.join(self.proj_dir, f"results_{self.args.sys}")
+        self.result_dir = os.path.join(self.proj_dir, f"results_{self.gsys}")
 
     def init_daily(self, crt_time, seslen):
         self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
@@ -83,17 +83,29 @@ class ProcPod(ProcGen):
         if prod:
             self.generate_products(label)
 
-    def process_float_pod(self, label='F1', evl=True, prod=False):
-        gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
+    def process_float_pod(self, label='F1', evl=True, prod=False, fix_crd=False):
+        if fix_crd:
+            self.config.update_process(crd_constr='FIX')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', use_res_crd=True,
+                         label='podlsq', xmldir=self.xml_dir)
+            self.config.update_process(crd_constr='EST')
+        else:
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
         if evl:
             self.evl_orbdif(label)
         if prod:
             self.generate_products(label)
 
-    def process_fix_pod(self, label='AR', evl=True, prod=False):
-        gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                     use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
+    def process_fix_pod(self, label='AR', evl=True, prod=False, fix_crd=True):
+        if fix_crd:
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
+                         use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
+        else:
+            self.config.update_process(crd_constr='FIX')
+            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
+                         label='podlsq', xmldir=self.xml_dir)
+            self.config.update_process(crd_constr='EST')
         gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
         if evl:
             self.evl_orbdif(label)
@@ -155,7 +167,6 @@ class ProcPod(ProcGen):
         self.process_ambfix()
 
         logging.info(f"===> 4th iteration for precise orbit determination")
-        self.config.update_process(crd_constr='FIX')
         with gt.timeblock("Finished 4th POD"):
             self.process_fix_pod('AR', True, True)
 

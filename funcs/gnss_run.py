@@ -72,9 +72,9 @@ def _run_cmd(cmd, stop=True):
         subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         if stop:
-            _raise_error(f"Run {cmd.split()[0]} error, check log")
+            _raise_error(f"Run [{cmd}] error, check log")
         else:
-            logging.error(f"Run {cmd.split()[0]} error, check log")
+            logging.error(f"Run [{cmd}] error, check log")
 
 
 def _executable_app(bindir, app):

@@ -1,4 +1,4 @@
-from funcs.constants import get_gns_info, get_gns_sat, _LSQ_SCHEME
+from funcs.constants import get_gns_info, get_gns_sat, _LSQ_SCHEME, MAX_THREAD
 from funcs import gnss_tools as gt
 import xml.etree.ElementTree as ET
 import os
@@ -289,7 +289,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         proc.set('ref_clk', _set_ref_clk(config, mode='site'))
         # proc.set('ref_clk', '')
         proc.set('sig_ref_clk', '0.001')
-        proc.set('num_threads', '6')
+        proc.set('num_threads', str(MAX_THREAD))
         proc.set('matrix_remove', 'false')
         proc.set('cmb_equ_multi_thread', 'true')
         proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
@@ -371,7 +371,7 @@ def _get_receiver(config, use_res_crd=False):
     # get coordinates from IGS snx file
     f_snx = config.get_filename('sinex', check=True)
     crds_snx = {}
-    if not f_snx.isspace():
+    if f_snx:
         crds_snx = gt.read_snxfile(f_snx, config.stalist())
     # get coordinates from GREAT residuals file
     if use_res_crd:
