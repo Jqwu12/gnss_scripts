@@ -273,7 +273,7 @@ class GnssConfig:
     def xml_process(self):
         """ return a dict for xml <process> """
         proc_dict = {
-            "grad_mf": "BAR_SEVER", "gradient": "false", "minimum_elev": "9", "minimum_elev_leo": "1",
+            "grad_mf": "BAR_SEVER", "gradient": "false", "minimum_elev": "7", "minimum_elev_leo": "1",
             "obs_weight": "PARTELE", "phase": "true", "slip_model": "turboedit"
         }
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
