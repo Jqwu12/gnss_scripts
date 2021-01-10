@@ -293,6 +293,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         proc.set('matrix_remove', 'false')
         proc.set('cmb_equ_multi_thread', 'true')
         proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
+        proc.set('lsq_buffer_size', '500')
     ifb_model = ET.SubElement(proc, 'ifb_model')
     if config.config['process_scheme']['obs_combination'] == "RAW_ALL":
         ifb_model.text = 'EST_REC_IFB'
