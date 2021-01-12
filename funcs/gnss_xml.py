@@ -289,7 +289,7 @@ def _generate_lsq_xml(config, f_xml_out, mode, ambcon=False, fix_mode="NO", use_
         proc.set('ref_clk', _set_ref_clk(config, mode='site'))
         # proc.set('ref_clk', '')
         proc.set('sig_ref_clk', '0.001')
-        proc.set('num_threads', str(MAX_THREAD))
+        proc.set('num_threads', str(min(MAX_THREAD, 6)))
         proc.set('matrix_remove', 'false')
         proc.set('cmb_equ_multi_thread', 'true')
         proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
