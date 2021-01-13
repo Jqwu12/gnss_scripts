@@ -303,6 +303,12 @@ class GnssConfig:
         for opt in opt_list:
             if self.config.has_option('ambiguity_scheme', opt):
                 amb_dict[opt] = self.config.get('ambiguity_scheme', opt).upper()
+
+        if self.obs_comb() == "UC":
+            amb_dict['dd_mode'] = "RAW_CB_WN"
+        else:
+            amb_dict['dd_mode'] = "IF_CB_WN"
+
         if self.is_integer_clock():
             if self.is_integer_clock_osb():
                 amb_dict['upd_mode'] = 'OSB'
@@ -310,6 +316,7 @@ class GnssConfig:
                 amb_dict['upd_mode'] = 'IRC'
         else:
             amb_dict['upd_mode'] = 'UPD'
+
         if self.config['process_scheme']['lsq_mode'] == "EPO":
             amb_dict['min_common_time'] = '0'
         if self.config.has_option('ambiguity_scheme', 'extra_widelane_decision'):
@@ -394,13 +401,13 @@ class GnssConfig:
         if self.obs_comb() == "UC":
             return [f"P{i}" for i in range(1, self.freq()+1)]
         else:
-            return [f"P1{i}" for i in range(1, self.freq() + 1)]
+            return [f"PC1{i}" for i in range(1, self.freq() + 1)]
 
     def phase_type(self):
         if self.obs_comb() == "UC":
             return [f"L{i}" for i in range(1, self.freq()+1)]
         else:
-            return [f"L1{i}" for i in range(1, self.freq() + 1)]
+            return [f"LC1{i}" for i in range(1, self.freq() + 1)]
 
     def update_band(self, gsys, bands):
         gsys = get_gns_name(gsys)

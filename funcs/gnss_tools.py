@@ -54,13 +54,13 @@ def split_config_by_receivers(config, num):
     sta_subs = _split_list(config.stalist(), sta_num)
     child_configs = []
     for leo_sub in leo_subs:
-        #child_config = copy.deepcopy(config)
+        # child_config = copy.deepcopy(config)
         child_config = config.copy()
         child_config.update_leolist(leo_sub)
         child_config.update_stalist('NONE')
         child_configs.append(child_config)
     for sta_sub in sta_subs:
-        #child_config = copy.deepcopy(config)
+        # child_config = copy.deepcopy(config)
         child_config = config.copy()
         child_config.update_stalist(sta_sub)
         child_config.update_leolist('NONE')
@@ -104,7 +104,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     f_res = config.get_filename("recover_in", check=True)
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
-        return [],[]
+        return [], []
     data = gf.read_res_file(f_res)
     type_P = config.code_type()
     type_L = config.phase_type()
@@ -133,9 +133,9 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     site_L = pd.DataFrame({'counts': data_out_L['site'].value_counts(),
                            'freq': data_out_L['site'].value_counts(normalize=True)})
     sat_P = pd.DataFrame({'counts': data_out_P['sat'].value_counts(),
-                           'freq': data_out_P['sat'].value_counts(normalize=True)})
+                          'freq': data_out_P['sat'].value_counts(normalize=True)})
     sat_L = pd.DataFrame({'counts': data_out_L['sat'].value_counts(),
-                           'freq': data_out_L['sat'].value_counts(normalize=True)})
+                          'freq': data_out_L['sat'].value_counts(normalize=True)})
     # remove sites
     site_rm_P = list(site_P[(site_P.counts > max_count) & (site_P.freq > max_freq)].index)
     if site_rm_P:
@@ -411,7 +411,7 @@ def get_grg_wsb(config):
                 if line.find('WL') == 0:
                     info = line.split()
                     sat = info[1]
-                    upd = -1.0*float(info[9])
+                    upd = -1.0 * float(info[9])
                     wlupd.append({'sat': sat, 'wsb': upd})
                 if line.find('END OF HEADER') > 0:
                     break
@@ -563,7 +563,9 @@ def get_crd_res(config):
         f_res = config.get_dailyfile('recover_in', {'recnam': site.upper()}, check=True).strip()
         if not f_res:
             continue
-        x = 0; y = 0; z = 0
+        x = 0
+        y = 0
+        z = 0
         with open(f_res) as f:
             for line in f:
                 if line[0] == '#':

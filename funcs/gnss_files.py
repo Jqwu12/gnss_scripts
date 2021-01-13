@@ -236,7 +236,7 @@ def read_res_file(f_res):
         epo = int(tt.diff(tbeg) / intv) + 1
         data.append({
             'epo': epo, 'mjd': tt.mjd + tt.sod / 86400.0, 'sod': tt.sod,
-            'site': line[39:43], 'sat': line[48:51], 'ot': line[57:59],
+            'site': line[39:43], 'sat': line[48:51], 'ot': line[51:59].strip(),
             'res': float(line[74:89]), 'wgt': float(line[60:74])
         })
     return pd.DataFrame(data)

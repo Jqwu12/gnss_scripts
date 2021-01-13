@@ -3,6 +3,7 @@ from funcs import gnss_run as gr
 from proc_gen import ProcGen
 import os
 import logging
+import shutil
 
 
 class ProcPpp(ProcGen):
@@ -16,7 +17,7 @@ class ProcPpp(ProcGen):
         self.default_args['est'] = 'EPO'
         self.default_args['cf'] = 'cf_ppp.ini'
 
-        self.required_subdir = ['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
+        self.required_subdir = ['log_tb', 'enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res', 'tmp']
         self.required_opt = ['estimator']
         self.required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
@@ -37,6 +38,15 @@ class ProcPpp(ProcGen):
         else:
             gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
                          fix_mode="SEARCH", label=f"ppplsq_{obs_comb}_{freq}_AR", xmldir=self.xml_dir)
+
+    def save_results(self, label):
+        if not os.path.isdir('ratio'):
+            os.makedirs('ratio')
+        for site in self.sta_list:
+            f_ratio = f"ratio-{site.upper()}"
+            if os.path.isfile(f_ratio):
+                f_new = os.path.join('ratio', f"{f_ratio}-{label}")
+                shutil.move(f_ratio, f_new)
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")

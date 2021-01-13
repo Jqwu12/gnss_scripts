@@ -168,7 +168,7 @@ class ProcPod(ProcGen):
 
         logging.info(f"===> 4th iteration for precise orbit determination")
         with gt.timeblock("Finished 4th POD"):
-            self.process_fix_pod('AR', True, True)
+            self.process_fix_pod('AR', True, True, True)
 
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'AR', 'gns')
         self.save_results(['F3', 'AR'])
