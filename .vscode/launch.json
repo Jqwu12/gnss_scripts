@@ -4,6 +4,7 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: ppp",
             "type": "python",
@@ -20,7 +21,7 @@
                 "-l", "9",
                 "-t", "1"
             ]
-        }
+        },
 
         {
             "name": "Python: upd",
@@ -36,6 +37,40 @@
                 "-sys", "E",
                 "-freq", "3",
                 "-n", "1",
+            ]
+        },
+        
+        {
+            "name": "Python: car_rng",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-y", "2020",
+                "-d", "101",
+                "-s", "site_list_GREC",
+                "-sys", "G",
+                "-freq", "3",
+                "-cen", "com",
+                "-n", "1",
+            ]
+        },
+
+        {
+            "name": "Python: pod",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-y", "2020",
+                "-d", "102",
+                "-s", "site_list_GREC",
+                "-sys", "G",
+                "-freq", "3",
+                "-n", "1",
+                "-c", "IF"
             ]
         }
     ]
