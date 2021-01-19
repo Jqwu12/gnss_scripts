@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
-import numpy as np
 import logging
+
 
 def isfloat(value):
     """ To check if any variable can be converted to float or not """
@@ -59,12 +59,12 @@ def read_atxpcv(catx, f_atx):
             zen2 = float(lines[i][8:14])
             dzen = float(lines[i][14:20])
 
-    if dazi != 0 and dzen != 0:
-        nazi = int(360/dazi) + 1
-        nzen = int((zen2 - zen1)/dzen) + 1
-        dpcv = np.zeros((nazi,nzen),dtype=float)
-    else:
+    if dazi == 0 or dzen == 0:
         return
+
+    nazi = int(360/dazi) + 1
+    nzen = int((zen2 - zen1)/dzen) + 1
+    dpcv = np.zeros((nazi,nzen),dtype=float)
 
     isfound = False
     for i in range(ibeg,iend):
@@ -78,183 +78,14 @@ def read_atxpcv(catx, f_atx):
         azi = float(lines[i][0:8])
         azi = 90 - azi
         if azi < 0:
-        	azi = azi + 360
+            azi = azi + 360
         row = int(azi/dazi)
         if row >= nazi:
             continue
-        for j in range(nzen):
-        	# 天顶角 -> 高度角
+        for j in range(nzen): # 天顶角 -> 高度角
             dpcv[row][nzen-j-1] = float(lines[i][8+j*8:16+j*8])
 
     return dpcv
-
-
-def read_sp3file(f_sp3):
-    start = time.time()
-    if not os.path.isfile(f_sp3):
-        logging.error(f"NO SP3 file {f_sp3}")
-        return
-    with open(f_sp3) as file_object:
-        sp3 = file_object.readlines()
-    num = 0
-    nsat = 0
-    for i in range(len(sp3)):
-        if sp3[i][0:1] == '#':
-            continue
-        elif sp3[i][0:2] == '+ ':
-            if isint(sp3[i][1:6]):
-                nsat = int(sp3[i][1:6])
-        elif sp3[i][0] == '*' and sp3[i][3:7].isdigit():
-            num = i
-            break
-
-    if nsat == 0:
-        logging.error("no satellite in SP3 file")
-        return
-
-    del sp3[0:num]
-    # delete Velocities
-    lines = []
-    for line in sp3:
-        if line[0] != 'V':
-            lines.append(line)
-    # sp3 = [j.replace('P  ', 'PG0') for j in sp3]
-    # sp3 = [j.replace('P ', 'PG') for j in sp3]
-
-    data = []
-    # header = ['time', 'sod', 'sat', 'px', 'py', 'pz']
-    while True:
-        epoch = GNSStime()
-        for i in range(nsat + 1):
-            if lines[i][0] == '*':
-                info = lines[i].split()
-                year = int(info[1])
-                month = int(info[2])
-                day = int(info[3])
-                sod = int(info[4]) * 3600 + int(info[5]) * 60 + float(info[6])
-                epoch.set_ymd(year, month, day, sod)
-            elif lines[i][0] == 'P':
-                sat = lines[i][1:4]
-                px = float(lines[i].split()[1]) * 1000  # units: m
-                py = float(lines[i].split()[2]) * 1000
-                pz = float(lines[i].split()[3]) * 1000
-                sat_dict = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sod': sod, 'sat': sat, 'px': px, 'py': py,
-                            'pz': pz}
-                data.append(sat_dict)
-        del lines[0:nsat + 1]
-        if 'EOF' in lines[0]:
-            break
-    # ------------------------------------------------------------------
-    end = time.time()
-    msg = f"{f_sp3} file is read in {end - start:.2f} seconds"
-    logging.info(msg)
-    return pd.DataFrame(data)
-
-
-def read_rnxo_file(f_name):
-    start = time.time()
-    if not os.path.isfile(f_name):
-        logging.error(f"NO RINEXO file {f_name}")
-        return
-
-    obs_type = {}
-    with open(f_name) as file_object:
-        lines = file_object.readlines()
-
-    # read rnxo header
-    nline = 0
-    for line in lines:
-        if line.find("END OF HEADER") == 60:
-            nline += 1
-            break
-        elif line.find("SYS / # / OBS TYPES") == 60:
-            ot = line[0:60].split()
-            ot_num = int(ot[1])
-            ot_one = ot[2:]
-            nline += 1
-            if ot_num > 13:
-                for _ in range(int(math.ceil(ot_num / 13)) - 1):
-                    ot_one.extend(lines[nline][0:60].split())
-                    nline += 1
-            obs_type[line[0]] = ot_one
-        else:
-            nline += 1
-    del lines[0:nline]
-
-    # read rnxo data
-    data = []
-    nline = 0
-    while True:
-        epoch = GNSStime()
-        # =============================================================================
-        while True:
-            if 'COMMENT' in lines[0]:
-                del lines[0]
-                nline += 1
-            elif 'APPROX POSITION XYZ' in lines[0]:
-                del lines[0]
-                nline += 1
-            elif 'REC # / TYPE / VERS' in lines[0]:
-                raise Warning("Receiver type is changed! | Exiting...")
-            else:
-                break
-        # =============================================================================
-        if lines[0][0] == ">":
-            epochLine = lines[0][1:].split()
-            if len(epochLine) == 8:
-                epoch_year, epoch_month, epoch_day, epoch_hour, epoch_minute, epoch_second, epoch_flag, epoch_sat_num = \
-                    lines[0][1:].split()
-                receiver_clock = 0
-            elif len(epochLine) == 9:
-                epoch_year, epoch_month, epoch_day, epoch_hour, epoch_minute, epoch_second, epoch_flag, epoch_sat_num, receiver_clock = \
-                    lines[0][1:].split()
-            else:
-                raise Warning("Unexpected epoch line format detected! | Program stopped!")
-        else:
-            raise Warning("Unexpected format detected! | Program stopped!")
-        # =========================================================================
-        if epoch_flag in {"1", "3", "5", "6"}:
-            raise Warning("Deal with this later!")
-        elif epoch_flag == "4":
-            del lines[0]
-            while True:
-                if 'COMMENT' in lines[0]:
-                    print(lines[0])
-                    del lines[0]
-                    nline += 1
-                elif 'SYS / PHASE SHIFT' in lines[0]:
-                    del lines[0]
-                    # line += 1
-                else:
-                    break
-        else:
-            # =========================================================================
-            sod = int(epoch_hour) * 3600 + int(epoch_minute) * 60 + float(epoch_second)
-            epoch.set_ymd(int(epoch_year), int(epoch_month), int(epoch_day), sod)
-            del lines[0]  # delete epoch header line
-            # =============================================================================
-            epoch_sat_num = int(epoch_sat_num)
-            for svLine in range(epoch_sat_num):
-                sat = lines[svLine][0:3]
-                sys_ot = obs_type[sat[0]]
-                ot_num = len(sys_ot)
-                epoch_obs = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sat': sat}
-                for i in range(ot_num):
-                    if sys_ot[i][0] != 'C' and sys_ot[i][0] != 'L':
-                        continue
-                    if isfloat(lines[svLine][3 + 16 * i:16 * i + 17]):
-                        epoch_obs[sys_ot[i]] = float(lines[svLine][3 + 16 * i:16 * i + 17])
-                data.append(epoch_obs)
-
-            # =============================================================================
-            del lines[0:epoch_sat_num]  # number of rows in epoch equals number of visible satellites in RINEX 3
-        if len(lines) == 0:
-            break
-
-    end = time.time()
-    msg = f"{f_name} file is read in {end - start:.2f} seconds"
-    logging.info(msg)
-    return pd.DataFrame(data)
 
 
 # Orbit and Clock analysis
