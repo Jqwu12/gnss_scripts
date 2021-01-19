@@ -13,10 +13,10 @@ def run_great(bindir, app, config, label="", str_args="", xmldir=None,
         label = app
     if nthread > 1:
         with gt.timeblock(f"Normal End [{nthread:0>2d}] {label}"):
-            _run_great_app_multithreading(bindir, app, config, label, str_args, xmldir, nthread, stop=stop, **kwargs)
+            return _run_great_app_multithreading(bindir, app, config, label, str_args, xmldir, nthread, stop=stop, **kwargs)
     else:
         with gt.timeblock(f"Normal End [{nthread:0>2d}] {label}"):
-            _run_great_app(bindir, app, config, label, str_args, xmldir, newxml, stop=stop, **kwargs)
+            return _run_great_app(bindir, app, config, label, str_args, xmldir, newxml, stop=stop, **kwargs)
 
 
 def _run_great_app(bindir, app, config, label, str_args="", xmldir=None, newxml=True, stop=True, **kwargs):
@@ -37,7 +37,7 @@ def _run_great_app(bindir, app, config, label, str_args="", xmldir=None, newxml=
         if not os.path.isfile(f_xml):
             gnss_xml.generate_great_xml(config, app, f_xml, **kwargs)
     grt_cmd = f"{grt_app} -x {f_xml} {str_args} > {f_out} 2>&1"
-    _run_cmd(grt_cmd, stop)
+    return _run_cmd(grt_cmd, stop)
 
 
 def _run_great_app_multithreading(bindir, app, config, label, str_args="", xmldir=None, nthread=8, stop=True, **kwargs):
@@ -64,17 +64,20 @@ def _run_great_app_multithreading(bindir, app, config, label, str_args="", xmldi
         new_thread.start()
     for i in range(len(thread_list)):
         thread_list[i].join()
+    return True
 
 
 def _run_cmd(cmd, stop=True):
     logging.debug(cmd)
     try:
         subprocess.run(cmd, shell=True, check=True)
+        return True
     except subprocess.CalledProcessError as e:
         if stop:
             _raise_error(f"Run [{cmd}] error, check log")
         else:
             logging.error(f"Run [{cmd}] error, check log")
+            return False
 
 
 def _executable_app(bindir, app):

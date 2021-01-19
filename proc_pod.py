@@ -59,8 +59,9 @@ class ProcPod(ProcGen):
         for i in range(4):
             if i != 0:
                 logging.info(f"reprocess-{i} great_podlsq due to bad stations or satellites")
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-brdm",
-                         label='podlsq', xmldir=self.xml_dir)
+            if not gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-brdm",
+                                label='podlsq', xmldir=self.xml_dir):
+                return False
             bad_site, bad_sat = gt.check_pod_residuals(self.config)
             if (not bad_site and not bad_sat) or i == 3:
                 if i != 0:
@@ -75,48 +76,64 @@ class ProcPod(ProcGen):
             if bad_sat:
                 self.config.update_gnssinfo(sat_rm=self.config.sat_rm() + bad_sat)
 
+        return True
+
     def process_1st_pod(self, label='F1', evl=True, prod=False):
-        self.detect_outliers()
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        if not self.detect_outliers():
+            return False
+        if not gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir):
+            return False
         if evl:
             self.evl_orbdif(label)
         if prod:
             self.generate_products(label)
+        return True
 
     def process_float_pod(self, label='F1', evl=True, prod=False, fix_crd=False):
         if fix_crd:
             self.config.update_process(crd_constr='FIX')
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', use_res_crd=True,
-                         label='podlsq', xmldir=self.xml_dir)
+            if not gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', use_res_crd=True,
+                                label='podlsq', xmldir=self.xml_dir):
+                return False
             self.config.update_process(crd_constr='EST')
         else:
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', label='podlsq', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+            if not gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST',
+                                label='podlsq', xmldir=self.xml_dir):
+                return False
+        if not gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir):
+            return False
         if evl:
             self.evl_orbdif(label)
         if prod:
             self.generate_products(label)
+        return True
 
     def process_fix_pod(self, label='AR', evl=True, prod=False, fix_crd=True):
         if fix_crd:
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                         use_res_crd=True, label='podlsq', xmldir=self.xml_dir)
+            if not gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix",
+                                ambcon=True, use_res_crd=True, label='podlsq', xmldir=self.xml_dir):
+                return False
         else:
             self.config.update_process(crd_constr='FIX')
-            gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix", ambcon=True,
-                         label='podlsq', xmldir=self.xml_dir)
+            if not gr.run_great(self.grt_bin, 'great_podlsq', self.config, mode='POD_EST', str_args="-ambfix",
+                                ambcon=True, label='podlsq', xmldir=self.xml_dir):
+                return False
             self.config.update_process(crd_constr='EST')
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
+        if not gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir):
+            return False
         if evl:
             self.evl_orbdif(label)
         if prod:
             self.generate_products(label)
+        return True
 
     def process_ambfix(self):
         intv = self.config.intv()
         self.config.update_process(intv=30)
-        gr.run_great(self.grt_bin, 'great_ambfixDd', self.config, label="ambfix", xmldir=self.xml_dir)
+        if not gr.run_great(self.grt_bin, 'great_ambfixDd', self.config, label="ambfix", xmldir=self.xml_dir):
+            return False
         self.config.update_process(intv=intv)
+        return True
 
     def save_results(self, labels):
         orbdif_dir = os.path.join(self.result_dir, "orbdif", f"{self.config.beg_time().year}")
@@ -148,27 +165,34 @@ class ProcPod(ProcGen):
 
         logging.info(f"===> 1st iteration for precise orbit determination")
         with gt.timeblock("Finished 1st POD"):
-            self.process_1st_pod('F1', True, False)
-            self.process_edtres(bad=80, jump=80, nshort=600)
+            if not self.process_1st_pod('F1', True, False):
+                return False
+            if not self.process_edtres(bad=80, jump=80, nshort=600):
+                return False
         gt.copy_result_files(self.config, ['recover'], 'F1', 'gns')
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with gt.timeblock("Finished 2nd POD"):
-            self.process_float_pod('F2', True, False)
-            self.process_edtres(bad=40, jump=40, nshort=600)
+            if not self.process_float_pod('F2', True, False):
+                return False
+            if not self.process_edtres(bad=40, jump=40, nshort=600):
+                return False
         gt.copy_result_files(self.config, ['recover'], 'F2', 'gns')
 
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with gt.timeblock("Finished 3rd POD"):
-            self.process_float_pod('F3', True, True)
+            if not self.process_float_pod('F3', True, True):
+                return False
 
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'F3', 'gns')
         logging.info(f"===> Double-difference ambiguity resolution")
-        self.process_ambfix()
+        if not self.process_ambfix():
+            return False
 
         logging.info(f"===> 4th iteration for precise orbit determination")
         with gt.timeblock("Finished 4th POD"):
-            self.process_fix_pod('AR', True, True, True)
+            if not self.process_fix_pod('AR', True, True, True):
+                return False
 
         gt.copy_result_files(self.config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'AR', 'gns')
         self.save_results(['F3', 'AR'])

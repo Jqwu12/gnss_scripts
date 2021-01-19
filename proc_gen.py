@@ -215,7 +215,8 @@ class ProcGen:
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='LC12',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                          label='editres12', xmldir=self.xml_dir)
-            self.config.basic_check(files=['ambflag'])
+            if not self.config.basic_check(files=['ambflag']):
+                return False
 
             if self.config.freq() > 2:
                 gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='LC13',
@@ -239,7 +240,8 @@ class ProcGen:
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L1',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                          label='editres01', xmldir=self.xml_dir)
-            self.config.basic_check(files=['ambflag'])
+            if not self.config.basic_check(files=['ambflag']):
+                return False
 
             gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L2',
                          nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
@@ -263,6 +265,8 @@ class ProcGen:
                              nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
                              label='editres05', xmldir=self.xml_dir)
                 self.config.basic_check(files=['ambflag15'])
+
+        return True
 
     def save_results(self, x):
         pass
