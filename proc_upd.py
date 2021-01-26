@@ -1,4 +1,3 @@
-#!/home/jqwu/anaconda3/bin/python3
 from funcs import gnss_tools as gt, gnss_run as gr
 from proc_gen import ProcGen
 from funcs.constants import get_gns_name

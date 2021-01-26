@@ -1,4 +1,3 @@
-#!/home/jqwu/anaconda3/bin/python3
 from funcs.gnss_config import GnssConfig
 from funcs.gnss_time import GnssTime, hms2sod
 from funcs import gnss_tools as gt, gnss_run as gr
