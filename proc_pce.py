@@ -2,6 +2,7 @@
 from funcs import gnss_tools as gt, gnss_run as gr
 from proc_gen import ProcGen
 import os
+import shutil
 import logging
 
 
@@ -27,7 +28,14 @@ class ProcPce(ProcGen):
         self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PCE')
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'POD', str(self.year()), f"{self.doy():0>3d}_GREC_2_IF", 'log_tb')
+        poddir = os.path.join(self.base_dir, 'POD', str(self.year()), f"{self.doy():0>3d}_GREC_2_IF")
+        f_res = f"res_{self.year()}{self.doy():0>3d}"
+        try:
+            shutil.copy(os.path.join(poddir, f_res), f_res)
+        except IOError:
+            logging.warning(f"copy {f_res} failed")
+    
+        ambflagdir = os.path.join(poddir, 'log_tb')
         gt.copy_ambflag_from(ambflagdir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
@@ -50,7 +58,8 @@ class ProcPce(ProcGen):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
 
-        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', label='pcelsq', xmldir=self.xml_dir)
+        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', 
+                     use_res_crd=True, label='pcelsq', xmldir=self.xml_dir)
         self.evl_clkdif()
 
 

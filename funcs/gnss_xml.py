@@ -435,7 +435,7 @@ def _get_lsq_param(config, mode):
 
 def _set_ref_clk(config, mode='sat', sats=None):
     ref_sats = ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']
-    ref_sites = ['gop6', 'hob2', 'ptbb', 'algo']
+    ref_sites = ['hob2', 'gop6', 'ptbb', 'algo']
     if mode == 'sat':
         for sat in ref_sats:
             if not sats:

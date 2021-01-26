@@ -1,7 +1,6 @@
 site_list*
 *.sh
 *.out
-__pycache__/proc_gen.cpython-38.pyc
-__pycache__/proc_upd.cpython-38.pyc
+__pycache__/*
 funcs/__pycache__/*
 .vscode/*

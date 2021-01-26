@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "Python: ppp",
             "type": "python",
@@ -69,6 +70,23 @@
                 "-s", "site_list_GREC",
                 "-sys", "G",
                 "-freq", "3",
+                "-n", "1",
+                "-c", "IF"
+            ]
+        },
+
+        {
+            "name": "Python: ud pod",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-y", "2020",
+                "-d", "102",
+                "-s", "site_list_GREC",
+                "-sys", "G",
+                "-freq", "2",
                 "-n", "1",
                 "-c", "IF"
             ]

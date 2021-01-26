@@ -19,7 +19,7 @@ class ProcUdPod(ProcPod):
         # self.config.change_data_path('rinexo', 'obs_fix')
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_A3", 'log_tb')
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt", 'log_tb')
         gt.copy_ambflag_from(ambflagdir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
