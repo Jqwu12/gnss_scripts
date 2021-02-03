@@ -2,10 +2,10 @@ import os
 import math
 import logging
 import shutil
-from funcs import gnss_files as gf
 import pandas as pd
 import time
 from contextlib import contextmanager
+from . import gnss_files as gf
 
 
 @contextmanager
@@ -33,14 +33,7 @@ def list2str(x, isupper=False):
         return info
 
 
-def split_config_by_receivers(config, num):
-    """ 
-    Divide condif to several child configs, each one has part of the receivers.
-    This method is particularly useful for multi-thread process
-    IN  : number of parts
-    OUT : list of child config objects
-    Attention: the 'a = b' in python presents a is the reference of b
-    """
+def split_receivers(config, num):
     all_receivers = config.all_receiver().split()
     if not all_receivers:
         logging.error("No receiver in config")
@@ -52,20 +45,42 @@ def split_config_by_receivers(config, num):
     sta_num = num - leo_num
     leo_subs = _split_list(config.leolist(), leo_num)
     sta_subs = _split_list(config.stalist(), sta_num)
-    child_configs = []
-    for leo_sub in leo_subs:
-        # child_config = copy.deepcopy(config)
-        child_config = config.copy()
-        child_config.update_leolist(leo_sub)
-        child_config.update_stalist('NONE')
-        child_configs.append(child_config)
-    for sta_sub in sta_subs:
-        # child_config = copy.deepcopy(config)
-        child_config = config.copy()
-        child_config.update_stalist(sta_sub)
-        child_config.update_leolist('NONE')
-        child_configs.append(child_config)
-    return child_configs
+    return sta_subs, leo_subs
+
+
+#def split_config_by_receivers(config, num):
+    #""" 
+    #Divide condif to several child configs, each one has part of the receivers.
+    #This method is particularly useful for multi-thread process
+    #IN  : number of parts
+    #OUT : list of child config objects
+    #Attention: the 'a = b' in python presents a is the reference of b
+    #"""
+    #all_receivers = config.all_receiver().split()
+    #if not all_receivers:
+        #logging.error("No receiver in config")
+        #return []
+    #num = min(num, len(all_receivers))
+    #nleo = len(config.leolist())
+    #nsta = len(config.stalist())
+    #leo_num = round(num * nleo / (nleo + nsta))
+    #sta_num = num - leo_num
+    #leo_subs = _split_list(config.leolist(), leo_num)
+    #sta_subs = _split_list(config.stalist(), sta_num)
+    #child_configs = []
+    #for leo_sub in leo_subs:
+        ## child_config = copy.deepcopy(config)
+        #child_config = config.copy()
+        #child_config.update_leolist(leo_sub)
+        #child_config.update_stalist('NONE')
+        #child_configs.append(child_config)
+    #for sta_sub in sta_subs:
+        ## child_config = copy.deepcopy(config)
+        #child_config = config.copy()
+        #child_config.update_stalist(sta_sub)
+        #child_config.update_leolist('NONE')
+        #child_configs.append(child_config)
+    #return child_configs
 
 
 def _split_list(list_in, num):
@@ -296,7 +311,7 @@ def backup_files(config, files, sattype='gns', suffix="bak"):
             f_new = f"{f_name}.{suffix}"
             try:
                 shutil.copy(f_name, f_new)
-            except IOError as e:
+            except IOError as dummy_e:
                 logging.warning(f"unable to backup file {file}")
 
 
@@ -307,7 +322,7 @@ def recover_files(config, files, sattype='gns', suffix="bak"):
             f_new = f"{f_name}.{suffix}"
             try:
                 shutil.copy(f_new, f_name)
-            except IOError as e:
+            except IOError as dummy_e:
                 logging.warning(f"unable to recover file {file}.{suffix}")
 
 
@@ -332,6 +347,8 @@ def copy_ambflag_from(ambflagdir):
         logging.warning(f"cannot find source ambflag dir {ambflagdir}")
         return False
     logging.info(f"ambflag files are copied from {ambflagdir}")
+    if os.path.isdir('log_tb'):
+        shutil.rmtree('log_tb')
     if not os.path.isdir('log_tb'):
         os.makedirs('log_tb')
     for file in os.listdir(ambflagdir):
@@ -355,7 +372,7 @@ def copy_result_files(config, files, scheme, sattype='gns'):
             f_new = f"{f_name}_{scheme}"
             try:
                 shutil.copy(f_name, f_new)
-            except IOError as e:
+            except IOError as dummy_e:
                 logging.warning(f"unable to copy file {file}")
 
 
@@ -374,7 +391,7 @@ def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
                 if os.path.isfile(f_name):
                     try:
                         shutil.copy(f_name, path)
-                    except IOError as e:
+                    except IOError as dummy_e:
                         logging.warning(f"unable to copy file {f_name}")
                 else:
                     logging.warning(f"file not found {f_name}")
@@ -384,7 +401,7 @@ def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
                     if os.path.isfile(f_new):
                         try:
                             shutil.copy(f_new, path)
-                        except IOError as e:
+                        except IOError as dummy_e:
                             logging.warning(f"unable to copy file {f_new}")
                     else:
                         logging.warning(f"file not found {f_new}")

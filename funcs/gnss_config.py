@@ -3,10 +3,9 @@ import configparser
 import shutil
 import logging
 import platform
-import copy
-from funcs import gnss_files as gf, gnss_tools as gt
-from funcs.gnss_time import GnssTime
-from funcs.constants import get_gns_name, get_gns_sat, get_gns_info, _GNS_NAME, _LEO_INFO
+from . import gnss_files as gf, gnss_tools as gt
+from .gnss_time import GnssTime
+from .constants import get_gns_name, get_gns_sat, get_gns_info, _GNS_NAME, _LEO_INFO
 
 
 def _raise_error(msg):
@@ -25,20 +24,18 @@ class GnssConfig:
                 self.config.read(f_config, encoding='UTF-8')
             else:
                 _raise_error(f"config file {f_config} not exist!")
-            if not self.config.has_section('process_scheme'):
-                self.config.add_section('process_scheme')
-            if not self.config.has_section('common'):
-                self.config.add_section('common')
-            if not self.config.has_option('common', 'sys_data'):
-                sys_data = '/home/yuanyongqiang/data_new/WJQ/projects/sys_data'
-                self.config.set('common', 'sys_data', sys_data)
-            if not self.config.has_option('common', 'gns_data'):
-                gns_data = '/home/yuanyongqiang/data_new/WJQ/data'
-                self.config.set('common', 'gns_data', gns_data)
+        
+        if not self.check():
+           raise SystemExit(-1) 
 
-    def copy(self):
-        conf = copy.deepcopy(self.config)  # need python3.8 or higher!
-        return GnssConfig("", conf)
+    def check(self):
+        required_sections = ["process_scheme", "common", "process_files"]
+        for sec in required_sections:
+            if not self.config.has_section(sec):
+                logging.critical(f"[{sec}] not found in config!")
+                return False
+        
+        return True
 
     def update_timeinfo(self, time_beg=None, time_end=None, intv=None):
         """ update the time information in config file """
@@ -513,7 +510,7 @@ class GnssConfig:
         return atmos_drag
 
     def _get_sinexfile(self, check=False, conf_opt='process_files'):
-        t_beg, t_end = self.timeinfo()
+        t_beg, _ = self.timeinfo()
         # t_use = t_beg.time_increase(-86400*30) # use the current snx, change for preedit
         t_use = t_beg
         cf_vars = t_use.config_timedic()

@@ -28,7 +28,7 @@ def read_atxpcv(catx, f_atx):
         lines = file_object.readlines()
 
     isfound = False
-    ibeg = 0; iend = 0
+    ibeg = 0; iend = 0; j = 0
     for i in range(len(lines)):
         if lines[i].find('START OF ANTENNA') == 60:
             ibeg = i
@@ -48,7 +48,7 @@ def read_atxpcv(catx, f_atx):
         print(msg)
         return
     
-    dazi = 0; dzen = 0
+    dazi = 0; dzen = 0; zen1 = 0; zen2 = 0
     for i in range(ibeg,iend):
         if lines[i][0] == '#':
             continue
@@ -91,6 +91,8 @@ def read_atxpcv(catx, f_atx):
 # Orbit and Clock analysis
 def read_clkdif(sats_in, f_name):
     """read the panda clkdif file"""
+    str_std = ''
+    sats = []
     try:
         with open(f_name) as file_object:
             for line in file_object:
@@ -140,6 +142,8 @@ def read_enu(f_enu):
 
 def read_orbdif(sats_in, f_name):
     """read the panda orbdif file"""
+    sats = []
+    str_rms = ''
     try:
         with open(f_name) as file_object:
             for line in file_object:
@@ -187,6 +191,7 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
         print(msg)
         return orbdif
     
+    sats = []
     for line in lines:
         if line.find('SAT') >= 0:
             sats = line[27:].replace('\n','').split('               ')
@@ -241,6 +246,7 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
 def read_clkdif_series(sats_in, f_name, intv = 300):
     """read the clkdif series from panda orbdif file"""
     clkdif = {}
+    sats = []
     try:
         with open(f_name) as file_object:
             lines = file_object.readlines()
@@ -397,9 +403,9 @@ def draw_orbdif_days(dif1, dif2, lab1, lab2, ymax = 10, save_file = '',
         print(msg)
         return
     
-    step = math.ceil(len(dif1.index)/15)
-    doy_idx = range(0,len(dif1.index),step)
-    doy_lab = dif1['doy'][::step]
+    #step = math.ceil(len(dif1.index)/15)
+    #doy_idx = range(0,len(dif1.index),step)
+    #doy_lab = dif1['doy'][::step]
     
     fig, ax = plt.subplots(4, 1, sharex = 'col', figsize=(10, 6))
     bar_width = 0.3
@@ -563,7 +569,7 @@ def read_slromc(f_name, sat, tbeg, seslen):
         mjd = int(info[1])
         sod = float(info[2])
         site_id = info[3]
-        site_name = info[4]
+        #site_name = info[4]
         sat_name = info[5]
         if sat_name != sat:
             continue
@@ -648,8 +654,8 @@ def draw_slromc_points(omc1, omc2, labs = "", exc_sites = "", save_file = ""):
     mm2 = omc_pd2['omc'].mean()*1000
     std1 = omc_pd1['omc'].std()*1000
     std2 = omc_pd2['omc'].std()*1000
-    lab1 = '{:}: {:5.2f}$\pm${:5.2f} mm'.format(labs[0], mm1, std1)
-    lab2 = '{:}: {:5.2f}$\pm${:5.2f} mm'.format(labs[1], mm2, std2)
+    lab1 = f"{labs[0]}: {mm1:5.2f}" + r"$\pm$" + f"{std1:5.2f} mm"
+    lab2 = f"{labs[1]}: {mm2:5.2f}" + r"$\pm$" + f"{std2:5.2f} mm"
     
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(omc_pd1['doy'], omc_pd1['omc'], 'o', 
@@ -684,6 +690,7 @@ def read_residuals_sum(sats_in, f_name, intv = 300, sites_in = []):
     # get the satellites and sites in sum file
     iflag = 0
     sites = []
+    sats = []
     for line in lines:
         if line.find('NAME') == 1:
             if iflag == 0:
@@ -777,10 +784,9 @@ def read_residuals(f_name):
         lines = file_object.readlines()
 
     ## read resfile header
-    mjd0 = 0; seslen = 0; intv = 0
+    mjd0 = 0; intv = 0; sod0 = 0
     sats = []; sites = []
     for line in lines:
-        bracket = 'Time&Interval'
         if line.find('Time&Interval') == 0:
             info = line[15:52].split()
             mjd0 = int(info[0])
@@ -801,7 +807,7 @@ def read_residuals(f_name):
         elif line.find('RES') == 0:
             break
 
-    if mjd0*sod0*intv*len(sats)*len(sites) == 0:
+    if mjd0*intv*len(sats)*len(sites) == 0:
         msg = 'Reading resfile header error!'
         print(msg)
         return

@@ -1,6 +1,7 @@
 from proc_pod import ProcPod
 from funcs import gnss_tools as gt, gnss_run as gr, gnss_files as gf
 import os
+import shutil
 import logging
 
 
@@ -19,7 +20,7 @@ class ProcUdPod(ProcPod):
         # self.config.change_data_path('rinexo', 'obs_fix')
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt", 'log_tb')
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year()), f"{self.doy():0>3d}_G_grt_test0", 'log_tb')
         gt.copy_ambflag_from(ambflagdir)
         if self.config.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
@@ -33,9 +34,9 @@ class ProcUdPod(ProcPod):
             if not self.prepare_obs():
                 return False
 
-        with gt.timeblock("Finished prepare ics"):
-            if not self.prepare_ics():
-                return False
+#        with gt.timeblock("Finished prepare ics"):
+            #if not self.prepare_ics():
+                #return False
 
         return True
 
@@ -44,11 +45,17 @@ class ProcUdPod(ProcPod):
         logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
                      f"number of satellites = {len(self.config.all_gnssat())}")
         logging.info(f"===> 1st iteration for precise orbit determination")
+        # ------------- For test! reset the workdir ---------------
         gt.recover_files(self.config, ['ics', 'orb'])
         if os.path.isfile(f"rec_{self.year()}{self.doy():0>3d}"):
             os.remove(f"rec_{self.year()}{self.doy():0>3d}")
         if os.path.isfile(f"clk_{self.year()}{self.doy():0>3d}"):
             os.remove(f"clk_{self.year()}{self.doy():0>3d}")
+        if os.path.isdir('orbdif'):
+            shutil.rmtree('orbdif')
+            os.makedirs('orbdif')
+        #----------------------------------------------------------
+
         # gf.switch_ambflag(self.config, old='AMB', new='DEL', mode='12')
         self.config.update_process(apply_carrier_range='true', append=True)
         with gt.timeblock("Finished 1st POD"):

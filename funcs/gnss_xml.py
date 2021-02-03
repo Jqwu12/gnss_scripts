@@ -494,15 +494,19 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
             if mode == "WL":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'biabern']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+                root.append(inp)
             elif mode == "EWL":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern', 'ifcb']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+                root.append(inp)
             elif mode == "EWL24":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag14', 'biabern']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+                root.append(inp)
             elif mode == "EWL25":
                 f_inputs = ['rinexo', 'rinexn', 'ambflag', 'ambflag15', 'biabern']
                 inp = _get_element_io(config, 'inputs', f_inputs, check=True)
+                root.append(inp)
             elif mode == "NL":
                 inp = _get_element_io(config, 'inputs', ['rinexn'], check=True)
                 ele = ET.SubElement(inp, "ambupd")
@@ -512,7 +516,7 @@ def _generate_updlsq_xml(config, f_xml_out, mode="WL"):
                 if amb_dict['carrier_range'].upper() == "YES":
                     ele = ET.SubElement(inp, "ambflag")
                     ele.text = config.get_filename("ambflag", check=True)
-            root.append(inp)
+                root.append(inp)
     # <outputs>
     out = ET.SubElement(root, "outputs")
     out_ele = ET.SubElement(out, "log")

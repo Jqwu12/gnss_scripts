@@ -1,4 +1,5 @@
 import math
+import time
 
 monthdays = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -212,6 +213,14 @@ class GnssTime:
         ss = int(str_date.split()[1].split(':')[2])
         sod = hh * 3600 + mm * 60 + ss
         self.from_ymd(year, month, day, sod)
+    
+    @classmethod
+    def today(cls):
+        t = time.localtime()
+        sod = t.tm_hour*3600 + t.tm_min*60 + t.tm_sec
+        gt = cls()
+        gt.from_ydoy(t.tm_year, t.tm_yday, sod)
+        return gt
 
     def fmjd(self):
         return self.mjd + self.sod / 86400.0
@@ -219,13 +228,13 @@ class GnssTime:
     def gwkd(self):
         doy, year = mjd2ydoy(self.mjd)
         month, day = doy2ymd(year, doy)
-        gwk, gwkd = ymd2gpsweek(year, month, day)
+        _, gwkd = ymd2gpsweek(year, month, day)
         return gwkd
 
     def gwk(self):
         doy, year = mjd2ydoy(self.mjd)
         month, day = doy2ymd(year, doy)
-        gwk, gwkd = ymd2gpsweek(year, month, day)
+        gwk, _ = ymd2gpsweek(year, month, day)
         return gwk
 
     def yr(self):

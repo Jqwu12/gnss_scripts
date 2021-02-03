@@ -5,8 +5,8 @@ import math
 import os
 import logging
 import math
-from funcs.gnss_time import GnssTime
-from funcs.constants import _LEO_INFO, get_sat_sys, get_gns_sat, get_gns_name
+from .gnss_time import GnssTime
+from .constants import _LEO_INFO, get_gns_name
 
 
 def read_sp3_file(f_sp3):
@@ -43,6 +43,7 @@ def read_sp3_file(f_sp3):
 
     data = []
     # header = ['time', 'sod', 'sat', 'px', 'py', 'pz']
+    sod = 0
     while True:
         epoch = GnssTime()
         for i in range(nsat + 1):
@@ -150,9 +151,9 @@ def read_rnxo_file(f_name):
             if len(epochLine) == 8:
                 epoch_year, epoch_month, epoch_day, epoch_hour, epoch_minute, epoch_second, epoch_flag, epoch_sat_num = \
                     lines[0][1:].split()
-                receiver_clock = 0
+                #receiver_clock = 0
             elif len(epochLine) == 9:
-                epoch_year, epoch_month, epoch_day, epoch_hour, epoch_minute, epoch_second, epoch_flag, epoch_sat_num, receiver_clock = \
+                epoch_year, epoch_month, epoch_day, epoch_hour, epoch_minute, epoch_second, epoch_flag, epoch_sat_num, _ = \
                     lines[0][1:].split()
             else:
                 raise Warning("Unexpected epoch line format detected! | Program stopped!")
@@ -599,7 +600,7 @@ def conv_ambflag_panda2great(file, file_new):
 
     df = pd.DataFrame(data)
     df = df.sort_values(by=['sat', 'iepo'])
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         file_data += f"{row['flag']} {row['sat']}{row['iepo']:>7d}{row['jepo']:>7d}{row['other']}"
     with open(file_new, 'w') as f:
         f.write(file_data)
@@ -620,7 +621,6 @@ def clean_ambflag(f_name, data):
         elif line[0:3] in ['AMB', 'DEL', 'BAD']:
             file_data += line
         elif line[0:3] == 'IAM':
-            flag = line[0:3]
             sat = line[4:7]
             iepo = int(line[7:14])
             jepo = int(line[14:21])
