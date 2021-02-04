@@ -51,6 +51,18 @@ class ProcPce(ProcGen):
             if label:
                 gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
         self.config.update_process(cen=cen)
+    
+    def generate_products(self, label=None):
+        f_clk0 = self.config.get_filename('satclk', check=True)
+        f_clk1 = self.config.get_filename('clk_out', check=False)
+        if f_clk0:
+            shutil.copy(f_clk0, f_clk1)
+        else:
+            logging.warning(f"failed to find clk file {f_clk0}")
+        
+        if label:
+            if os.path.isfile(f_clk1):
+                shutil.copy(f_clk1, f"{f_clk1}_{label}")
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
@@ -59,6 +71,7 @@ class ProcPce(ProcGen):
 
         gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', 
                      use_res_crd=True, label='pcelsq', xmldir=self.xml_dir)
+        self.generate_products()
         self.evl_clkdif()
 
 
