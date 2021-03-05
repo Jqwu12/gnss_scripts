@@ -164,7 +164,7 @@ class ProcGen:
     def prepare_obs(self):
         logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit\n{' ' * 36}"
                      f"number of receivers = {len(self._config.all_sites)}, number of threads = {self.nthread}")
-        self._config.intv = 30
+        self._config.intv = min(30, self._intv)
         # GrtClockRepair(self._config, 'clockrepair', nmp=self.nthread).run()
         # self._config.change_data_path('rinexo', 'obs_trimcor')
         # if not self._config.basic_check(files=['rinexo']):
