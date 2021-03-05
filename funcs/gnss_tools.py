@@ -4,8 +4,28 @@ import logging
 import shutil
 import pandas as pd
 import time
+from functools import wraps
 from contextlib import contextmanager
 from . import gnss_files as gf
+
+
+def timethis(label):
+    if label is None:
+        label = 'Normal end'
+
+    def decorate(func):
+        """ Decorator that reports the execution time. """
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            end = time.time()
+            logging.info(f"#### {label:30s}, duration {end - start:15.5f} sec")
+            return result
+
+        return wrapper
+
+    return decorate
 
 
 @contextmanager
@@ -18,69 +38,18 @@ def timeblock(label):
         logging.info(f"#### {label:30s}, duration {end - start:15.5f} sec")
 
 
-def list2str(x, isupper=False):
-    if not isinstance(x, list):
-        return ''
-    else:
-        info = ''
-        if isupper:
-            for i in x:
-                info = info + " " + str(i).upper()
-        else:
-            for i in x:
-                info = info + " " + str(i)
-        info = info.strip()
-        return info
-
-
 def split_receivers(config, num):
-    all_receivers = config.all_receiver().split()
-    if not all_receivers:
+    if not config.all_sites:
         logging.error("No receiver in config")
         return []
-    num = min(num, len(all_receivers))
-    nleo = len(config.leolist())
-    nsta = len(config.stalist())
+    num = min(num, len(config.all_sites))
+    nleo = len(config.leo_list)
+    nsta = len(config.site_list)
     leo_num = round(num * nleo / (nleo + nsta))
     sta_num = num - leo_num
-    leo_subs = _split_list(config.leolist(), leo_num)
-    sta_subs = _split_list(config.stalist(), sta_num)
+    leo_subs = _split_list(config.leo_list, leo_num)
+    sta_subs = _split_list(config.site_list, sta_num)
     return sta_subs, leo_subs
-
-
-#def split_config_by_receivers(config, num):
-    #""" 
-    #Divide condif to several child configs, each one has part of the receivers.
-    #This method is particularly useful for multi-thread process
-    #IN  : number of parts
-    #OUT : list of child config objects
-    #Attention: the 'a = b' in python presents a is the reference of b
-    #"""
-    #all_receivers = config.all_receiver().split()
-    #if not all_receivers:
-        #logging.error("No receiver in config")
-        #return []
-    #num = min(num, len(all_receivers))
-    #nleo = len(config.leolist())
-    #nsta = len(config.stalist())
-    #leo_num = round(num * nleo / (nleo + nsta))
-    #sta_num = num - leo_num
-    #leo_subs = _split_list(config.leolist(), leo_num)
-    #sta_subs = _split_list(config.stalist(), sta_num)
-    #child_configs = []
-    #for leo_sub in leo_subs:
-        ## child_config = copy.deepcopy(config)
-        #child_config = config.copy()
-        #child_config.update_leolist(leo_sub)
-        #child_config.update_stalist('NONE')
-        #child_configs.append(child_config)
-    #for sta_sub in sta_subs:
-        ## child_config = copy.deepcopy(config)
-        #child_config = config.copy()
-        #child_config.update_stalist(sta_sub)
-        #child_config.update_leolist('NONE')
-        #child_configs.append(child_config)
-    #return child_configs
 
 
 def _split_list(list_in, num):
@@ -89,7 +58,7 @@ def _split_list(list_in, num):
     e.g. [1,2,3,4,5] => [[1,2],[3,4],[5]]
     """
     if num >= len(list_in):
-        return list_in
+        return [[l] for l in list_in]
     step0 = int(len(list_in) / num)
     n_left = len(list_in) % num
     list_out = []
@@ -116,7 +85,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
              max_freq       threshold of outlier numbers
              max_per        threshold of outlier percentage
     """
-    f_res = config.get_filename("recover_in", check=True)
+    f_res = config.get_xml_file('recover_in')[0]
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
         return [], []
@@ -154,71 +123,59 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     # remove sites
     site_rm_P = list(site_P[(site_P.counts > max_count) & (site_P.freq > max_freq)].index)
     if site_rm_P:
-        logging.warning(f"too many bad code residuals for station: {list2str(site_rm_P)}")
+        logging.warning(f"too many bad code residuals for station: {' '.join(site_rm_P)}")
     site_rm_L = list(site_L[(site_L.counts > max_count) & (site_L.freq > max_freq)].index)
     if site_rm_L:
-        logging.warning(f"too many bad phase residuals for station: {list2str(site_rm_L)}")
+        logging.warning(f"too many bad phase residuals for station: {' '.join(site_rm_L)}")
     site_rm = site_rm_P + site_rm_L
     site_rm = list(set(site_rm))
     # remove sats
     sat_rm_P = list(sat_P[(sat_P.counts > max_count) & (sat_P.freq > max_freq)].index)
     if sat_rm_P:
-        logging.warning(f"too many bad code residuals for satellite: {list2str(sat_rm_P)}")
+        logging.warning(f"too many bad code residuals for satellite: {' '.join(sat_rm_P)}")
     sat_rm_L = list(sat_L[(sat_L.counts > max_count) & (sat_L.freq > max_freq)].index)
     if sat_rm_L:
-        logging.warning(f"too many bad phase residuals for satellite: {list2str(sat_rm_L)}")
+        logging.warning(f"too many bad phase residuals for satellite: {' '.join(sat_rm_L)}")
     sat_rm += sat_rm_P + sat_rm_L
     sat_rm = list(set(sat_rm))
     return site_rm, sat_rm
 
 
-def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
-    # LEO satellites need to be considered
+def good_tb_site(file):
     site_good = []
-    # site_rm = []
+    try:
+        with open(file) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.warning(f"Cannot open turboedit log file {file}")
+        return []
+    for line in lines:
+        if line.find("Site and Evaluation") > 0:
+            if line[65:69] == "GOOD":
+                site = line[58:62].lower()
+                if site not in site_good:
+                    site_good.append(site)
+    return site_good
+
+
+def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
+    # Todo: LEO satellites need to be considered
+    site_good = []
     if nthread == 1:
-        f_name = os.path.join(path, f"{label}.log")
-        try:
-            with open(f_name) as f:
-                for line in f:
-                    if line.find("Site and Evaluation") > 0:
-                        if line[65:69] == "GOOD":
-                            site = line[58:62].lower()
-                            if site not in site_good:
-                                site_good.append(site)
-                        # if line[65:68] == 'BAD':
-                        #     site = line[58:62].lower()
-                        #     site_rm.append(site)
-        except FileNotFoundError:
-            logging.warning(f"Cannot open turboedit log file {f_name}")
+        sites = good_tb_site(os.path.join(path, f"{label}.log"))
+        site_good.extend(sites)
     else:
         for i in range(1, nthread + 1):
-            f_name = os.path.join(path, f"{label}{i:0>2d}.log")
-            try:
-                with open(f_name) as f:
-                    for line in f:
-                        if line.find("Site and Evaluation") > 0:
-                            if line[65:69] == "GOOD":
-                                site = line[58:62].lower()
-                                if site not in site_good:
-                                    site_good.append(site)
-                            # if line[65:68] == 'BAD':
-                            #     site = line[58:62].lower()
-                            #     site_rm.append(site)
-            except FileNotFoundError:
-                logging.warning(f"Cannot open turboedit log file {f_name}")
-                continue
-    site_rm_final = list(set(config.stalist()).difference(set(site_good)))
-    # site_rm_final = []
-    # for site in set(site_rm):
-    #     if site_rm.count(site) > 3:
-    #         site_rm_final.append(site)
-    if site_rm_final:
-        msg = f"STATIONS {list2str(site_rm_final)} are removed due to BAD Turboedit results"
-        logging.warning(msg)
-        config.remove_ambflag_file(site_rm_final)
-    config.update_stalist(site_good)
-    # config.remove_sta(site_rm_final)
+            sites = good_tb_site(os.path.join(path, f"{label}{i:0>2d}.log"))
+            site_good.extend(sites)
+    site_rm_final = list(set(config.all_sites).difference(set(site_good)))
+    if not site_rm_final:
+        return
+    msg = f"STATIONS {' '.join(site_rm_final)} are removed due to BAD Turboedit results"
+    logging.warning(msg)
+    config.remove_ambflag_file(site_rm_final)
+    config.remove_leo(site_rm_final)
+    config.remove_site(site_rm_final)
 
 
 def check_brd_orbfit(f_name):
@@ -257,17 +214,17 @@ def check_brd_orbfit(f_name):
             sat_rm.append(prn)
             logging.warning(f"Bad satellite BRD: {prn}")
     if sat_rm:
-        logging.warning(f"SATELLITES {list2str(sat_rm)} are removed")
+        logging.warning(f"SATELLITES {' '.join(sat_rm)} are removed")
     return sat_rm
 
 
 def check_res_sigma(config, max_sig=8):
     site_rm = []
-    for site in config.stalist():
-        file = config.get_file('recover_in', {'recnam': site.upper()}, check=True)
+    for rec in config.all_receivers:
+        file = config.file_name('recover_in', rec, check=True, quiet=True)
         if not file:
-            logging.warning(f"cannot find resfile for {site}")
-            site_rm.append(site)
+            logging.warning(f"cannot find resfile for {rec['rec']}")
+            site_rm.append(rec['rec'])
             continue
         sig = -1
         with open(file) as f:
@@ -278,14 +235,14 @@ def check_res_sigma(config, max_sig=8):
                     sig = float(line[10:23])
                     if sig > max_sig:
                         logging.warning(f"sigma0 too large in {file}: {sig:8.3f}")
-                        site_rm.append(site)
+                        site_rm.append(rec['rec'])
                     break
         if sig < 0:
             logging.warning(f"sigma0 not find in {file}")
-            site_rm.append(site)
+            site_rm.append(rec['rec'])
 
     if site_rm:
-        config.remove_sta(site_rm)
+        config.remove_site(site_rm)
         config.remove_ambflag_file(site_rm)
 
 
@@ -306,23 +263,23 @@ def backup_dir(dir1, dir2):
 
 def backup_files(config, files, sattype='gns', suffix="bak"):
     for file in files:
-        file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)
-        for f_name in file_olds.split():
+        file_olds = config.get_xml_file(file.lower(), check=True, sattype=sattype)
+        for f_name in file_olds:
             f_new = f"{f_name}.{suffix}"
             try:
                 shutil.copy(f_name, f_new)
-            except IOError as dummy_e:
+            except IOError:
                 logging.warning(f"unable to backup file {file}")
 
 
 def recover_files(config, files, sattype='gns', suffix="bak"):
     for file in files:
-        file_olds = config.get_filename(file.lower(), check=False, sattype=sattype)
-        for f_name in file_olds.split():
+        file_olds = config.get_xml_file(file.lower(), check=False, sattype=sattype)
+        for f_name in file_olds:
             f_new = f"{f_name}.{suffix}"
             try:
                 shutil.copy(f_new, f_name)
-            except IOError as dummy_e:
+            except IOError:
                 logging.warning(f"unable to recover file {file}.{suffix}")
 
 
@@ -339,7 +296,7 @@ def get_rnxc_satlist(f_name):
             return sats
     except FileNotFoundError:
         logging.error(f"file not found {f_name}")
-        return
+        return sats
 
 
 def copy_ambflag_from(ambflagdir):
@@ -367,12 +324,12 @@ def copy_result_files(config, files, scheme, sattype='gns'):
     e.g. cp orbdif_2020001 orbdif_2020001_flt
     """
     for file in files:
-        file_olds = config.get_filename(file.lower(), check=True, sattype=sattype)
-        for f_name in file_olds.split():
+        file_olds = config.get_xml_file(file, check=True, sattype=sattype)
+        for f_name in file_olds:
             f_new = f"{f_name}_{scheme}"
             try:
                 shutil.copy(f_name, f_new)
-            except IOError as dummy_e:
+            except IOError:
                 logging.warning(f"unable to copy file {file}")
 
 
@@ -385,8 +342,8 @@ def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
         # logging.warning(f"Input path {path} not exists, creating...")
         os.makedirs(path)
     for file in files:
-        file_olds = config.get_filename(file.lower(), check=False, sattype=sattype)
-        for f_name in file_olds.split():
+        file_olds = config.get_xml_file(file.lower(), check=False, sattype=sattype)
+        for f_name in file_olds:
             if not schemes:
                 if os.path.isfile(f_name):
                     try:
@@ -411,8 +368,8 @@ def get_grg_wsb(config):
     """
     purpose: grep WL UPD from CNES/CLS integer clock products
     """
-    f_wsb = config.get_filename('upd_wl')
-    f_clks = config.get_filename('rinexc', check=True).split()
+    f_wsb = config.get_xml_file('upd_wl')[0]
+    f_clks = config.get_xml_file('rinexc', check=True)
     f_clks_select = []
     for f_clk in f_clks:
         clk_file = os.path.basename(f_clk)
@@ -450,16 +407,14 @@ def merge_upd_all(config, gsys, files):
              gsys      "GREC"
     """
     for f in files:
-        config.update_process(sys=gsys)
-        f_out = config.get_filename(f)
-        if not f_out:
-            logging.error("Cannot get merged upd name")
+        config.gsys = gsys
+        f_out = config.get_xml_file(f)[0]
         f_ins = []
         for s in gsys:
-            config.update_process(sys=s)
-            f_in = config.get_filename(f, check=True)
+            config.gsys = s
+            f_in = config.get_xml_file(f, check=True)
             if f_in:
-                f_ins.append(f_in)
+                f_ins.append(f_in[0])
         if f == "upd_ewl25":
             merge_upd(f_ins, f_out, "EWL25")
             logging.info(f"merge upd_ewl25 complete, file is {f_out}")
@@ -473,13 +428,12 @@ def merge_upd_all(config, gsys, files):
             merge_upd(f_ins, f_out, "WL")
             logging.info(f"merge upd_wl  complete, file is {f_out}")
         elif f == "upd_nl":
-            intv = config.config['process_scheme']['intv']
-            merge_upd(f_ins, f_out, "NL", int(intv))
+            merge_upd(f_ins, f_out, "NL", config.intv)
             logging.info(f"merge upd_nl  complete, file is {f_out}")
         else:
             logging.warning(f"unknown UPD type {f}")
 
-    config.update_process(sys=gsys)
+    config.gsys = gsys
 
 
 def merge_upd(f_ins, f_out, mode, intv=30):
@@ -534,73 +488,54 @@ def merge_upd(f_ins, f_out, mode, intv=30):
             f1.write("EOF\n")
 
 
-def read_snxfile(snxfile, site_list):
-    """
-    snxfile: sinex file name
-    site_list: [list] sites
-    get sites crd from snx file
-    return : [map] site_name:crd
-    """
-    crd = {}
-    snx_crd = {}
-    # logging.info(f"read snxfile:{snxfile}")
-    if os.path.isfile(snxfile):
-        with open(snxfile, "r", errors="ignore") as myfile:
-            flag = False
-            for line in myfile:
-                if line.find("+SOLUTION/ESTIMATE") != -1:
-                    flag = True
-                    myfile.readline()
+def get_crd_snx(f_snx, site_list):
+    data = []
+    try:
+        with open(f_snx) as f:
+            lfound = False
+            for line in f:
+                if line.startswith('+SOLUTION/ESTIMATE'):
+                    lfound = True
+                if not lfound:
                     continue
-
-                elif line.find("-SOLUTION/ESTIMATE") != -1:
+                if line.startswith('-SOLUTION/ESTIMATE'):
                     break
-
-                if flag:
-                    temp = line.split()
-                    idx = temp[1]
-                    site = temp[2]
-                    value = float(temp[8])
-                    std = float(temp[9])
-                    if idx.find("STA") == -1:
-                        continue
-                    if idx == "STAX":
-                        snx_crd[site.lower()] = [value, std]
-                    else:
-                        snx_crd[site.lower()].extend([value, std])
-    for site in site_list:
-        if snx_crd.get(site.lower()):
-            crd[site.lower()] = snx_crd[site.lower()]
-    return crd
+                site = line[14:18].lower()
+                if site not in site_list:
+                    continue
+                if line[7:11] == 'STAX':
+                    data.append({'site': site, 'type': 'crd_x', 'val': float(line[47:68]),
+                                 'sig': float(line[69:80]), 'obj': 'SNX'})
+                elif line[7:11] == 'STAY':
+                    data.append({'site': site, 'type': 'crd_y', 'val': float(line[47:68]),
+                                 'sig': float(line[69:80]), 'obj': 'SNX'})
+                elif line[7:11] == 'STAZ':
+                    data.append({'site': site, 'type': 'crd_z', 'val': float(line[47:68]),
+                                 'sig': float(line[69:80]), 'obj': 'SNX'})
+    except FileNotFoundError:
+        logging.warning(f'file not found {f_snx}')
+    return pd.DataFrame(data)
 
 
-def get_crd_res(config):
-    crds = {}
-    for site in config.stalist():
-        f_res = config.get_dailyfile('recover_in', {'recnam': site.upper()}, check=True).strip()
-        if not f_res:
-            continue
-        x = 0
-        y = 0
-        z = 0
+def get_crd_res(f_res, site_list):
+    data = []
+    try:
         with open(f_res) as f:
             for line in f:
-                if line[0] == '#':
-                    continue
-                if line[0:3] == 'PAR':
-                    if line.find(f"{site.upper()}_CRD_X_") == 19 and len(line) >= 155:
-                        x = float(line[131:156])
-                    if line.find(f"{site.upper()}_CRD_Y_") == 19 and len(line) >= 155:
-                        y = float(line[131:156])
-                    if line.find(f"{site.upper()}_CRD_Z_") == 19 and len(line) >= 155:
-                        z = float(line[131:156])
-                if line[0:3] == 'RES':
+                if line.startswith('RES:='):
                     break
-                if x != 0 and y != 0 and z != 0:
-                    break
-        if x != 0 and y != 0 and z != 0:
-            crds[site] = [x, y, z]
-    return crds
+                if line.startswith('PAR:='):
+                    if len(line) < 155:
+                        continue
+                    tp = line[24:29]
+                    if tp == 'CRD_X' or tp == 'CRD_Y' or tp == 'CRD_Z':
+                        site = line[19:23].lower()
+                        if site in site_list:
+                            data.append({'site': site, 'type': tp.lower(), 'val': float(line[131:156]),
+                                         'sig': 0.001, 'obj': 'RES'})
+    except FileNotFoundError:
+        logging.warning(f'file not found {f_res}')
+    return pd.DataFrame(data)
 
 
 def mkdir(dir_list):

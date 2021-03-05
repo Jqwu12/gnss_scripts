@@ -1,6 +1,7 @@
-import logging
+from multiprocessing import cpu_count
+import pandas as pd
 
-MAX_THREAD = 8
+MAX_THREAD = min(8, cpu_count())
 
 _GNS_NAME = {'G': 'GPS',
              'R': 'GLO',
@@ -23,31 +24,45 @@ _GNS_SIG = {'GPS': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0
             'QZS': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02}}
 
 
-def get_gns_name(gsys):
-    # check the input gsys
+def gns_name(gsys: str) -> str:
     if len(gsys) == 1:
-        if gsys not in _GNS_NAME.keys():
-            logging.error(f"unknown GNSS name {gsys}, get GNSS information failed!")
-            return
-        else:
+        if gsys in _GNS_NAME.keys():
             return _GNS_NAME[gsys]
-    if len(gsys) != 3:
-        logging.error(f"unknown GNSS name {gsys}, get GNSS information failed!")
-        return
-    else:
-        if gsys not in _GNS_NAME.values():
-            logging.error(f"unknown GNSS name {gsys}, get GNSS information failed!")
-            return
-        else:
+    if len(gsys) == 3:
+        if gsys in _GNS_NAME.values():
             return gsys
+    return ''
 
 
-def get_gns_sat(gsys, sats_rm=None):
+def gns_id(gsys: str) -> str:
+    if len(gsys) == 1:
+        if gsys in _GNS_NAME.keys():
+            return gsys
+    if len(gsys) == 3:
+        for k, v in _GNS_NAME.items():
+            if v == gsys:
+                return k
+    return ''
+
+
+def gns_band(gsys: str) -> list:
+    gsys = gns_name(gsys)
+    if gsys not in _GNS_BAND.keys():
+        return []
+    return _GNS_BAND[gsys]
+
+
+def gns_sig(gsys: str) -> dict:
+    gsys = gns_name(gsys)
+    if gsys not in _GNS_SIG.keys():
+        return {}
+    return _GNS_SIG[gsys]
+
+
+def gns_sat(gsys, sats_rm=None):
     if sats_rm is None:
         sats_rm = []
-    gsys = get_gns_name(gsys)
-    if not gsys:
-        return
+    gsys = gns_name(gsys)
     if gsys == 'GPS':
         _GPS_SAT = [f"G{i:0>2d}" for i in range(1, 33)]
         _GPS_SAT_EXC = ['G04']
@@ -90,11 +105,11 @@ def get_gns_info(gsys, sat_rm=None, band=None):
         band = []
     if sat_rm is None:
         sat_rm = []
-    gsys = get_gns_name(gsys)
+    gsys = gns_name(gsys)
     if not gsys:
         return
     # get the GNSS information
-    sats = get_gns_sat(gsys, sat_rm)
+    sats = gns_sat(gsys, sat_rm)
     if band:
         bands = band
     else:
@@ -104,103 +119,32 @@ def get_gns_info(gsys, sat_rm=None, band=None):
     return info
 
 
-def get_sat_sys(sats):
-    gsys = []
-    for sat in sats:
-        gs = get_gns_name(sat[0])
-        if gs not in gsys:
-            gsys.append(gs)
-    return gsys
+leo_df = pd.DataFrame(
+    [
+        ['grace-a',     'graa', 'gracea',     'GRAALEOANNTE'],
+        ['grace-b',     'grab', 'graceb',     'GRABLEOANNTE'],
+        ['grace-c',     'grac', 'gracefo1',   'GRACLEOANNTE'],
+        ['grace-d',     'grad', 'gracefo2',   'GRADLEOANNTE'],
+        ['jason-2',     'jas2', 'jason2',     'JA2_PA'],
+        ['jason-3',     'jas3', 'jason3',     'JA3_PA'],
+        ['kompsat5',    'koms', 'kompsat5',   'KOMPSAT5_ANT'],
+        ['metop-a',     'meta', 'metopa',     'METOP-A_PA'],
+        ['metop-b',     'metb', 'metopb',     'METOP-B_PA'],
+        ['metop-c',     'metc', 'metopc',     'METOP-C_PA'],
+        ['pazsat',      'pazs', 'pazsat',     'PAZ_ANT'],
+        ['sentinel-1a', 'se1a', 'sentinel1a', 'SEN-1A-GPSA'],
+        ['sentinel-1b', 'se1b', 'sentinel1b', 'SEN-1B-GPSA'],
+        ['sentinel-2a', 'se2a', 'sentinel2a', 'SEN-2A-GPSA'],
+        ['sentinel-2b', 'se2b', 'sentinel2b', 'SEN-2B-GPSA'],
+        ['sentinel-3a', 'se3a', 'sentinel3a', 'SEN-3A-GPSA'],
+        ['sentinel-3b', 'se3b', 'sentinel3b', 'SEN-3B-GPSA'],
+        ['swarm-a',     'swaa', 'swarma',     'SWARM-A_ANT'],
+        ['swarm-b',     'swab', 'swarmb',     'SWARM-B_ANT'],
+        ['swarm-c',     'swac', 'swarmc',     'SWARM-C_ANT'],
+        ['tandem-x',    'tadx', 'tandemx',    'TDX_ANT'],
+        ['terrasar-x',  'tesx', 'terrasarx',  'TSX_POD0']
+    ], columns=['svn', 'name', 'slr', 'ant']
+)
 
 
-_LEO_INFO = {
-    'grace-a': {'abbr': 'graa', 'slrnam': 'gracea', 'ant': 'GRAALEOANNTE'},
-    'grace-b': {'abbr': 'grab', 'slrnam': 'graceb', 'ant': 'GRABLEOANNTE'},
-    'grace-c': {'abbr': 'grac', 'slrnam': 'gracefo1', 'ant': 'GRACLEOANNTE'},
-    'grace-d': {'abbr': 'grad', 'slrnam': 'gracefo2', 'ant': 'GRADLEOANNTE'},
-    'jason-2': {'abbr': 'jas2', 'slrnam': 'jason2', 'ant': 'JA2_PA'},
-    'jason-3': {'abbr': 'jas3', 'slrnam': 'jason3', 'ant': 'JA3_PA'},
-    'kompsat5': {'abbr': 'koms', 'slrnam': 'kompsat5', 'ant': 'KOMPSAT5_ANT'},
-    'metop-a': {'abbr': 'meta', 'slrnam': 'metopa', 'ant': 'METOP-A_PA'},
-    'metop-b': {'abbr': 'metb', 'slrnam': 'metopb', 'ant': 'METOP-B_PA'},
-    'metop-c': {'abbr': 'metc', 'slrnam': 'metopc', 'ant': 'METOP-C_PA'},
-    'pazsat': {'abbr': 'pazs', 'slrnam': 'pazsat', 'ant': 'PAZ_ANT'},
-    'sentinel-1a': {'abbr': 'se1a', 'slrnam': 'sentinel1a', 'ant': 'SEN-1A-GPSA'},
-    'sentinel-1b': {'abbr': 'se1b', 'slrnam': 'sentinel1b', 'ant': 'SEN-1B-GPSA'},
-    'sentinel-2a': {'abbr': 'se2a', 'slrnam': 'sentinel2a', 'ant': 'SEN-2A-GPSA'},
-    'sentinel-2b': {'abbr': 'se2b', 'slrnam': 'sentinel2b', 'ant': 'SEN-2B-GPSA'},
-    'sentinel-3a': {'abbr': 'se3a', 'slrnam': 'sentinel3a', 'ant': 'SEN-3A-GPSA'},
-    'sentinel-3b': {'abbr': 'se3b', 'slrnam': 'sentinel3b', 'ant': 'SEN-3B-GPSA'},
-    'swarm-a': {'abbr': 'swaa', 'slrnam': 'swarma', 'ant': 'SWARM-A_ANT'},
-    'swarm-b': {'abbr': 'swab', 'slrnam': 'swarmb', 'ant': 'SWARM-B_ANT'},
-    'swarm-c': {'abbr': 'swac', 'slrnam': 'swarmc', 'ant': 'SWARM-C_ANT'},
-    'tandem-x': {'abbr': 'tadx', 'slrnam': 'tandemx', 'ant': 'TDX_ANT'},
-    'terrasar-x': {'abbr': 'tesx', 'slrnam': 'terrasarx', 'ant': 'TSX_POD0'}
-}
-
-
-def form_leolist(leos):
-    """ get a list containing LEO long names from the input list """
-    leo_out = []
-    for leo in leos:
-        if _leo_short2long(leo):
-            leo_out.append(_leo_short2long(leo))
-            continue
-        if leo in _LEO_INFO.keys():
-            leo_out.append(leo)
-        else:
-            logging.warning(f"Unknown LEO name: {leo}")
-
-    return leo_out
-
-
-def _leo_short2long(leo):
-    for key, val in _LEO_INFO.items():
-        if val['abbr'] == leo.strip():
-            return key
-
-
-_LSQ_SCHEME = {
-    'BASIC': {
-        'inputs': ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern'],
-        'outputs': []
-    },
-    'LEO_KIN': {
-        'inputs': ['orb', 'rinexc', 'sp3', 'satpars', 'attitude'],
-        'outputs': ['recclk', 'sp3']
-    },
-    'LEO_DYN': {
-        'inputs': ['orb', 'rinexc', 'ics', 'satpars', 'attitude'],
-        'outputs': ['recclk', 'ics']
-    },
-    'PPP_EST': {
-        'inputs': ['rinexn', 'sp3', 'rinexc', 'blq', 'ifcb'],
-        'outputs': ['ppp', 'enu', 'flt', 'ambupd', 'recover']
-    },
-    'PCE_EST': {
-        'inputs': ['rinexn', 'sp3', 'blq', 'ifcb', 'satpars', 'sinex'],
-        'outputs': ['satclk', 'recclk', 'recover']
-    },
-    'POD_EST': {
-        'inputs': ['orb', 'ics', 'blq', 'ifcb', 'satpars', 'rinexn', 'rinexc_all'],
-        'outputs': ['ics', 'satclk', 'recclk', 'recover']
-    }
-}
-
-
-def read_site_list(f_list):
-    """ read a site list file """
-    try:
-        with open(f_list) as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        logging.error("site_list not found")
-        return
-
-    sites = []
-    for line in lines:
-        if line[0] != " ":
-            continue
-        sites.append(line.split()[0].lower())
-
-    return sites
+__all__ = ['gns_id', 'gns_name', 'gns_sat', 'gns_band', 'gns_sig', 'leo_df', 'MAX_THREAD']

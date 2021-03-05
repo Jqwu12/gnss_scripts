@@ -5,66 +5,69 @@ import math
 import os
 import logging
 import math
-from .gnss_time import GnssTime
-from .constants import _LEO_INFO, get_gns_name
+from .gnss_time import GnssTime, hms2sod
+from .constants import gns_name, leo_df
+
+
+def read_site_list(f_list):
+    """ read a site list file """
+    try:
+        with open(f_list) as f:
+            lines = f.readlines()
+            return [line[1:5].lower() for line in lines if line.startswith(' ')]
+    except FileNotFoundError:
+        logging.error("site_list not found")
+        return
 
 
 def read_sp3_file(f_sp3):
     start = time.time()
-    if not os.path.isfile(f_sp3):
-        logging.error(f"NO SP3 file {f_sp3}")
-        return
-    with open(f_sp3) as file_object:
-        sp3 = file_object.readlines()
-    num = 0
-    nsat = 0
-    for i in range(len(sp3)):
-        if sp3[i][0:1] == '#':
-            continue
-        elif sp3[i][0:2] == '+ ':
-            if isint(sp3[i][1:6]):
-                nsat = int(sp3[i][1:6])
-        elif sp3[i][0] == '*' and sp3[i][3:7].isdigit():
-            num = i
-            break
-
-    if nsat == 0:
-        logging.error("no satellite in SP3 file")
+    try:
+        with open(f_sp3) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {f_sp3}")
         return
 
-    del sp3[0:num]
+    if len(lines) < 100:
+        logging.warning(f"sp3 file too short ({len(lines)}")
+        return
+
+    try:
+        nsat = int(lines[2][1:6])
+    except ValueError:
+        logging.warning(f"cannot get nsat in sp3: {lines[2]}")
+        return
+
     # delete Velocities
-    lines = []
-    for line in sp3:
-        if line[0] != 'V':
-            lines.append(line)
+    lines = [ln for ln in lines if ln[0] != 'V']
     # sp3 = [j.replace('P  ', 'PG0') for j in sp3]
     # sp3 = [j.replace('P ', 'PG') for j in sp3]
 
     data = []
     # header = ['time', 'sod', 'sat', 'px', 'py', 'pz']
-    sod = 0
     while True:
-        epoch = GnssTime()
-        for i in range(nsat + 1):
-            if lines[i][0] == '*':
-                info = lines[i].split()
-                year = int(info[1])
-                month = int(info[2])
-                day = int(info[3])
-                sod = int(info[4]) * 3600 + int(info[5]) * 60 + float(info[6])
-                epoch.from_ymd(year, month, day, sod)
-            elif lines[i][0] == 'P':
-                sat = lines[i][1:4]
-                px = float(lines[i].split()[1]) * 1000  # units: m
-                py = float(lines[i].split()[2]) * 1000
-                pz = float(lines[i].split()[3]) * 1000
-                sat_dict = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sod': sod, 'sat': sat, 'px': px, 'py': py,
-                            'pz': pz}
-                data.append(sat_dict)
-        del lines[0:nsat + 1]
-        if 'EOF' in lines[0]:
+        line = next(lines, None)
+        if not line or line.startswith('EOF'):
             break
+        if not line.startswith('*'):
+            continue
+        year, month, day, hh, mm, ss = line.split()
+        epoch = GnssTime.from_ymd(int(year), int(month), int(day),
+                                  hms2sod(int(hh), int(mm), float(ss)))
+        n = 0
+        while n < nsat:
+            line = next(lines, None)
+            if not line or line.startswith('EOF'):
+                break
+            if not line.startswith('P'):
+                continue
+            sat, px, py, pz, *_ = line[1:].split()
+            data.append({
+                'epoch': epoch.fmjd, 'sod': epoch.sod, 'sat': sat,
+                'px': float(px)*1000, 'py': float(py)*1000, 'pz': float(pz)*1000
+            })
+
     # ------------------------------------------------------------------
     end = time.time()
     msg = f"{f_sp3} file is read in {end - start:.2f} seconds"
@@ -84,13 +87,12 @@ def read_rnxc_file(f_name, mode="AS"):
                 continue
             if len(line) < 59:
                 continue
-            epoch = GnssTime()
             name = line[3:7].strip()
             year = int(line[8:12])
             mon = int(line[13:15])
             dd = int(line[16:18])
             sod = int(line[19:21]) * 3600 + int(line[22:24]) * 60 + float(line[25:34])
-            epoch.from_ymd(year, mon, dd, sod)
+            epoch = GnssTime.from_ymd(year, mon, dd, sod)
             value = float(line[37:59])
             sat_dict = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sod': sod, 'name': name, 'clk': value}
             data.append(sat_dict)
@@ -132,7 +134,6 @@ def read_rnxo_file(f_name):
     data = []
     nline = 0
     while True:
-        epoch = GnssTime()
         # =============================================================================
         while True:
             if 'COMMENT' in lines[0]:
@@ -177,7 +178,7 @@ def read_rnxo_file(f_name):
         else:
             # =========================================================================
             sod = int(epoch_hour) * 3600 + int(epoch_minute) * 60 + float(epoch_second)
-            epoch.from_ymd(int(epoch_year), int(epoch_month), int(epoch_day), sod)
+            epoch = GnssTime.from_ymd(int(epoch_year), int(epoch_month), int(epoch_day), sod)
             del lines[0]  # delete epoch header line
             # =============================================================================
             epoch_sat_num = int(epoch_sat_num)
@@ -185,7 +186,7 @@ def read_rnxo_file(f_name):
                 sat = lines[svLine][0:3]
                 sys_ot = obs_type[sat[0]]
                 ot_num = len(sys_ot)
-                epoch_obs = {'epoch': epoch.mjd + epoch.sod / 86400.0, 'sat': sat}
+                epoch_obs = {'epoch': epoch.fmjd, 'sat': sat}
                 for i in range(ot_num):
                     if sys_ot[i][0] != 'C' and sys_ot[i][0] != 'L':
                         continue
@@ -213,30 +214,29 @@ def read_res_file(f_res):
         return
 
     lfound = False
-    tbeg = GnssTime()
-    intv = 30
+    line = ''
     for line in lines:
-        if line[0:2] != '##':
+        if not line[0:2].startswith('##'):
             break
-        if line[0:15] == '##Time&Interval':
+        if line.startswith('##Time&Interval'):
             lfound = True
-            tbeg.from_datetime(line[28:47])
-            intv = int(line[47:62])
             break
 
-    if not lfound:
+    if not lfound or len(line) < 62:
         logging.warning(f"Cannot find ##Time&Interval in {f_res}")
         return
+
+    tbeg = GnssTime.from_str(line[28:47])
+    intv = int(line[47:62])
 
     data = []
     for line in lines:
         if line.find("RES") != 0:
             continue
-        tt = GnssTime()
-        tt.from_datetime(line[11:30])
+        tt = GnssTime.from_str(line[11:30])
         epo = int(tt.diff(tbeg) / intv) + 1
         data.append({
-            'epo': epo, 'mjd': tt.mjd + tt.sod / 86400.0, 'sod': tt.sod,
+            'epo': epo, 'mjd': tt.fmjd, 'sod': tt.sod,
             'site': line[39:43], 'sat': line[48:51], 'ot': line[51:59].strip(),
             'res': float(line[74:89]), 'wgt': float(line[60:74])
         })
@@ -266,7 +266,7 @@ def read_clkdif_sum(f_name, mjd):
     data = []
     for i in range(len(sats)):
         data.append({
-            'sat': sats[i], 'gsys': get_gns_name(sats[i][0]), 'val': float(info[i]), 'mjd': int(mjd)
+            'sat': sats[i], 'gsys': gns_name(sats[i][0]), 'val': float(info[i]), 'mjd': int(mjd)
         })
     dd = pd.DataFrame(data)
     # find ref clock
@@ -306,7 +306,7 @@ def sum_clkdif(f_list, mjds, mode=None):
             if len(dd) < ndays * 0.6:
                 continue
             data_new.append({
-                'sat': sat, 'gsys': get_gns_name(sat[0]), 'val': dd['val'].mean()
+                'sat': sat, 'gsys': gns_name(sat[0]), 'val': dd['val'].mean()
             })
         return pd.DataFrame(data_new)
     elif mode == 'mjd':
@@ -463,7 +463,7 @@ def sum_orbdif(f_list, mode=None):
             for tp in ['along', 'cross', 'radial', '3d']:
                 data = data_tmp[(data_tmp.sat == sat) & (data_tmp['type'] == tp)]
                 data_sum.append({
-                    'mjd': mjd, 'sat': sat, 'gsys': get_gns_name(sat[0]), 'rms': rms_val(data['val']), 'type': tp
+                    'mjd': mjd, 'sat': sat, 'gsys': gns_name(sat[0]), 'rms': rms_val(data['val']), 'type': tp
                 })
     data_pd = pd.DataFrame(data_sum)
     sats = list(set(data_pd.sat))
@@ -479,7 +479,7 @@ def sum_orbdif(f_list, mode=None):
             for tp in ['along', 'cross', 'radial', '3d']:
                 dd = data_pd[(data_pd.sat == sat) & (data_pd.type == tp)]
                 data_new.append({
-                    'sat': sat, 'gsys': get_gns_name(sat[0]), 'rms': dd.rms.mean(), 'type': tp
+                    'sat': sat, 'gsys': gns_name(sat[0]), 'rms': dd.rms.mean(), 'type': tp
                 })
         return pd.DataFrame(data_new)
     elif mode == 'mjd':
@@ -540,7 +540,6 @@ def check_ambflag(f_ambflag, nobs=1000):
                     lfound = False
             return lfound
     except FileNotFoundError:
-        logging.warning(f"ambflag file not found {f_ambflag}")
         return False
 
 
@@ -639,51 +638,50 @@ def clean_ambflag(f_name, data):
 
 def check_rnxo_ant(f_rnxo, f_atx, change=True):
     """ check if the antenna of RINEXO file in igs14.atx """
-    if os.path.isfile(f_rnxo):
-        rnxo_ant = ""
-        with open(f_rnxo) as file_object:
-            for line in file_object:
-                if line.find("ANT #") == 60:
-                    rnxo_ant = line[20:40]
-                    break
-                if line.find("END OF HEADER") > 0:
-                    logging.warning(f"cannot find ANT # in RINEXO file {f_rnxo}")
-                    return False
-        if not rnxo_ant:
-            logging.warning(f"cannot find ANT # in RINEXO file {f_rnxo}")
-            return False
-    else:
-        logging.warning(f"RINEXO file not found {f_rnxo}")
+    if not os.path.isfile(f_rnxo):
+        logging.warning(f"rinexo file not found {f_rnxo}")
         return False
-    if os.path.isfile(f_atx):
-        atx_ant = ""
-        with open(f_atx) as file_object:
-            for line in file_object:
-                if line[0:16] == rnxo_ant[0:16]:
-                    atx_ant = line[0:20]
-                    break
-        if not atx_ant:
-            logging.warning(f"cannot find {rnxo_ant[0:16].rstrip()} in {f_atx}")
-            return False
-        if rnxo_ant != atx_ant:
-            if change:
-                logging.info(f"convert RINEXO ant from {rnxo_ant} to {atx_ant}")
-                alter_file(f_rnxo, rnxo_ant, atx_ant, count=1)
-                return True
-            else:
-                logging.warning(f"Antenna in RINEXO not consistent with igs.atx")
-                return False
-        else:
-            return True
-    else:
+    if not os.path.isfile(f_atx):
         logging.warning(f"atx file not found {f_atx}")
         return False
+
+    rnxo_ant = ""
+    with open(f_rnxo) as f:
+        for line in f:
+            if line.find("ANT #") == 60:
+                rnxo_ant = line[20:40]
+                break
+            if line.find("END OF HEADER") > 0:
+                logging.warning(f"cannot find ANT # in RINEXO file {f_rnxo}")
+                return False
+    if not rnxo_ant:
+        logging.warning(f"cannot find ANT # in RINEXO file {f_rnxo}")
+        return False
+
+    atx_ant = ""
+    with open(f_atx) as f:
+        for line in f:
+            if line[0:16] == rnxo_ant[0:16]:
+                atx_ant = line[0:20]
+                break
+    if not atx_ant:
+        logging.warning(f"cannot find {rnxo_ant[0:16].rstrip()} in {f_atx}")
+        return False
+
+    if rnxo_ant != atx_ant:
+        if not change:
+            logging.warning(f"rinexo antenna '{rnxo_ant}' differ with '{atx_ant}'")
+            return False
+        logging.info(f"convert rinexo ant from '{rnxo_ant}' to '{atx_ant}'")
+        alter_file(f_rnxo, rnxo_ant, atx_ant, count=1)
+        return True
+    return True
 
 
 def check_att_file(f_att):
     """ modify the attitude file header """
     sat = os.path.basename(f_att).split('_')[-1]
-    if not sat.lower() in _LEO_INFO.keys():
+    if not sat.lower() in list(leo_df.svn):
         logging.warning(f"Unknown LEO satellite {sat} in att file name")
         return False
     if os.path.isfile(f_att):
@@ -699,14 +697,10 @@ def check_att_file(f_att):
         if len(lines) < 100:
             logging.warning(f"records in attitude file too few: {len(lines)}")
             return False
-        first = GnssTime()
-        second = GnssTime()
-        third = GnssTime()
-        last = GnssTime()
-        first.from_mjd(int(lines[0].split()[0]), float(lines[0].split()[1]))
-        second.from_mjd(int(lines[1].split()[0]), float(lines[1].split()[1]))
-        third.from_mjd(int(lines[2].split()[0]), float(lines[2].split()[1]))
-        last.from_mjd(int(lines[-1].split()[0]), float(lines[-1].split()[1]))
+        first = GnssTime(int(lines[0].split()[0]), float(lines[0].split()[1]))
+        second = GnssTime(int(lines[1].split()[0]), float(lines[1].split()[1]))
+        third = GnssTime(int(lines[2].split()[0]), float(lines[2].split()[1]))
+        last = GnssTime(int(lines[-1].split()[0]), float(lines[-1].split()[1]))
         dt1 = second.diff(first)
         dt2 = third.diff(second)
         if dt1 - dt2 < 0.001:

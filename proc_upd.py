@@ -1,127 +1,102 @@
-from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import ProcGen
-from funcs.constants import get_gns_name
 import os
 import logging
+from funcs import gns_name, timeblock, merge_upd_all, copy_result_files_to_path, backup_dir, GrtUpdlsq, GrtPpplsq
+from proc_gen import ProcGen
 
 
 class ProcUpd(ProcGen):
-    def __init__(self):
-        super().__init__()
+    default_args = {
+        'dsc': 'GREAT Uncalibrated Phase Delay Estimation',
+        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'LSQ', 'sys': 'G',
+        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_upd.ini'
+    }
 
-        self.default_args['dsc'] = "GREAT Uncalibrated Phase Delay Estimation"
-        self.default_args['intv'] = 30
-        self.default_args['freq'] = 3
-        self.default_args['obs_comb'] = 'UC'
-        self.default_args['cf'] = 'cf_upd.ini'
+    proj_id = 'UPD'
 
-        self.required_subdir = ['log_tb', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
-        self.required_opt = ['estimator']
-        self.required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
-
-    # def init_proc(self, config=None):
-    #     super().init_proc(config)
-    #     if self.args.freq > 3 and self.args.obs_comb != "UC":
-    #         raise SystemExit("4- and 5-frequency UPD estimation currently only supports uncombined observation model")
-
-    def update_path(self, all_path):
-        super().update_path(all_path)
-        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'UPD')
+    required_subdir = ['log_tb', 'xml', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
+    required_opt = ['estimator']
+    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     def process_ifcb(self):
-        f_ifcb = self.config.get_filename('ifcb', check=True)
         # if no ifcb file in current dir, run ifcb estimation
-        if not f_ifcb:
-            if self.args.freq > 2 and "G" in self.args.sys:
-                with gt.timeblock("Finished IFCB estimation"):
-                    self.config.update_process(sys='G')
-                    gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='ifcb', label="ifcb", xmldir=self.xml_dir)
-                    self.config.update_process(sys=self.args.sys)
-                return True
+        if not self._config.get_xml_file('ifcb', check=True) and self._config.freq > 2 and 'G' in self._config.gsys:
+            with timeblock('Finished IFCB estimation'):
+                self._config.gsys = 'G'
+                GrtUpdlsq(self._config, mode='IFCB', label='ifcb').run()
+                self._config.gsys = self._gsys
+            return True
         return False
 
     def process_ppp(self):
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
-        gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', nthread=self.nthread(), fix_mode="NO",
-                     label='ppplsq', xmldir=self.xml_dir)
-        self.config.basic_check(files=['recover_all', 'ambupd_in'])
+        GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread).run()
+        self.basic_check(files=['recover_all', 'ambupd_in'])
 
     def process_upd_onesys(self, gsys):
-        nfreq = self.config.freq()
-        mfreq = self.config.gnsfreq(gsys)
-        self.config.update_gnssinfo(sys=gsys, freq=mfreq)
+        nfreq = self._config.freq
+        mfreq = self._config.gnsfreq(gsys)
+        self._config.gsys = gsys
+        self._config.freq = mfreq
         upd_results = []
-        logging.info(f"===> Start to process {get_gns_name(gsys)} UPD")
+        logging.info(f"===> Start to process {gns_name(gsys)} UPD")
         if mfreq == 5:
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL25',
-                         label=f"upd_ewl25_{gsys}", xmldir=self.xml_dir)
+            GrtUpdlsq(self._config, 'EWL25', f'upd_ewl25_{gsys}').run()
             upd_results.append('upd_ewl25')
-
         if mfreq >= 4:
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL24',
-                         label=f"upd_ewl24_{gsys}", xmldir=self.xml_dir)
+            GrtUpdlsq(self._config, 'EWL24', f'upd_ewl24_{gsys}').run()
             upd_results.append('upd_ewl24')
-
         if mfreq >= 3:
-            gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='EWL',
-                         label=f"upd_ewl_{gsys}", xmldir=self.xml_dir)
+            GrtUpdlsq(self._config, 'EWL', f'upd_ewl_{gsys}').run()
             upd_results.append('upd_ewl')
-
-        gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='WL',
-                     label=f"upd_wl_{gsys}", xmldir=self.xml_dir)
+        GrtUpdlsq(self._config, 'WL', f'upd_wl_{gsys}').run()
         upd_results.append('upd_wl')
-
-        gr.run_great(self.grt_bin, 'great_updlsq', self.config, mode='NL',
-                     label=f"upd_nl_{gsys}", xmldir=self.xml_dir)
+        GrtUpdlsq(self._config, 'NL', f'upd_nl_{gsys}').run()
         upd_results.append('upd_nl')
-        self.config.update_gnssinfo(sys=self.gsys, freq=nfreq)
 
+        self._config.gsys = self._gsys
+        self._config.freq = nfreq
         return upd_results
 
     def process_upd(self, obs_comb=None):
-        if obs_comb:
-            self.config.update_gnssinfo(obs_comb=obs_comb)
-        logging.info(f"------------------------------------------------------------------------")
-        logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
-                     f"number of satellites = {len(self.config.all_gnssat())}")
+        if obs_comb is not None:
+            self._config.obs_comb = obs_comb
         upd_results = []
-
         if self.process_ifcb():
             upd_results.append('ifcb')
 
         self.process_ppp()
-
-        for gsys in self.gsys:
+        for gsys in self._gsys:
             upd_results.extend(self.process_upd_onesys(gsys))
 
         upd_results = list(set(upd_results))
         upd_results.sort()
-
         # Merge multi-GNSS UPD
-        if len(self.gsys) > 1:
-            logging.info(f"===> Merge UPD: {gt.list2str(upd_results)}")
-            gt.merge_upd_all(self.config, self.gsys, upd_results)
+        if len(self._gsys) > 1:
+            logging.info(f"===> Merge UPD: {' '.join(upd_results)}")
+            merge_upd_all(self._config, self._gsys, upd_results)
 
         return upd_results
 
     def save_results(self, upd_results):
-        # Copy results
         if not upd_results:
             return
-        upd_data = self.config.config.get("common", "upd_data")
+        upd_data = self._config.upd_data
         logging.info(f"===> Copy UPD results to {upd_data}")
-        gt.copy_result_files_to_path(self.config, upd_results, os.path.join(upd_data, f"{self.config.beg_time().year}"))
+        copy_result_files_to_path(self._config, upd_results, os.path.join(upd_data, f"{self._config.beg_time.year}"))
 
     def process_daily(self):
-        with gt.timeblock("Finish process UC upd"):
+        logging.info(f"------------------------------------------------------------------------\n{' '*36}"
+                     f"Everything is ready: number of stations = {len(self._config.site_list)}, "
+                     f"number of satellites = {len(self._config.all_gnssat)}")
+        with timeblock("Finish process UC upd"):
             self.save_results(self.process_upd(obs_comb='UC'))
-            gt.backup_dir('ambupd', 'ambupd_UC')
+            backup_dir('ambupd', 'ambupd_UC')
 
-        with gt.timeblock("Finish process IF upd"):
+        with timeblock("Finish process IF upd"):
             self.save_results(self.process_upd(obs_comb='IF'))
-            gt.backup_dir('ambupd', 'ambupd_IF')
+            backup_dir('ambupd', 'ambupd_IF')
 
 
 if __name__ == '__main__':
-    proc = ProcUpd()
+    proc = ProcUpd.from_args()
     proc.process_batch()

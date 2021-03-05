@@ -1,80 +1,70 @@
-from funcs import gnss_tools as gt, gnss_run as gr
-from proc_gen import ProcGen
 import os
 import shutil
 import logging
+from proc_gen import ProcGen
+from funcs import copy_result_files, GrtClkdif, GrtPcelsq
 
 
 class ProcPce(ProcGen):
-    def __init__(self):
-        super().__init__()
+    default_args = {
+        'dsc': 'GREAT GNSS Precise Clock Estimation',
+        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
+        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pce.ini'
+    }
 
-        self.default_args['dsc'] = "GREAT Precise Clock Estimation"
-        self.default_args['intv'] = 300
-        self.default_args['freq'] = 2
-        self.default_args['obs_comb'] = 'IF'
-        self.default_args['cen'] = 'grt'
-        self.default_args['cf'] = 'cf_pce.ini'
+    proj_id = 'PCE'
 
-        self.required_subdir = ['log_tb', 'clkdif', 'tmp']
-        self.required_opt = ['estimator']
-        self.required_file = ['rinexo', 'rinexn', 'sp3', 'biabern']
+    required_subdir = ['log_tb', 'tmp', 'xml', 'clkdif', 'figs']
+    required_opt = ['estimator']
+    required_file = ['rinexo', 'rinexn', 'biabern']
 
-        self.ref_cen = ['com', 'gbm', 'wum']
+    ref_cen = ['com', 'gbm', 'wum']
 
-    def update_path(self, all_path):
-        super().update_path(all_path)
-        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PCE')
+    # def prepare_obs(self):
+    #     poddir = os.path.join(self._config.base_dir, 'POD', str(self._config.beg_time.year),
+    #                           f"{self._config.beg_time.doy:0>3d}_GREC_2_IF")
+    #     f_res = f"res_{self._config.beg_time.year}{self._config.beg_time.doy:0>3d}"
+    #     try:
+    #         shutil.copy(os.path.join(poddir, f_res), f_res)
+    #     except IOError:
+    #         logging.warning(f"copy {f_res} failed")
+    #
+    #     ambflagdir = os.path.join(poddir, 'log_tb')
+    #     gt.copy_ambflag_from(ambflagdir)
+    #     if self._config.basic_check(files=['ambflag']):
+    #         logging.info("Ambflag is ok ^_^")
+    #         return True
+    #     else:
+    #         logging.critical("NO ambflag files ! skip to next day")
+    #         return False
 
-    def prepare_obs(self):
-        poddir = os.path.join(self.base_dir, 'POD', str(self.year()), f"{self.doy():0>3d}_GREC_2_IF")
-        f_res = f"res_{self.year()}{self.doy():0>3d}"
-        try:
-            shutil.copy(os.path.join(poddir, f_res), f_res)
-        except IOError:
-            logging.warning(f"copy {f_res} failed")
-    
-        ambflagdir = os.path.join(poddir, 'log_tb')
-        gt.copy_ambflag_from(ambflagdir)
-        if self.config.basic_check(files=['ambflag']):
-            logging.info("Ambflag is ok ^_^")
-            return True
-        else:
-            logging.critical("NO ambflag files ! skip to next day")
-            return False
-
-    def evl_clkdif(self, label=None):
-        cen = self.config.igs_ac()
+    def clkdif(self, label=''):
+        cen = self._config.orb_ac
         for c in self.ref_cen:
-            self.config.update_process(cen=c)
-            gr.run_great(self.grt_bin, 'great_clkdif', self.config, label='clkdif', xmldir=self.xml_dir, stop=False)
+            self._config.orb_ac = c
+            GrtClkdif(self._config, 'clkdif').run()
             if label:
-                gt.copy_result_files(self.config, ['clkdif'], label, 'gns')
-        self.config.update_process(cen=cen)
-    
-    def generate_products(self, label=None):
-        f_clk0 = self.config.get_filename('satclk', check=True)
-        f_clk1 = self.config.get_filename('clk_out', check=False)
+                copy_result_files(self._config, ['clkdif'], label, 'gns')
+        self._config.orb_ac = cen
+
+    def generate_products(self, label=''):
+        f_clk0 = self._config.get_xml_file('satclk', check=True)
+        f_clk1 = self._config.get_xml_file('clk_out', check=False)
         if f_clk0:
-            shutil.copy(f_clk0, f_clk1)
-        else:
-            logging.warning(f"failed to find clk file {f_clk0}")
-        
-        if label:
-            if os.path.isfile(f_clk1):
-                shutil.copy(f_clk1, f"{f_clk1}_{label}")
+            shutil.copy(f_clk0[0], f_clk1[0])
+        if label and os.path.isfile(f_clk1[0]):
+            shutil.copy(f_clk1[0], f"{f_clk1[0]}_{label}")
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------")
-        logging.info(f"Everything is ready: number of stations = {len(self.config.stalist())}, "
-                     f"number of satellites = {len(self.config.all_gnssat())}")
+        logging.info(f"Everything is ready: number of stations = {len(self._config.site_list)}, "
+                     f"number of satellites = {len(self._config.all_gnssat)}")
 
-        gr.run_great(self.grt_bin, 'great_pcelsq', self.config, mode='PCE_EST', 
-                     use_res_crd=True, label='pcelsq', xmldir=self.xml_dir)
+        GrtPcelsq(self._config, 'pcelsq').run()
         self.generate_products()
-        self.evl_clkdif()
+        self.clkdif()
 
 
 if __name__ == '__main__':
-    proc = ProcPce()
+    proc = ProcPce.from_args()
     proc.process_batch()

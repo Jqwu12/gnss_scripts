@@ -13,6 +13,19 @@ def leapyear(year):
     return 0
 
 
+def norm_doy(year, doy):
+    while True:
+        if doy <= 0:
+            year -= 1
+            doy += (365 + leapyear(year))
+        elif doy > 365 + leapyear(year):
+            doy -= (365 - leapyear(year))
+            year += 1
+        else:
+            break
+    return year, doy
+
+
 def doy2ymd(year, doy):
     """ Change year,day of year to year,month,day """
     day = doy
@@ -41,7 +54,6 @@ def ymd2doy(year, mon, day):
 
 def ymd2mjd(year, mon, day):
     """ Change year,month,day to Modified Julian Day """
-    mjd = 0.0
     if mon <= 2:
         mon += 12
         year -= 1
@@ -53,6 +65,7 @@ def ymd2mjd(year, mon, day):
 
 def doy2mjd(year, doy):
     """ Change year, day of year to Modified Julian Day """
+    year, doy = norm_doy(year, doy)
     mon, day = doy2ymd(year, doy)
     return ymd2mjd(year, mon, day)
 
@@ -74,10 +87,7 @@ def mjd2ydoy(mjd):
     while dd > yday:
         dd -= yday
         year += 1
-        if leapyear(year) == 0:
-            yday = 365
-        else:
-            yday = 366
+        yday = 365 + leapyear(year)
     return int(dd), int(year)
 
 
@@ -95,42 +105,163 @@ def hms2sod(hh, mm=0, ss=0.0):
     return int(hh)*3600 + int(mm)*60 + float(ss)
 
 
-class GnssTime:
+_formats = {
+    'ymd': '{d.year:0>4d}-{d.month:0>2d}-{d.day:0>2d}',
+    'mdy': '{d.month:0>2d}/{d.day:0>2d}/{d.year:0>4d}',
+    'dmy': '{d.day:0>2d}/{d.month:0>2d}/{d.year:0>4d}',
+    'ydoy': '{d.year:0>4d}{d.doy:0>3d}',
+    'gwkd': '{d.gwk:0>4d}{d.gwkd:1d}'
+    }
 
-    def __init__(self):
-        self.year = 2019
-        self.doy = 100
-        self.month = 4
-        self.day = 1
-        self.mjd = 0
-        self.sod = 0.0
+
+class GnssTime:
+    __slots__ = ['_mjd', '_sod', '_year', '_month', '_day', '_doy', '_gwk', '_gwkd']
+
+    def __init__(self, mjd, sod=0.0):
+        self._mjd = mjd
+        self._sod = sod
+        self.__set_time()
+
+    def __norm_sod(self):
+        while True:
+            if self._sod >= 86400.0:
+                self._sod -= 86400.0
+                self._mjd += 1
+            elif self._sod < 0:
+                self._sod += 86400.0
+                self._mjd -= 1
+            else:
+                break
+
+    def __set_time(self):
+        """ set all time according to mjd and seconds of day """
+        self.__norm_sod()
+        self._doy, self._year = mjd2ydoy(self._mjd)
+        self._month, self._day = doy2ymd(self._year, self._doy)
+        self._gwk, self._gwkd = ymd2gpsweek(self._year, self._month, self._day)
+
+    # only readable as no @XXX.setter
+    @property
+    def mjd(self):
+        return self._mjd
+
+    @property
+    def sod(self):
+        return self._sod
+
+    @property
+    def year(self):
+        return self._year
+
+    @property
+    def doy(self):
+        return self._doy
+
+    @property
+    def month(self):
+        return self._month
+
+    @property
+    def day(self):
+        return self._day
+
+    @property
+    def gwk(self):
+        return self._gwk
+
+    @property
+    def gwkd(self):
+        return self._gwkd
+
+    @property
+    def yr(self):
+        return int(str(self.year)[2:])
+
+    @property
+    def fmjd(self):
+        return self.mjd + self.sod / 86400.0
+
+    @classmethod
+    def from_ydoy(cls, year, doy, sod=0.0):
+        """ set GNSSTime from year, day of year and seconds of day """
+        year, doy = norm_doy(int(year), int(doy))
+        mjd = doy2mjd(year, doy)
+        return cls(mjd, float(sod))
+
+    @classmethod
+    def from_ymd(cls, year, mon, day, sod=0.0):
+        """ set GNSSTime by year, mon, day and seconds of day """
+        mjd = ymd2mjd(int(year), int(mon), int(day))
+        return cls(mjd, float(sod))
+
+    @classmethod
+    def today(cls):
+        t_loc = time.localtime()
+        mjd = ymd2mjd(t_loc.tm_year, t_loc.tm_mon, t_loc.tm_mday)
+        sod = t_loc.tm_hour * 3600 + t_loc.tm_min * 60 + t_loc.tm_sec
+        sod += time.timezone  # from local time to UTC
+        return cls(mjd, sod)
+
+    @classmethod
+    def from_str(cls, str_time):
+        """ set GNSSTime from YYYY-MM-DD HH:MM:SS """
+        dd = str_time.strip().split()
+        year, mon, day = dd[0].split('-')
+        if len(dd) > 1:
+            hh, mm, ss = dd[1].split(':')
+            sod = int(hh) * 3600 + int(mm) * 60 + int(ss)
+        else:
+            sod = 0
+        mjd = ymd2mjd(int(year), int(mon), int(day))
+        return cls(mjd, float(sod))
+
+    def __str__(self):
+        """ format: 2019-07-19 00:00:00 """
+        hh, mm, ss = sod2hms(self.sod)
+        return f"{self.year:4d}-{self.month:0>2d}-{self.day:0>2d} {hh:0>2d}:{mm:0>2d}:{ss:0>2d}"
+
+    def __repr__(self):
+        hh, mm, ss = sod2hms(self.sod)
+        return f"GnssTime({self.year:4d}-{self.month:0>2d}-{self.day:0>2d} {hh:0>2d}:{mm:0>2d}:{ss:0>2d})"
+
+    def __format__(self, code):
+        if code == '':
+            code = 'ymd'
+        fmt = _formats[code]
+        return fmt.format(d=self)
 
     def __add__(self, other):
         """ return a new GNSSTime with time increasing by dsec seconds """
         try:
-            time_new = GnssTime()
-            time_new.from_mjd(self.mjd, self.sod + float(other))
-            return time_new
-        except TypeError:
+            dsec = float(other)
+        except ValueError:
             return NotImplemented
+        return GnssTime(self.mjd, self.sod + dsec)
 
     def __sub__(self, other):
         """ return a new GNSSTime with time decreasing by dsec seconds """
         try:
-            time_new = GnssTime()
-            time_new.from_mjd(self.mjd, self.sod - float(other))
-            return time_new
-        except TypeError:
+            dsec = float(other)
+        except ValueError:
             return NotImplemented
+        return GnssTime(self.mjd, self.sod - dsec)
 
     def __iadd__(self, other):
-        self.sod += float(other)
-        self.from_mjd(self.mjd, self.sod)
+        try:
+            dsec = float(other)
+        except ValueError:
+            return NotImplemented
+        self._sod += dsec
+        self.__set_time()
         return self
 
     def __isub__(self, other):
-        self.sod -= float(other)
-        self.from_mjd(self.mjd, self.sod)
+        try:
+            dsec = float(other)
+        except ValueError:
+            return NotImplemented
+        self._sod -= dsec
+        self.__set_time()
         return self
 
     def __eq__(self, other):
@@ -151,105 +282,15 @@ class GnssTime:
     def __ge__(self, other):
         return (self.mjd > other.mjd) or (self.mjd == other.mjd and self.sod >= other.sod)
 
-    def __norm_sod(self):
-        while True:
-            if self.sod >= 86400.0:
-                self.sod -= 86400.0
-                self.mjd += 1
-            elif self.sod < 0:
-                self.sod += 86400.0
-                self.mjd -= 1
-            else:
-                break
-
-    def __set_time(self):
-        """ set all time according to mjd and seconds of day """
-        self.doy, self.year = mjd2ydoy(self.mjd)
-        self.month, self.day = doy2ymd(self.year, self.doy)
-
-    def from_ymd(self, year, mon, day, sod=0.0):
-        """ set GNSSTime by year, mon, day and seconds of day """
-        self.mjd = ymd2mjd(year, mon, day)
-        self.sod = float(sod)
-        self.__norm_sod()
-        self.__set_time()
-
-    def from_ydoy(self, year, doy, sod=0.0):
-        """ set GNSSTime from year, day of year and seconds of day """
-        year = int(year)
-        doy = int(doy)
-        if doy <= 0:
-            year = year - 1
-            if leapyear(year) == 1:
-                doy = 366 + doy
-            else:
-                doy = 365 + doy
-        if doy > 365 and leapyear(year) == 0:
-            year = year - 1
-            doy = doy - 365
-        if doy > 366 and leapyear(year) == 1:
-            year = year - 1
-            doy = doy - 366
-        self.mjd = doy2mjd(year, doy)
-        self.sod = float(sod)
-        self.__norm_sod()
-        self.__set_time()
-
-    def from_mjd(self, mjd, sod=0.0):
-        """ set GNSSTime from Modified Julian Day and seconds of day """
-        self.mjd = int(mjd)
-        self.sod = float(sod)
-        self.__norm_sod()
-        self.__set_time()
-
-    def from_datetime(self, str_date):
-        """ set GNSSTime from YYYY-MM-DD HH:MM:SS """
-        str_date = str_date.strip()
-        year = int(str_date.split()[0].split('-')[0])
-        month = int(str_date.split()[0].split('-')[1])
-        day = int(str_date.split()[0].split('-')[2])
-        hh = int(str_date.split()[1].split(':')[0])
-        mm = int(str_date.split()[1].split(':')[1])
-        ss = int(str_date.split()[1].split(':')[2])
-        sod = hh * 3600 + mm * 60 + ss
-        self.from_ymd(year, month, day, sod)
-    
-    @classmethod
-    def today(cls):
-        t = time.localtime()
-        sod = t.tm_hour*3600 + t.tm_min*60 + t.tm_sec
-        gt = cls()
-        gt.from_ydoy(t.tm_year, t.tm_yday, sod)
-        return gt
-
-    def fmjd(self):
-        return self.mjd + self.sod / 86400.0
-
-    def gwkd(self):
-        doy, year = mjd2ydoy(self.mjd)
-        month, day = doy2ymd(year, doy)
-        _, gwkd = ymd2gpsweek(year, month, day)
-        return gwkd
-
-    def gwk(self):
-        doy, year = mjd2ydoy(self.mjd)
-        month, day = doy2ymd(year, doy)
-        gwk, _ = ymd2gpsweek(year, month, day)
-        return gwk
-
-    def yr(self):
-        return int(str(self.year)[2:])
-
-    def datetime(self):
-        """ format: 2019-07-19 00:00:00 """
-        hh, mm, ss = sod2hms(self.sod)
-        msg = f"{self.year:4d}-{self.month:0>2d}-{self.day:0>2d} {hh:0>2d}:{mm:0>2d}:{ss:0>2d}"
-        return msg
-
     def diff(self, other):
+        if not isinstance(other, GnssTime):
+            raise TypeError("Expected a GnssTime()")
         return (self.mjd - other.mjd) * 86400.0 + self.sod - other.sod
 
     def config_timedic(self):
         """ return a dictionary of time information for config file """
-        return {'yyyy': f"{self.year:4d}", 'ddd': f"{self.doy:0>3d}", 'yy': f"{self.yr():0>2d}",
-                'mm': f"{self.month:0>2d}", 'gwk': f"{self.gwk():0>4d}", 'gwkd': f"{self.gwk():0>4d}{self.gwkd():1d}"}
+        return {'yyyy': f"{self.year:4d}", 'ddd': f"{self.doy:0>3d}", 'yy': f"{self.yr:0>2d}",
+                'mm': f"{self.month:0>2d}", 'gwk': f"{self.gwk:0>4d}", 'gwkd': f"{self:gwkd}"}
+
+
+__all__ = ['doy2mjd', 'doy2ymd', 'ymd2doy', 'ymd2mjd', 'ymd2gpsweek', 'mjd2ydoy', 'sod2hms', 'hms2sod', 'GnssTime']
