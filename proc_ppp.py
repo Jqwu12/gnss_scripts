@@ -1,68 +1,61 @@
-from funcs import gnss_run as gr
-from proc_gen import ProcGen
 import os
-import logging
+import sys
 import shutil
+import logging
+from proc_gen import ProcGen
+from funcs import GrtPpplsq
 
 
-class ProcPpp(ProcGen):
-    def __init__(self):
-        super().__init__()
+class ProcPPP(ProcGen):
+    default_args = {
+        'dsc': 'GREAT Precise Point Positioning',
+        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'EPO', 'sys': 'G',
+        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_ppp.ini'
+    }
 
-        self.default_args['dsc'] = "GREAT Precise Point Positioning"
-        self.default_args['intv'] = 30
-        self.default_args['freq'] = 3
-        self.default_args['obs_comb'] = 'UC'
-        self.default_args['est'] = 'EPO'
-        self.default_args['cf'] = 'cf_ppp.ini'
+    proj_id = 'PPP'
 
-        self.required_subdir = ['log_tb', 'enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res', 'tmp']
-        self.required_opt = ['estimator']
-        self.required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
-
-    def update_path(self, all_path):
-        super().update_path(all_path)
-        self.proj_dir = os.path.join(self.config.config['common']['base_dir'], 'PPP')
+    required_subdir = ['log_tb', 'xml', 'enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res', 'tmp']
+    required_opt = ['estimator']
+    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     def process_ppp(self, freq=None, obs_comb=None, fix=True):
-        if freq:
-            self.config.update_gnssinfo(freq=int(freq))
-        if obs_comb:
-            self.config.update_gnssinfo(obs_comb=str(obs_comb))
-            self.config.copy_sys_data()
-
-        if not fix:
-            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="NO", label=f"ppplsq_{obs_comb}_{freq}_F", xmldir=self.xml_dir)
-        else:
-            gr.run_great(self.grt_bin, 'great_ppplsq', self.config, mode='PPP_EST', newxml=True, nthread=self.nthread(),
-                         fix_mode="SEARCH", label=f"ppplsq_{obs_comb}_{freq}_AR", xmldir=self.xml_dir)
+        if freq is not None:
+            self._config.freq = int(freq)
+        if obs_comb is not None:
+            self._config.obs_comb = str(obs_comb)
+        amb = 'AR' if fix else 'F'
+        GrtPpplsq(self._config, f'ppplsq_{self._config.freq}_{self._config.obs_comb}_{amb}', nmp=self.nthread, fix_amb=fix).run()
 
     def save_results(self, label):
         if not os.path.isdir('ratio'):
             os.makedirs('ratio')
-        for site in self.sta_list:
+        for site in self._config.site_list:
             f_ratio = f"ratio-{site.upper()}"
             if os.path.isfile(f_ratio):
                 f_new = os.path.join('ratio', f"{f_ratio}-{label}")
                 shutil.move(f_ratio, f_new)
 
     def process_daily(self):
-        logging.info(f"------------------------------------------------------------------------")
-        logging.info(f"Everything is ready: number of stations = {len(proc.config.stalist())}, "
-                     f"number of satellites = {len(proc.config.all_gnssat())}")
+        logging.info(f"------------------------------------------------------------------------\n"
+                     f"{' '*36}Everything is ready: number of stations = {len(self._config.site_list)}, "
+                     f"number of satellites = {len(self._config.all_gnssat)}")
 
-        self.process_ppp(obs_comb='IF', freq=2, fix=False)
-        self.process_ppp(obs_comb='IF', freq=2, fix=True)
-        self.process_ppp(obs_comb='IF', freq=3, fix=False)
-        self.process_ppp(obs_comb='IF', freq=3, fix=True)
+        self._config.obs_comb = 'IF'
+        self._config.copy_sys_data()
+        self.process_ppp(freq=2, fix=False)
+        self.process_ppp(freq=2, fix=True)
+        self.process_ppp(freq=3, fix=False)
+        self.process_ppp(freq=3, fix=True)
 
-        self.process_ppp(obs_comb='UC', freq=2, fix=False)
-        self.process_ppp(obs_comb='UC', freq=2, fix=True)
-        self.process_ppp(obs_comb='UC', freq=3, fix=False)
-        self.process_ppp(obs_comb='UC', freq=3, fix=True)
+        self._config.obs_comb = 'UC'
+        self._config.copy_sys_data()
+        self.process_ppp(freq=2, fix=False)
+        self.process_ppp(freq=2, fix=True)
+        self.process_ppp(freq=3, fix=False)
+        self.process_ppp(freq=3, fix=True)
 
 
 if __name__ == '__main__':
-    proc = ProcPpp()
+    proc = ProcPPP.from_args()
     proc.process_batch()

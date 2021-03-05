@@ -1,95 +1,98 @@
-from funcs.gnss_config import GnssConfig
-from funcs.gnss_time import GnssTime, hms2sod
-from funcs import gnss_tools as gt, gnss_run as gr
-from funcs.constants import read_site_list, MAX_THREAD
 import os
 import shutil
 import logging
 import argparse
-import platform
+from funcs import GnssConfig, GnssTime, hms2sod, read_site_list, MAX_THREAD, timeblock, mkdir, \
+    get_grg_wsb, check_turboedit_log, check_brd_orbfit, backup_files, \
+    GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres
+
+
+def basic_args(default_args: dict):
+    parser = argparse.ArgumentParser(description=default_args['dsc'])
+    # Time argument
+    parser.add_argument('-n', dest='num', type=int, default=default_args['num'],
+                        help='number of process days')
+    parser.add_argument('-l', dest='seslen', type=int, default=default_args['seslen'],
+                        help='process time length (hours)')
+    parser.add_argument('-i', dest='intv', type=int, default=default_args['intv'],
+                        help='process interval (seconds)')
+    parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
+    parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
+    # Estimation argument
+    parser.add_argument('-c', dest='obs_comb', default=default_args['obs_comb'], choices={'UC', 'IF'},
+                        help='observation combination')
+    parser.add_argument('-est', dest='lsq_mode', default=default_args['est'], choices={'EPO', 'LSQ'},
+                        help='estimator: LSQ or EPO')
+    parser.add_argument('-sys', dest='sys', default=default_args['sys'],
+                        help='used GNSS observations, e.g. G/GC/GREC')
+    parser.add_argument('-freq', dest='freq', type=int, default=default_args['freq'],
+                        help='used GNSS frequencies')
+    # File argument
+    parser.add_argument('-cen', dest='cen', default=default_args['cen'],
+                        choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+                        help='GNSS precise orbits and clocks')
+    parser.add_argument('-bia', dest='bia', default=default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
+                        help='bias files')
+    parser.add_argument('-cf', dest='cf', default=default_args['cf'], help='config file')
+    parser.add_argument('-kp', dest='kp_dir', action='store_true', help='Keep the existing work dir')
+    return parser
+
+
+def get_args_config(args) -> GnssConfig:
+    config = GnssConfig.from_file(args.cf)
+    config.gsys, config.freq, config.obs_comb, config.lsq_mode, config.intv = \
+        args.sys, args.freq, args.obs_comb, args.lsq_mode, args.intv
+    if args.sod:
+        sod = args.sod
+    elif args.hms:
+        hh, mm, ss, *_ = args.hms + [0, 0]
+        sod = hms2sod(hh, mm, ss)
+    else:
+        sod = 0
+    config.beg_time = GnssTime.from_ydoy(args.year, args.doy, sod)
+    config.end_time = config.beg_time + 3600 * args.seslen - args.intv
+    if args.cen == 'cod':
+        args.bia = 'cod'
+    if args.freq > 2:
+        args.bia = 'CAS'
+    config.orb_ac, config.bia_ac = args.cen, args.bia
+    return config
 
 
 class ProcGen:
-    def __init__(self):
-        self.default_args = {
-            'dsc': 'GREAT Data Processing',
-            'num': 1, 'len': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-            'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pod.ini'
-        }
-        self.args = None
-        self.config = None
-        self.sta_list = []
-        self.grt_bin = ''
-        self.base_dir = ''
-        self.proj_dir = ''
-        self.result_dir = ''
-        self.xml_dir = 'xml'
-        self.seslen = 86400
-        self.num = 1
-        self.intv = 30
-        self.gsys = ''
-        self.keep_dir = False
-        self.required_subdir = ['log_tb', 'tmp']
-        self.required_opt = []
-        self.required_file = ['rinexo']
+    default_args = {
+        'dsc': 'GREAT Data Processing',
+        'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
+        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pod.ini'
+    }
 
-    def init_proc(self, config=None):
-        if not config:
-            self.args = self.get_args()
-            self.config = GnssConfig(self.args.cf)
-            self.config.update_pathinfo(check=False)  # to be changed
-            self.config.update_gnssinfo(self.args.sys, self.args.freq, self.args.obs_comb, self.args.est)
-            if self.args.freq > 2:
-                self.args.bia = "CAS"
-            self.config.update_timeinfo(intv=self.args.intv)
-            self.config.update_prodinfo(self.args.cen, self.args.bia)
-            self.seslen = hms2sod(self.args.len)
-            self.gsys = self.args.sys
-            self.intv = self.args.intv
-            self.num = self.args.num
-            self.keep_dir = self.args.keep_dir
-            self.sta_list = read_site_list(self.args.f_list)
-            self.grt_bin = self.config.config.get('common', 'grt_bin')
-            self.base_dir = self.config.config.get('common', 'base_dir')
-        else:
-            self.config = config
-            self.gsys = config.gsys()
-            self.intv = config.intv()
-            self.seslen = config.seslen() + config.intv()
-            self.keep_dir = True
-            self.sta_list = config.stalist()
-            self.grt_bin = config.config.get('common', 'grt_bin')
-            self.base_dir = config.config.get('common', 'base_dir')
+    proj_id = ''
 
-    # ------ Get args ----------------
-    def get_args(self):
-        parser = argparse.ArgumentParser(description=self.default_args['dsc'])
-        # Time argument
-        parser.add_argument('-n', dest='num', type=int, default=self.default_args['num'],
-                            help='number of process days')
-        parser.add_argument('-l', dest='len', type=int, default=self.default_args['len'],
-                            help='process time length (hours)')
-        parser.add_argument('-i', dest='intv', type=int, default=self.default_args['intv'],
-                            help='process interval (seconds)')
-        parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
-        parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
-        # Estimation argument
-        parser.add_argument('-c', dest='obs_comb', default=self.default_args['obs_comb'], choices={'UC', 'IF'},
-                            help='observation combination')
-        parser.add_argument('-est', dest='est', default=self.default_args['est'], choices={'EPO', 'LSQ'},
-                            help='estimator: LSQ or EPO')
-        parser.add_argument('-sys', dest='sys', default=self.default_args['sys'],
-                            help='used GNSS observations, e.g. G/GC/GREC')
-        parser.add_argument('-freq', dest='freq', type=int, default=self.default_args['freq'],
-                            help='used GNSS frequencies')
-        # File argument
-        parser.add_argument('-cen', dest='cen', default=self.default_args['cen'],
-                            choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
-                            help='GNSS precise orbits and clocks')
-        parser.add_argument('-bia', dest='bia', default=self.default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
-                            help='bias files')
-        parser.add_argument('-cf', dest='cf', default=self.default_args['cf'], help='config file')
-        parser.add_argument('-kp', dest='keep_dir', action='store_true', help='Keep the existing work dir')
+    required_subdir = ['log_tb', 'tmp', 'xml']
+    required_opt = []
+    required_file = ['rinexo']
+
+    sat_rm = []
+
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        self._config = config
+        self._ndays = ndays
+        self._kp_dir = kp_dir
+        self._site_list = self._config.site_list
+        self._intv = self._config.intv
+        self._gsys = ''.join(self._config.gsys)
+        self._workdir = self._config.workdir
+
+    @classmethod
+    def from_args(cls):
+        args = cls.get_args(cls.default_args)
+        cf = get_args_config(args)
+        cf.site_list = read_site_list(args.f_list)
+        return cls(cf, args.num, args.kp_dir)
+
+    @staticmethod
+    def get_args(default_args):
+        parser = basic_args(default_args)
         # Required argument
         parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
         parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
@@ -97,81 +100,80 @@ class ProcGen:
         args = parser.parse_args()
         return args
 
-    def get_beg_time(self):
-        if self.args:
-            if self.args.sod:
-                sod = self.args.sod
-            elif self.args.hms:
-                if len(self.args.hms) > 2:
-                    sod = hms2sod(self.args.hms[0], self.args.hms[1], self.args.hms[2])
-                elif len(self.args.hms) > 1:
-                    sod = hms2sod(self.args.hms[0], self.args.hms[1])
-                else:
-                    sod = hms2sod(self.args.hms[0])
-            else:
-                sod = hms2sod(0)
-            t_beg0 = GnssTime()
-            t_beg0.from_ydoy(self.args.year, self.args.doy, sod)
-            return t_beg0
-        else:
-            return self.config.beg_time()
-
-    def year(self):
-        return self.config.beg_time().year
-
-    def doy(self):
-        return self.config.beg_time().doy
-
-    def sod(self):
-        return self.config.beg_time().sod
-
-    def mjd(self):
-        return self.config.beg_time().mjd
-
+    @property
     def nthread(self):
-        return min(len(self.config.all_receiver().split()), MAX_THREAD)
+        return min(len(self._config.all_sites), MAX_THREAD)
 
-    def update_path(self, all_path):
-        self.config.update_pathinfo(all_path)
-        self.grt_bin = self.config.config.get('common', 'grt_bin')
-        self.base_dir = self.config.config.get('common', 'base_dir')
+    @property
+    def base_dir(self):
+        return self._config.base_dir
 
-    def init_daily(self, crt_time, seslen):
-        self.config.update_timeinfo(crt_time, crt_time + (seslen - self.config.intv()), self.config.intv())
-        self.config.update_stalist(self.sta_list)
-        self.config.update_gnssinfo(sat_rm=[])
+    @property
+    def year(self):
+        return self._config.beg_time.year
+
+    @property
+    def doy(self):
+        return self._config.beg_time.doy
+
+    def basic_check(self, opts=None, files=None):
+        if files is None:
+            files = []
+        if opts is None:
+            opts = []
+        return self._config.basic_check(opts, files)
+
+    def set_workdir(self):
+        if not self._config.workdir:
+            self._workdir = os.path.join(self.base_dir, self.proj_id, str(self.year), f"{self.doy:0>3d}_{self._gsys}")
+        else:
+            self._workdir = self._config.workdir
+        if not os.path.isdir(self._workdir):
+            os.makedirs(self._workdir)
+        else:
+            if not self._kp_dir:
+                shutil.rmtree(self._workdir)
+                os.makedirs(self._workdir)
+
+    def init_daily(self):
+        # --- reset process scheme
+        self._config.site_list = self._site_list
+        self._config.sat_rm = self.sat_rm
+        self._config.crd_constr = 'EST'
         # self.config.change_data_path('rinexo', 'obs')
-        self.config.update_process(crd_constr='EST')
-
-    def check(self):
-        # ---------- Basic check ---------
-        gt.mkdir(self.required_subdir)
-        self.config.copy_sys_data()
-        if self.config.basic_check(self.required_opt, self.required_file):
+        self.set_workdir()
+        os.chdir(self._workdir)
+        mkdir(self.required_subdir)
+        self._config.copy_sys_data()
+        if self._config.upd_mode == 'IRC':
+            get_grg_wsb(self._config)
+        # --- daily check
+        if self.basic_check(self.required_opt, self.required_file):
             logging.info("Basic check complete ^_^")
+            self._config.write('config.ini')
+            return True
         else:
             logging.critical("Basic check failed! skip to next day")
             return False
-        if self.config.is_integer_clock() and not self.config.is_integer_clock_osb():
-            gt.get_grg_wsb(self.config)
-        return True
+
+    def next_day(self):
+        self._config.beg_time += 86400
+        self._config.end_time += 86400
+        self._ndays -= 1
 
     def prepare_obs(self):
-        logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit")
-        intv = self.config.intv()
-        self.config.update_process(intv=30)
-        logging.info(f"number of stations = {len(self.config.stalist())}, number of threads = {self.nthread()}")
-        # gr.run_great(self.grt_bin, 'great_clockrepair', self.config, label='clockrepair',
-        #              xmldir=self.xml_dir, nthread=self.nthread())
-        # self.config.change_data_path('rinexo', 'obs_trimcor')
-        # if not self.config.basic_check(files=['rinexo']):
+        logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit\n{' ' * 36}"
+                     f"number of receivers = {len(self._config.all_sites)}, number of threads = {self.nthread}")
+        self._config.intv = 30
+        # GrtClockRepair(self._config, 'clockrepair', nmp=self.nthread).run()
+        # self._config.change_data_path('rinexo', 'obs_trimcor')
+        # if not self._config.basic_check(files=['rinexo']):
         #     return False
         tb_label = 'turboedit'
-        gr.run_great(self.grt_bin, 'great_turboedit', self.config, label=tb_label,
-                     xmldir=self.xml_dir, nthread=self.nthread())
-        self.config.update_process(intv=intv)
-        gt.check_turboedit_log(self.config, self.nthread(), label=tb_label, path=self.xml_dir)
-        if self.config.basic_check(files=['ambflag']):
+        GrtTurboedit(self._config, tb_label, nmp=self.nthread).run()
+        self._config.intv = self._intv
+        check_turboedit_log(self._config, self.nthread, label=tb_label)
+        if self.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
             return True
         else:
@@ -180,178 +182,90 @@ class ProcGen:
 
     def prepare_ics(self):
         logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
-        cen = self.config.config['process_scheme']['cen']
-        self.config.update_process(cen='brd')
-        gr.run_great(self.grt_bin, 'great_preedit', self.config, label='preedit', xmldir=self.xml_dir)
-        # do not change the label and xmldir of preedit
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-        gr.run_great(self.grt_bin, 'great_orbfit', self.config, label='orbfit', xmldir=self.xml_dir)
-        sat_rm = gt.check_brd_orbfit(self.config.get_filename('orbdif'))
-        self.config.update_gnssinfo(sat_rm=sat_rm)
-        gr.run_great(self.grt_bin, 'great_oi', self.config, label='oi', xmldir=self.xml_dir)
-        self.config.update_process(cen=cen)
-        gt.backup_files(self.config, ['ics', 'orb'])
+        orb_ac = self._config.orb_ac
+        self._config.orb_ac = 'brd'
+
+        GrtPreedit(self._config).run()
+        GrtOi(self._config, 'oi').run()
+        GrtOrbfit(self._config, 'orbfit').run()
+        GrtOi(self._config, 'oi').run()
+        GrtOrbfit(self._config, 'orbfit').run()
+
+        sat_rm = check_brd_orbfit(self._config.get_xml_file('orbdif')[0])
+        self._config.sat_rm = sat_rm
+        GrtOi(self._config, 'oi').run()
+        self._config.orb_ac = orb_ac
+        backup_files(self._config, ['ics', 'orb'])
         return True
 
     def prepare(self):
-        with gt.timeblock("Finished prepare obs"):
+        with timeblock('Finished prepare obs'):
             if not self.prepare_obs():
                 return False
-
         return True
+
+    def editres(self, bad=80, jump=80, nshort=600, edt_amb=False, all_sites=False):
+        nmp = self.nthread if all_sites else 1
+        kwargs = {'nmp': nmp, 'bad': bad, 'jump': jump, 'nshort': nshort, 'edt_amb': edt_amb, 'all_sites': all_sites}
+        if self._config.obs_comb == 'IF':
+            GrtEditres(self._config, 'editres12', mode='L12', freq='LC12', **kwargs).run()
+            if self._config.freq > 2:
+                GrtEditres(self._config, 'editres13', mode='L13', freq='LC13', **kwargs).run()
+            if self._config.freq > 3:
+                GrtEditres(self._config, 'editres14', mode='L14', freq='LC14', **kwargs).run()
+            if self._config.freq > 4:
+                GrtEditres(self._config, 'editres15', mode='L15', freq='LC15', **kwargs).run()
+        else:
+            GrtEditres(self._config, 'editres01', mode='L12', freq='L1', **kwargs).run()
+            GrtEditres(self._config, 'editres02', mode='L12', freq='L2', **kwargs).run()
+            if self._config.freq > 2:
+                GrtEditres(self._config, 'editres03', mode='L13', freq='L3', **kwargs).run()
+            if self._config.freq > 3:
+                GrtEditres(self._config, 'editres04', mode='L14', freq='L4', **kwargs).run()
+            if self._config.freq > 4:
+                GrtEditres(self._config, 'editres05', mode='L15', freq='L5', **kwargs).run()
+        self.basic_check(files=['ambflag'])
 
     def process_daily(self):
+        raise NotImplementedError
+
+    def save_results(self, **kwargs):
         pass
 
-    def process_edtres(self, bad=80, jump=80, nshort=600, edt_amb=False, all_sites=False):
-        if all_sites:
-            nthread = self.nthread()
-        else:
-            nthread = 1
-        if self.config.obs_comb() == "IF":
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='LC12',
-                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                         label='editres12', xmldir=self.xml_dir)
-            if not self.config.basic_check(files=['ambflag']):
-                return False
-
-            if self.config.freq() > 2:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='LC13',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres13', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag13'])
-
-            if self.config.freq() > 3:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='LC14',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres14', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag14'])
-
-            if self.config.freq() > 4:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='LC15',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres15', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag15'])
-
-        else:
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L1',
-                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                         label='editres01', xmldir=self.xml_dir)
-            if not self.config.basic_check(files=['ambflag']):
-                return False
-
-            gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L12', freq='L2',
-                         nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                         label='editres02', xmldir=self.xml_dir)
-            self.config.basic_check(files=['ambflag'])
-
-            if self.config.freq() > 2:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L13', freq='L3',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres03', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag13'])
-
-            if self.config.freq() > 3:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L14', freq='L4',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres04', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag14'])
-
-            if self.config.freq() > 4:
-                gr.run_great(self.grt_bin, 'great_editres', self.config, nthread=nthread, mode='L15', freq='L5',
-                             nshort=nshort, bad=bad, jump=jump, edt_amb=edt_amb, all_sites=all_sites,
-                             label='editres05', xmldir=self.xml_dir)
-                self.config.basic_check(files=['ambflag15'])
-
-        return True
-
-    def save_results(self, x):
-        pass
-
-    def generate_products(self, x=None):
+    def generate_products(self, **kwargs):
         pass
 
     def process_batch(self):
-        # logging.basicConfig(level=logging.INFO,
-        #                     format='%(asctime)s - %(filename)20s[line:%(lineno)5d] - %(levelname)8s: %(message)s')
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)8s: %(message)s')
-        # ------ Path information --------
-        if platform.system() == 'Windows':
-            all_path = {
-                'grt_bin': r"D:\GNSS_Software\GREAT\build\Bin\RelWithDebInfo",
-                'base_dir': r"D:\GNSS_Project",
-                'sys_data': r"D:\GNSS_Project\sys_data",
-                'gns_data': r"D:\GNSS_Project\gns_data",
-                'upd_data': r"D:\GNSS_Project\gns_data\upd"
-            }
-        else:
-            all_path = {
-                'grt_bin': "/cache/jqwu/softwares/GREAT/GREAT/build/Bin",
-                'base_dir': "/cache/jqwu/projects",
-                'sys_data': "/cache/jqwu/projects/sys_data",
-                'gns_data': "/home/jqwu/gns_data",
-                'upd_data': "/home/jqwu/gns_data/upd"
-            }
-
-        # ------ Init config file --------
-        self.init_proc()
-        if not self.sta_list:
-            raise SystemExit("No site to process!")
-        self.update_path(all_path)
-        # ------ Set process time --------
-        step = 86400
-        beg_time = self.get_beg_time()
-        end_time = beg_time + self.num * step - self.intv
-
         # ------- daily loop -------------
-        crt_time = beg_time
-        while crt_time < end_time:
-            # reset daily config
-            self.init_daily(crt_time, self.seslen)
-            if self.config.work_dir():
-                workdir = self.config.work_dir()
-            else:
-                workdir = os.path.join(self.proj_dir, str(crt_time.year), f"{crt_time.doy:0>3d}_{self.gsys}")
-            if not os.path.isdir(workdir):
-                os.makedirs(workdir)
-            else:
-                if not self.keep_dir:
-                    shutil.rmtree(workdir)
-                    os.makedirs(workdir)
-            os.chdir(workdir)
-
+        while self._ndays > 0:
+            if not self.init_daily():
+                self.next_day()
+                continue
+            crt_time = self._config.beg_time
             # set logger
             logger = logging.getLogger()
             fh = logging.FileHandler(f"proc_{crt_time.year}{crt_time.doy:0>3d}.log")
-            formatter = logging.Formatter('%(asctime)s - %(levelname)8s: %(message)s')
-            fh.setFormatter(formatter)
+            fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)8s: %(message)s'))
             logger.addHandler(fh)
-            logging.info(f"------------------------------------------------------------------------")
-            logging.info(f"===> Process {crt_time.year}-{crt_time.doy:0>3d}")
-            logging.info(f"work directory = {workdir}")
+            logging.info(f"------------------------------------------------------------------------\n{' ' * 36}"
+                         f"===> Process {crt_time.year}-{crt_time.doy:0>3d}\n{' ' * 36}"
+                         f"work directory = {self._workdir}")
 
-            if not self.check():
-                logger.removeHandler(fh)
-                crt_time += step
-                continue
-
-            with gt.timeblock("Finished prepare"):
+            with timeblock("Finished prepare"):
                 if not self.prepare():
                     logger.removeHandler(fh)
-                    crt_time += step
+                    self.next_day()
                     continue
 
-            self.config.write_config('config.ini')
-            with gt.timeblock(f"Finished process {crt_time.year}-{crt_time.doy:0>3d}"):
+            with timeblock(f"Finished process {crt_time.year}-{crt_time.doy:0>3d}"):
                 self.process_daily()
 
             # next day
             logging.info(f"------------------------------------------------------------------------\n")
             logger.removeHandler(fh)
-            crt_time += step
+            self.next_day()
 
 
 if __name__ == '__main__':
-    pass
+    raise NotImplementedError
