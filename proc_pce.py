@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from proc_gen import ProcGen
-from funcs import copy_result_files, GrtClkdif, GrtPcelsq
+from funcs import copy_result_files, copy_ambflag_from, GrtClkdif, GrtPcelsq, GrtAmbfixDd
 
 
 class ProcPce(ProcGen):
@@ -38,6 +38,23 @@ class ProcPce(ProcGen):
     #         logging.critical("NO ambflag files ! skip to next day")
     #         return False
 
+    # def prepare(self):
+    #     return True
+    def prepare_obs(self):
+        ref_dir = os.path.join(self.base_dir, 'POD', str(self.year), f'{self.doy:0>3d}_{self._gsys}_2_IF')
+        copy_ambflag_from(os.path.join(ref_dir, 'log_tb'))
+        if self.basic_check(files=['ambflag']):
+            logging.info("Ambflag is ok ^_^")
+            return True
+        else:
+            logging.critical("NO ambflag files ! skip to next day")
+            return False
+
+    def process_ambfix(self):
+        self._config.intv = 30
+        GrtAmbfixDd(self._config, 'ambfix').run()
+        self._config.intv = self._intv
+
     def clkdif(self, label=''):
         cen = self._config.orb_ac
         for c in self.ref_cen:
@@ -61,8 +78,14 @@ class ProcPce(ProcGen):
                      f"number of satellites = {len(self._config.all_gnssat)}")
 
         GrtPcelsq(self._config, 'pcelsq').run()
-        self.generate_products()
-        self.clkdif()
+        self.clkdif('F')
+        self.generate_products('F')
+
+        self.process_ambfix()
+        self._config.crd_constr = 'FIX'
+        GrtPcelsq(self._config, 'pcelsq', fix_amb=True).run()
+        self.clkdif('AR')
+        self.generate_products('AR')
 
 
 if __name__ == '__main__':
