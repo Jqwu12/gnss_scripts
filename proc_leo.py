@@ -99,8 +99,11 @@ class ProcLeo(ProcGen):
         self.rd_pod('D2')
         self.editres(bad=40, jump=40, nshort=120)
         self.rd_pod('D3')
+
         self.ambfix()
-        self.rd_pod('AR', True)
+        self.rd_pod('AR1', True)
+        self.ambfix()
+        self.rd_pod('AR2', True)
 
         self._config.beg_time -= 3600
         self._config.end_time += 3600

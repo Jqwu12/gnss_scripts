@@ -89,7 +89,8 @@ class ProcPod(ProcGen):
         self._config.intv = self._intv
 
     def save_results(self, labels):
-        result_dir = os.path.join(self.base_dir, self.proj_id, f"results_{self._gsys}")
+        result_dir = os.path.join(self.base_dir, self.proj_id,
+                                  f"results_{self._gsys}_{self._config.freq}_{self._config.obs_comb}")
         orbdif_dir = os.path.join(result_dir, "orbdif", f"{self._config.beg_time.year}")
         clkdif_dir = os.path.join(result_dir, "clkdif", f"{self._config.beg_time.year}")
         for c in self.ref_cen:
