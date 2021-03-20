@@ -1145,10 +1145,7 @@ def draw_wl_upd(sats_in, wl_upd_pd, mode="WL", save_file = ''):
                 ax[i,j].grid()
     
     if len(save_file) > 0:
-        if 'jpg' in save_file:
-            fig.savefig(save_file,dpi=300)
-        else:
-            fig.savefig(save_file)
+            fig.savefig(save_file, dpi=300)
 
 
 def draw_upd_std(sats_in, nl_upd_pd, ymax = 0.5, save_file = '', unit="cycle"):

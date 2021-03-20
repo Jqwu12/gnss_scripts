@@ -491,7 +491,7 @@ def merge_upd(f_ins, f_out, mode, intv=30):
 def get_crd_snx(f_snx, site_list):
     data = []
     try:
-        with open(f_snx) as f:
+        with open(f_snx, 'r', encoding='UTF-8') as f:
             lfound = False
             for line in f:
                 if line.startswith('+SOLUTION/ESTIMATE'):
