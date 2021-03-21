@@ -1,4 +1,3 @@
-site_list*
 *.sh
 *.out
 __pycache__/*
