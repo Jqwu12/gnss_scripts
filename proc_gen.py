@@ -55,7 +55,7 @@ def get_args_config(args) -> GnssConfig:
         args.bia = 'cod'
     if args.freq > 2:
         args.bia = 'CAS'
-    config.orb_ac, config.bia_ac = args.cen, args.bia
+    config.orb_ac, config.bia_ac = args.cen, args.bia.upper()
     return config
 
 

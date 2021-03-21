@@ -179,7 +179,7 @@ class GnssConfig:
     def bia_ac(self, value):
         if not isinstance(value, str):
             raise TypeError('Expected a string')
-        self.config.set('process_scheme', 'bia', value)
+        self.config.set('process_scheme', 'bia', value.upper())
 
     @property
     def crd_constr(self):
