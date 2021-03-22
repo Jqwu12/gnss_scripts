@@ -83,6 +83,7 @@ class ProcPod(ProcGen):
         GrtPodlsq(self._config, 'podlsq_fix', fix_amb=True, use_res_crd=True).run()
         self.process_orb(label, eval, prod)
 
+    # todo: ambfix is not work for UC model
     def process_ambfix(self):
         self._config.intv = 30
         GrtAmbfixDd(self._config, 'ambfix').run()

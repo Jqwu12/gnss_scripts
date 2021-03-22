@@ -646,7 +646,7 @@ class GrtPodlsq(GrtCmd):
         proc.set('ref_clk', self._config.set_ref_clk(mode='site'))
         proc.set('sig_ref_clk', '0.001')
         proc.set('num_threads', str(min(MAX_THREAD, 6)))
-        proc.set('matrix_remove', 'false')
+        proc.set('matrix_remove', 'true')
         proc.set('cmb_equ_multi_thread', 'true')
         proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
         proc.set('lsq_buffer_size', '500')
