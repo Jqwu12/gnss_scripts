@@ -157,7 +157,7 @@ class GrtTurboedit(GrtCmd):
             root.append(self._config.get_xml_receiver())
         isleo = True if self._config.leo_list else False
         proc = self._config.get_xml_process()
-        if isleo:
+        if isleo or self._config.crd_constr.startswith('K'):
             proc.set('pos_kin', 'true')
         root.append(proc)
         root.append(self._config.get_xml_turboedit(isleo))
@@ -494,12 +494,10 @@ class GrtUpdlsq(GrtCmd):
         # <process>
         root.append(self._config.get_xml_process())
         # <ambiguity>
-        amb = ET.SubElement(root, "ambiguity")
+        amb = self._config.get_xml_ambiguity()
         elem = ET.SubElement(amb, "upd")
         elem.text = self.mode
-        if self.mode == "NL":
-            elem = ET.SubElement(amb, "carrier_range_out")
-            elem.text = 'YES' if self._config.carrier_range_out else 'NO'
+        root.append(amb)
         # <inputs>
         if self.mode == "ifcb":
             root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern']))

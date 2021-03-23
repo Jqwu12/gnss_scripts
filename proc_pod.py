@@ -2,7 +2,8 @@ import os
 import shutil
 import logging
 from proc_gen import ProcGen
-from funcs import timeblock, copy_result_files, copy_result_files_to_path, recover_files, check_pod_residuals, \
+from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
+    recover_files, check_pod_residuals, check_pod_sigma, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd
 
 
@@ -55,6 +56,8 @@ class ProcPod(ProcGen):
     def detect_outliers(self):
         for i in range(4):
             GrtPodlsq(self._config, 'podlsq', str_args='-brdm').run()
+            if not check_pod_sigma(self._config):
+                return False
             bad_site, bad_sat = check_pod_residuals(self._config)
             if not bad_site and not bad_sat:
                 break
@@ -62,7 +65,7 @@ class ProcPod(ProcGen):
             self._config.remove_site(bad_site)
             self._config.sat_rm += bad_sat
             logging.info(f"reprocess-{i+1} great_podlsq due to bad stations or satellites")
-        # Todo: check resfile sigma
+        return True
 
     def process_orb(self, label='F1', eval=True, prod=False):
         GrtOi(self._config, 'oi').run()
@@ -72,8 +75,11 @@ class ProcPod(ProcGen):
             self.generate_products(label)
 
     def process_1st_pod(self, label='F1', eval=True, prod=False):
-        self.detect_outliers()
+        if not self.detect_outliers():
+            logging.error("podlsq wrong!")
+            return False
         self.process_orb(label, eval, prod)
+        return True
 
     def process_float_pod(self, label='F2', eval=True, prod=False):
         GrtPodlsq(self._config, 'podlsq').run()
@@ -105,7 +111,8 @@ class ProcPod(ProcGen):
                      f"number of satellites = {len(self._config.all_gnssat)}")
         logging.info(f"===> 1st iteration for precise orbit determination")
         with timeblock("Finished 1st POD"):
-            self.process_1st_pod('F1', True, False)
+            if not self.process_1st_pod('F1', True, False):
+                return
             self.editres(bad=80, jump=80, nshort=600)
             if not self.basic_check(files=['ambflag']):
                 logging.error('process POD failed! no valid ambflag file')

@@ -75,6 +75,28 @@ def _split_list(list_in, num):
     return list_out
 
 
+def check_pod_sigma(config, maxsig=8):
+    f_res = config.get_xml_file('recover_in')[0]
+    if not os.path.isfile(f_res):
+        logging.warning(f"file not found {f_res}")
+        return False
+    sig = -1
+    with open(f_res) as f:
+        for line in f:
+            if line[0:2] != '##':
+                break
+            if line[0:7] == '##Sigma':
+                sig = float(line[10:23])
+    if sig < 0:
+        logging.warning(f"sigma0 not find in {f_res}")
+        return False
+    elif sig > maxsig:
+        logging.warning(f"sigma too large {sig}")
+        return False
+    else:
+        return True
+
+
 def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_freq=0.3):
     """
     Purpose : find the possible BAD station or satellite by post-fit residuals

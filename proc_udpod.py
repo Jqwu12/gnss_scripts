@@ -13,7 +13,7 @@ class ProcUdPod(ProcPod):
     }
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year), f"{self.doy:0>3d}_G_grt_test0", 'log_tb')
+        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year), f"{self.doy:0>3d}_G_com", 'log_tb')
         copy_ambflag_from(ambflagdir)
         if self.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
@@ -47,7 +47,7 @@ class ProcUdPod(ProcPod):
         with timeblock("Finished 2nd POD"):
             self.process_float_pod('AR2', True, False)
 
-        self.editres(bad=80, jump=80, nshort=600)
+        # self.editres(bad=80, jump=80, nshort=600)
         # switch_ambflag(self._config, mode='12')
 
 

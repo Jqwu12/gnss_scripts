@@ -29,6 +29,9 @@ class ProcCarRng(ProcUpd):
         self.editres(jump=40, edt_amb=True, all_sites=True)
 
     def process_daily(self):
+        logging.info(f"------------------------------------------------------------------------\n{' '*36}"
+                     f"Everything is ready: number of stations = {len(self._config.site_list)}, "
+                     f"number of satellites = {len(self._config.all_gnssat)}")
         self.process_upd(obs_comb='UC')
         # backup_dir('ambupd', 'ambupd_save')
         # self.ppp_clean()

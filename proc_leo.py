@@ -53,13 +53,14 @@ class ProcLeo(ProcGen):
 
     def kin_pod(self):
         self._config.leo_mode = 'K'
-        self._config.crd_constr = 'K'
+        self._config.crd_constr = 'KIN'
         GrtSp3orb(self._config, 'sp3orb').run()
         GrtPodleo(self._config, 'podlsq_k').run()
         GrtPodleo(self._config, 'podlsq_k').run()
         GrtPodleo(self._config, 'podlsq_k').run()
 
     def prepare_ics(self):
+        logging.info(f"===> Prepare initial orbits using kinematic POD")
         self.kin_pod()
         self._config.beg_time += 3600
         self._config.end_time -= 3600
