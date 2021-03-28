@@ -746,7 +746,7 @@ class GnssConfig:
             amb_dict[opt] = self.config.get('ambiguity_scheme', opt).upper()
         amb_dict['dd_mode'] = "RAW_CB_WN" if self.obs_comb == "UC" else "IF_CB_WN"
         amb_dict['upd_mode'] = self.upd_mode
-        amb_dict['carrier_range_out'] = 'yes' if self.carrier_range_out else 'no'
+        amb_dict['carrier_range_out'] = 'YES' if self.carrier_range_out else 'NO'
         if self.lsq_mode == "EPO":
             amb_dict['min_common_time'] = '0'
 

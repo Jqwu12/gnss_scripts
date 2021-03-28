@@ -499,7 +499,7 @@ class GrtUpdlsq(GrtCmd):
         elem.text = self.mode
         root.append(amb)
         # <inputs>
-        if self.mode == "ifcb":
+        if self.mode == "IFCB":
             root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern']))
         else:
             if self._config.obs_comb == 'UC':
@@ -536,7 +536,7 @@ class GrtUpdlsq(GrtCmd):
         # <outputs>
         out = ET.SubElement(root, "outputs")
         elem = ET.SubElement(out, "upd")
-        if self.mode == "ifcb":
+        if self.mode == "IFCB":
             elem.text = ' '.join(self._config.get_xml_file('ifcb'))
         elif self.mode == "EWL":
             elem.text = ' '.join(self._config.get_xml_file('upd_ewl'))
