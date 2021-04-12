@@ -659,6 +659,12 @@ class GnssConfig:
         """ copy source_files to process_files """
         f_rst = []
         for f_type in self.config.options('source_files'):
+            if f_type in ['upd_ewl25', 'upd_ewl24', 'upd_ewl', 'upd_wl', 'upd_nl'] and self.upd_mode != 'UPD':
+                continue
+            if f_type == 'ifcb' and (self.freq < 3 or 'G' not in self.gsys):
+                continue
+            if f_type == 'attitude' and not self.leo_list:
+                continue
             fs_src = self.get_xml_file(f_type, sec='source_files', check=False)
             fs_dst = self.get_xml_file(f_type, sec='process_files', check=False)
             if len(fs_src) != len(fs_src):
