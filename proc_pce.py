@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from proc_gen import ProcGen
-from funcs import copy_result_files, copy_ambflag_from, GrtClkdif, GrtPcelsq, GrtAmbfixDd
+from funcs import copy_result_files, copy_ambflag_from, GrtClkdif, GrtPcelsq, GrtAmbfixDd, GrtAmbfix
 
 
 class ProcPce(ProcGen):
@@ -21,38 +21,19 @@ class ProcPce(ProcGen):
     ref_cen = ['com', 'gbm', 'wum']
 
     # def prepare_obs(self):
-    #     poddir = os.path.join(self._config.base_dir, 'POD', str(self._config.beg_time.year),
-    #                           f"{self._config.beg_time.doy:0>3d}_GREC_2_IF")
-    #     f_res = f"res_{self._config.beg_time.year}{self._config.beg_time.doy:0>3d}"
-    #     try:
-    #         shutil.copy(os.path.join(poddir, f_res), f_res)
-    #     except IOError:
-    #         logging.warning(f"copy {f_res} failed")
-    #
-    #     ambflagdir = os.path.join(poddir, 'log_tb')
-    #     gt.copy_ambflag_from(ambflagdir)
-    #     if self._config.basic_check(files=['ambflag']):
+    #     ref_dir = os.path.join(self.base_dir, 'POD', str(self.year), f'{self.doy:0>3d}_{self._gsys}_2_IF')
+    #     copy_ambflag_from(os.path.join(ref_dir, 'log_tb'))
+    #     if self.basic_check(files=['ambflag']):
     #         logging.info("Ambflag is ok ^_^")
     #         return True
     #     else:
     #         logging.critical("NO ambflag files ! skip to next day")
     #         return False
 
-    # def prepare(self):
-    #     return True
-    def prepare_obs(self):
-        ref_dir = os.path.join(self.base_dir, 'POD', str(self.year), f'{self.doy:0>3d}_{self._gsys}_2_IF')
-        copy_ambflag_from(os.path.join(ref_dir, 'log_tb'))
-        if self.basic_check(files=['ambflag']):
-            logging.info("Ambflag is ok ^_^")
-            return True
-        else:
-            logging.critical("NO ambflag files ! skip to next day")
-            return False
-
     def process_ambfix(self):
         self._config.intv = 30
-        GrtAmbfixDd(self._config, 'ambfix').run()
+        GrtAmbfix(self._config, "DD", 'ambfix').run()
+        # GrtAmbfixDd(self._config, 'ambfix').run()
         self._config.intv = self._intv
 
     def clkdif(self, label=''):

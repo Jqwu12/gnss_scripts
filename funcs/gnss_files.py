@@ -46,27 +46,22 @@ def read_sp3_file(f_sp3):
 
     data = []
     # header = ['time', 'sod', 'sat', 'px', 'py', 'pz']
-    while True:
-        line = next(lines, None)
+    epoch = GnssTime(58849, 0)
+    for line in lines:
         if not line or line.startswith('EOF'):
             break
-        if not line.startswith('*'):
+        if line.startswith('*'):
+            year, month, day, hh, mm, ss = line[1:].split()
+            epoch = GnssTime.from_ymd(int(year), int(month), int(day),
+                                      hms2sod(int(hh), int(mm), float(ss)))
             continue
-        year, month, day, hh, mm, ss = line.split()
-        epoch = GnssTime.from_ymd(int(year), int(month), int(day),
-                                  hms2sod(int(hh), int(mm), float(ss)))
-        n = 0
-        while n < nsat:
-            line = next(lines, None)
-            if not line or line.startswith('EOF'):
-                break
-            if not line.startswith('P'):
-                continue
-            sat, px, py, pz, *_ = line[1:].split()
-            data.append({
-                'epoch': epoch.fmjd, 'sod': epoch.sod, 'sat': sat,
-                'px': float(px)*1000, 'py': float(py)*1000, 'pz': float(pz)*1000
-            })
+        if not line.startswith('P'):
+            continue
+        sat, px, py, pz, *_ = line[1:].split()
+        data.append({
+            'epoch': epoch.fmjd, 'sod': epoch.sod, 'sat': sat,
+            'px': float(px) * 1000, 'py': float(py) * 1000, 'pz': float(pz) * 1000
+        })
 
     # ------------------------------------------------------------------
     end = time.time()

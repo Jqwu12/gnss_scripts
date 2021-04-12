@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from proc_gen import ProcGen, basic_args, get_args_config
-from funcs import timeblock, copy_result_files, GrtSp3orb, GrtOrbfitLeo, GrtPodleo, GrtOi, GrtAmbfixD
+from funcs import timeblock, copy_result_files, GrtSp3orb, GrtOrbfitLeo, GrtPodleo, GrtOi, GrtAmbfixD, GrtAmbfix
 
 
 # Todo:  test 30h POD; test irc, osb, upd AR POD
@@ -90,6 +90,7 @@ class ProcLeo(ProcGen):
 
     def ambfix(self):
         GrtAmbfixD(self._config, 'ambfix', stop=False).run()
+        # GrtAmbfix(self._config, "SD", 'ambfix').run()
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' ' * 36}"
@@ -100,7 +101,6 @@ class ProcLeo(ProcGen):
         self.rd_pod('D2')
         self.editres(bad=40, jump=40, nshort=120)
         self.rd_pod('D3')
-
         self.ambfix()
         self.rd_pod('AR1', True)
         self.ambfix()
