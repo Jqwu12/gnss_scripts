@@ -554,6 +554,44 @@ class GrtUpdlsq(GrtCmd):
         return root
 
 
+class GrtAmbfix(GrtCmd):
+    grt_app = 'great_ambfix'
+    amb_types = ["DD", "SD", "UD"]
+
+    def __init__(self, config, mode: str, label=None, nmp=1, stop=True):
+        super().__init__(config, label, nmp, stop)
+        self.mode = mode.upper()
+        if self.mode not in self.amb_types:
+            raise TypeError('Wrong ambiguity types')
+
+    def form_xml(self):
+        root = ET.Element('config')
+        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
+        root.extend(self._config.get_xml_gns())
+        # <process>
+        proc = ET.SubElement(root, 'process', attrib={
+            'obs_combination': self._config.obs_comb, 'frequency': str(self._config.freq)})
+        elem = ET.SubElement(proc, 'read_ofile_mode')
+        elem.text = "REALTIME"
+        # <ambiguity>
+        amb = self._config.get_xml_ambiguity()
+        elem = ET.SubElement(amb, 'fix_mode')
+        elem.text = 'ROUND'
+        elem = ET.SubElement(amb, 'amb_type')
+        elem.text = self.mode
+        root.append(amb)
+        proc = self._config.get_xml_process()
+        proc.set('ambfix', 'true')
+        inp = self._config.get_xml_inputs(['rinexo', 'biabern', 'upd'])
+        elem = ET.SubElement(inp, "recover")
+        elem.text = ' '.join(self._config.get_xml_file('recover_in', check=True))
+        root.append(inp)
+        out = ET.SubElement(root, 'outputs')
+        elem = ET.SubElement(out, 'ambcon')
+        elem.text = ' '.join(self._config.get_xml_file('ambcon'))
+        return root
+
+
 class GrtAmbfixD(GrtCmd):
     grt_app = 'great_ambfixD'
 
@@ -779,7 +817,7 @@ class GrtPcelsq(GrtPodlsq):
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
                   'rinexn', 'sp3', 'blq', 'satpars', 'sinex']
-        if 'GPS' in self._config.gsys and self._config.freq > 2:
+        if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')

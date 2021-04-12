@@ -65,7 +65,7 @@ def gns_sat(gsys, sats_rm=None):
     gsys = gns_name(gsys)
     if gsys == 'GPS':
         _GPS_SAT = [f"G{i:0>2d}" for i in range(1, 33)]
-        _GPS_SAT_EXC = ['G04']
+        _GPS_SAT_EXC = []  # G04 is now available
         _GPS_SAT_EXC.extend(sats_rm)
         _GPS_SAT = list(set(_GPS_SAT).difference(set(_GPS_SAT_EXC)))
         _GPS_SAT.sort()

@@ -10,7 +10,7 @@ class ProcPPP(ProcGen):
     default_args = {
         'dsc': 'GREAT Precise Point Positioning',
         'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'EPO', 'sys': 'G',
-        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_ppp.ini'
+        'freq': 3, 'cen': 'com', 'bia': '', 'cf': 'cf_ppp.ini'
     }
 
     proj_id = 'PPP'

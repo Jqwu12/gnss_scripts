@@ -3,6 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 import logging
+from .gnss_files import read_sp3_file
+from .gnss_time import GnssTime
+from .coordinate import ell2cart
+from .constants import gns_sat
 
 
 def isfloat(value):
@@ -1213,3 +1217,51 @@ def draw_nl_res(nl_res, save_file = ''):
     
     if len(save_file) > 0:
         fig.savefig(save_file)
+
+
+def _sat_visible(data, sats, lat, lon, cut):
+    xsta = np.array(ell2cart(lat, lon, 0))
+    num = 0
+    for sat in sats:
+        if sat not in list(data.sat):
+            continue
+        dt = data[data.sat == sat]
+        xsat = np.array([float(dt.px), float(dt.py), float(dt.pz)])
+        dx = xsat - xsta
+        dist = math.sqrt(dx.dot(dx))
+
+        elev = xsta.dot(dx) / np.sqrt(xsta.dot(xsta)) / dist
+        elev = 90 - math.degrees(math.acos(elev))
+        if elev > cut:
+            num += 1
+    return num
+
+
+def sat_visible(f_sp3, f_out='', gs='G', cut=10):
+    data = read_sp3_file(f_sp3)
+    if data.empty:
+        return
+    dd = data[data.sod == 0]
+
+    sats = gns_sat(gs)
+    if gs == 'C2':
+        sats = [s for s in sats if s < 'C19']
+    if gs == 'C3':
+        sats = [s for s in sats if s > 'C16']
+
+    data_out = []
+    lines = []
+    for lat in np.arange(-88.75, 88.75, 2.5):
+        for lon in np.arange(-177.5, 180, 5):
+            num = _sat_visible(dd, sats, lat, lon, cut)
+
+            data_out.append({'lat': lat, 'lon': lon, 'num': num})
+            if f_out:
+                lines.append(f'{lat:18.4f} {lon:18.4f} {num:14d}')
+
+    if f_out:
+        with open(f_out, 'w') as f:
+            for line in lines:
+                f.write(f'{line}\n')
+
+    return data_out
