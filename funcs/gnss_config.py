@@ -591,7 +591,7 @@ class GnssConfig:
             if self.upd_mode == 'OSB':
                 return []
             if self.upd_mode == 'UPD':
-                f_list.append(self._file_name('upd_nl', {}, sec, check))
+                f_list.extend(self._daily_file('upd_nl', {}, sec, check))
             f_list.append(self._file_name('upd_wl', {}, sec, check))
             if self.freq > 2:
                 f_list.append(self._file_name('upd_ewl', {}, sec, check))

@@ -693,7 +693,7 @@ class GrtPodlsq(GrtCmd):
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
                   'orb', 'ics', 'blq', 'satpars', 'rinexn']
-        if 'GPS' in self._config.gsys and self._config.freq > 2:
+        if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
@@ -747,7 +747,7 @@ class GrtPodleo(GrtPodlsq):
 
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern']
-        if 'GPS' in self._config.gsys and self._config.freq > 2:
+        if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
