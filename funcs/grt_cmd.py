@@ -570,7 +570,7 @@ class GrtAmbfix(GrtCmd):
         root.extend(self._config.get_xml_gns())
         # <process>
         proc = ET.SubElement(root, 'process', attrib={
-            'obs_combination': self._config.obs_comb, 'frequency': str(self._config.freq)})
+            'obs_combination': self._config.obs_combination, 'frequency': str(self._config.freq)})
         elem = ET.SubElement(proc, 'read_ofile_mode')
         elem.text = "REALTIME"
         # <ambiguity>
@@ -582,7 +582,13 @@ class GrtAmbfix(GrtCmd):
         root.append(amb)
         proc = self._config.get_xml_process()
         proc.set('ambfix', 'true')
-        inp = self._config.get_xml_inputs(['rinexo', 'biabern', 'upd'])
+        # <inputs>
+        f_inps = ['biabern']
+        if self._config.obs_comb == "IF":
+            f_inps.append('rinexo')
+        if self.mode != "DD":
+            f_inps.append('upd')
+        inp = self._config.get_xml_inputs(f_inps)
         elem = ET.SubElement(inp, "recover")
         elem.text = ' '.join(self._config.get_xml_file('recover_in', check=True))
         root.append(inp)
@@ -855,6 +861,8 @@ class GrtPpplsq(GrtPodlsq):
                   'rinexn', 'sp3', 'rinexc', 'blq']
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
+        if self.fix_amb:
+            f_inps.append('upd')
         return self._config.get_xml_inputs(f_inps)
 
     def form_xml(self):
