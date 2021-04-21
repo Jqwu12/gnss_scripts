@@ -4,7 +4,7 @@ import logging
 from proc_gen import ProcGen
 from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
     recover_files, check_pod_residuals, check_pod_sigma, \
-    GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd
+    GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd, GrtAmbfix
 
 
 class ProcPod(ProcGen):
@@ -92,7 +92,8 @@ class ProcPod(ProcGen):
     # todo: ambfix is not work for UC model
     def process_ambfix(self):
         self._config.intv = 30
-        GrtAmbfixDd(self._config, 'ambfix').run()
+        GrtAmbfix(self._config, "DD", 'ambfix').run()
+        # GrtAmbfixDd(self._config, 'ambfix').run()
         self._config.intv = self._intv
 
     def save_results(self, labels):

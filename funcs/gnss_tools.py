@@ -193,7 +193,7 @@ def check_turboedit_log(config, nthread, label="turboedit", path="xml"):
     site_rm_final = list(set(config.all_sites).difference(set(site_good)))
     if not site_rm_final:
         return
-    msg = f"STATIONS {' '.join(site_rm_final)} are removed due to BAD Turboedit results"
+    msg = f"BAD Turboedit results: {' '.join(site_rm_final)}"
     logging.warning(msg)
     config.remove_ambflag_file(site_rm_final)
     config.remove_leo(site_rm_final)

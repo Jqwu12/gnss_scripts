@@ -136,6 +136,10 @@ class GnssConfig:
     def obs_comb(self) -> str:
         return self.config.get('process_scheme', 'obs_comb', fallback='IF')
 
+    @property
+    def obs_combination(self) -> str:
+        return self.config.get('process_scheme', 'obs_combination', fallback='IONO_FREE')
+
     @obs_comb.setter
     def obs_comb(self, value: str):
         if not isinstance(value, str):
