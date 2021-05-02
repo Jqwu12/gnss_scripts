@@ -283,6 +283,19 @@ def backup_dir(dir1, dir2):
             shutil.copy(f_org, f_est)
 
 
+def copy_dir(dir1, dir2):
+    if not os.path.isdir(dir1):
+        logging.error(f"directory not exists {dir1}")
+        return
+    if not os.path.isdir(dir2):
+        os.makedirs(dir2)
+
+    for file in os.listdir(dir1):
+        f_org = os.path.join(dir1, file)
+        f_est = os.path.join(dir2, file)
+        shutil.copy(f_org, f_est)
+
+
 def backup_files(config, files, sattype='gns', suffix="bak"):
     for file in files:
         file_olds = config.get_xml_file(file.lower(), check=True, sattype=sattype)
