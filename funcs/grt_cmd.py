@@ -382,7 +382,10 @@ class GrtClkdif(GrtCmd):
         root.extend(self._config.get_xml_gns())
         inp = ET.SubElement(root, 'inputs')
         elem = ET.SubElement(inp, "rinexc_prd")
-        elem.text = ' '.join(self._config.get_xml_file('satclk', check=True))
+        if self._config.lsq_mode == 'EPO':
+            elem.text = f'clk_{self._config.beg_time.year}{self._config.beg_time.doy:0>3d}_epo'
+        else:
+            elem.text = ' '.join(self._config.get_xml_file('satclk', check=True))
         elem = ET.SubElement(inp, 'rinexc_ref')
         elem.text = ' '.join(self._config.get_xml_file('rinexc', check=True))
         out = ET.SubElement(root, 'outputs')
@@ -558,8 +561,9 @@ class GrtAmbfix(GrtCmd):
     grt_app = 'great_ambfix'
     amb_types = ["DD", "SD", "UD"]
 
-    def __init__(self, config, mode: str, label=None, nmp=1, stop=True):
+    def __init__(self, config, mode: str, label=None, nmp=1, stop=True, all_sites=False):
         super().__init__(config, label, nmp, stop)
+        self.all_sites = all_sites
         self.mode = mode.upper()
         if self.mode not in self.amb_types:
             raise TypeError('Wrong ambiguity types')
@@ -590,7 +594,8 @@ class GrtAmbfix(GrtCmd):
             f_inps.append('upd')
         inp = self._config.get_xml_inputs(f_inps)
         elem = ET.SubElement(inp, "recover")
-        elem.text = ' '.join(self._config.get_xml_file('recover_in', check=True))
+        elem.text = ' '.join(self._config.get_xml_file("recover_all", check=True)) if self.all_sites \
+            else ' '.join(self._config.get_xml_file("recover_in", check=True))
         root.append(inp)
         out = ET.SubElement(root, 'outputs')
         elem = ET.SubElement(out, 'ambcon')
@@ -726,6 +731,9 @@ class GrtPodlsq(GrtCmd):
         root.extend(self._config.get_xml_gns())
         # <process>
         root.append(self.xml_proc())
+        # <turboedit>
+        if self._config.real_time or self._config.lite_mode:
+            root.append(self._config.get_xml_turboedit(False, self._config.lite_mode))
         # <inputs> <outputs>
         root.append(self.xml_inputs())
         root.append(self.xml_outputs())
@@ -803,6 +811,9 @@ class GrtPodleo(GrtPodlsq):
         elem.text = ' '.join(self._config.leo_sats)
         # <process>
         root.append(self.xml_proc())
+        # <turboedit>
+        if self._config.real_time or self._config.lite_mode:
+            root.append(self._config.get_xml_turboedit(False, self._config.lite_mode))
         # <inputs> <outputs>
         root.append(self.xml_inputs())
         root.append(self.xml_outputs())

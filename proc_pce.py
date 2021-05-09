@@ -57,13 +57,13 @@ class ProcPce(ProcGen):
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
-
+        self._config.crd_constr = 'FIX'
+        self.clkdif('F')
         GrtPcelsq(self._config, 'pcelsq').run()
         self.clkdif('F')
         self.generate_products('F')
 
         self.process_ambfix()
-        self._config.crd_constr = 'FIX'
         GrtPcelsq(self._config, 'pcelsq', fix_amb=True).run()
         self.clkdif('AR')
         self.generate_products('AR')

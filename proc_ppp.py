@@ -10,7 +10,7 @@ class ProcPPP(ProcGen):
     default_args = {
         'dsc': 'GREAT Precise Point Positioning',
         'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'EPO', 'sys': 'G',
-        'freq': 3, 'cen': 'com', 'bia': '', 'cf': 'cf_ppp.ini'
+        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_ppp.ini'
     }
 
     proj_id = 'PPP'
@@ -48,7 +48,7 @@ class ProcPPP(ProcGen):
         self.process_ppp(freq=3, fix=False)
         self.process_ppp(freq=3, fix=True)
 
-        self._config.obs_comb = 'UC'
+        self._config.obs_comb = 'IF'
         self._config.copy_sys_data()
         self.process_ppp(freq=2, fix=False)
         self.process_ppp(freq=2, fix=True)

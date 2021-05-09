@@ -27,6 +27,8 @@ def basic_args(default_args: dict):
                         help='used GNSS observations, e.g. G/GC/GREC')
     parser.add_argument('-freq', dest='freq', type=int, default=default_args['freq'],
                         help='used GNSS frequencies')
+    parser.add_argument('-rt', dest='real_time', action='store_true', help='real-time processing')
+    parser.add_argument('-lite', dest='lite_tb', action='store_true', help='lite mode for turboedit')
     # File argument
     parser.add_argument('-cen', dest='cen', default=default_args['cen'],
                         choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
@@ -42,6 +44,8 @@ def get_args_config(args) -> GnssConfig:
     config = GnssConfig.from_file(args.cf)
     config.gsys, config.freq, config.obs_comb, config.lsq_mode, config.intv = \
         args.sys, args.freq, args.obs_comb, args.lsq_mode, args.intv
+    config.lite_mode = config.lite_mode or args.lite_tb
+    config.real_time = config.real_time or args.real_time
     if args.sod:
         sod = args.sod
     elif args.hms:
@@ -162,6 +166,9 @@ class ProcGen:
         self._ndays -= 1
 
     def prepare_obs(self):
+        if self._config.lite_mode or self._config.real_time:
+            logging.info("Real-time Turboedit mode...")
+            return True
         logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit\n{' ' * 36}"
                      f"number of receivers = {len(self._config.all_sites)}, number of threads = {self.nthread}")
         self._config.intv = min(30, self._intv)

@@ -3,7 +3,7 @@ import shutil
 import logging
 from proc_gen import ProcGen
 from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
-    recover_files, check_pod_residuals, check_pod_sigma, \
+    recover_files, check_pod_residuals, check_pod_sigma, backup_dir, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd, GrtAmbfix
 
 
@@ -56,7 +56,7 @@ class ProcPod(ProcGen):
     def detect_outliers(self):
         for i in range(4):
             GrtPodlsq(self._config, 'podlsq', str_args='-brdm').run()
-            if not check_pod_sigma(self._config):
+            if not check_pod_sigma(self._config, maxsig=500):
                 return False
             bad_site, bad_sat = check_pod_residuals(self._config)
             if not bad_site and not bad_sat:
@@ -114,6 +114,7 @@ class ProcPod(ProcGen):
         with timeblock("Finished 1st POD"):
             if not self.process_1st_pod('F1', True, False):
                 return
+            backup_dir('log_tb', 'log_tb_orig')
             self.editres(bad=80, jump=80, nshort=600)
             if not self.basic_check(files=['ambflag']):
                 logging.error('process POD failed! no valid ambflag file')
