@@ -18,8 +18,10 @@ class ProcUpd(ProcGen):
     required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     def process_ifcb(self):
+        if self._config.freq < 3 or 'G' not in self._config.gsys:
+            return False
         # if no ifcb file in current dir, run ifcb estimation
-        if not self._config.get_xml_file('ifcb', check=True) and self._config.freq > 2 and 'G' in self._config.gsys:
+        if not self._config.get_xml_file('ifcb', check=True):
             with timeblock('Finished IFCB estimation'):
                 self._config.gsys = 'G'
                 GrtUpdlsq(self._config, mode='IFCB', label='ifcb').run()
@@ -88,13 +90,14 @@ class ProcUpd(ProcGen):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
                      f"Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
+
+        # with timeblock("Finish process IF upd"):
+        #     self.save_results(self.process_upd(obs_comb='IF'))
+        #     backup_dir('ambupd', 'ambupd_IF')
+
         with timeblock("Finish process UC upd"):
             self.save_results(self.process_upd(obs_comb='UC'))
             backup_dir('ambupd', 'ambupd_UC')
-
-        with timeblock("Finish process IF upd"):
-            self.save_results(self.process_upd(obs_comb='IF'))
-            backup_dir('ambupd', 'ambupd_IF')
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 import logging
 from proc_upd import ProcUpd
-from funcs import check_res_sigma, GrtPpplsq
+from funcs import check_res_sigma, GrtPpplsq, GrtAmbfix
 
 
 class ProcCarRng(ProcUpd):
@@ -15,6 +15,7 @@ class ProcCarRng(ProcUpd):
         GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread).run()
         self.basic_check(files=['recover_all', 'ambupd_in'])
 
+        GrtAmbfix(self._config, 'SD', 'ambfix', all_sites=True).run()
         self.editres(bad=80, jump=80, nshort=600, all_sites=True)
         GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread).run()
         self.basic_check(files=['recover_all', 'ambupd_in'])

@@ -231,6 +231,26 @@ class GnssConfig:
             raise TypeError('Expected a string')
         self.config.set('process_scheme', 'atmos_drag', value)
 
+    @property
+    def real_time(self) -> bool:
+        return self.config.getboolean('process_scheme', 'real_time', fallback=False)
+
+    @real_time.setter
+    def real_time(self, value: bool):
+        if not isinstance(value, bool):
+            raise TypeError('Expected a bool')
+        self.config.set('process_scheme', 'real_time', str(value))
+
+    @property
+    def lite_mode(self) -> bool:
+        return self.config.getboolean('process_scheme', 'lite_mode', fallback=False)
+
+    @lite_mode.setter
+    def lite_mode(self, value: bool):
+        if not isinstance(value, bool):
+            raise TypeError('Expected a bool')
+        self.config.set('process_scheme', 'lite_mode', str(value))
+
     def set_process(self, **kwargs):
         """ Update any process item in config """
         for key, val in kwargs.items():
@@ -780,6 +800,7 @@ class GnssConfig:
             if self.config.has_option('process_scheme', opt):
                 proc_dict[opt] = self.config.get('process_scheme', opt)
 
+        proc_dict['real_time'] = 'true' if self.real_time else 'false'
         proc = ET.Element('process', attrib=proc_dict)
         return proc
 
@@ -791,18 +812,26 @@ class GnssConfig:
         return inps
 
     @staticmethod
-    def get_xml_turboedit(isleo=False) -> ET.Element:
-        tb = ET.Element('turboedit', attrib={'lite_mode': 'false'})
-        ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
-        ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
-        ET.SubElement(tb, 'check_pc', attrib={'pc_limit': '250', 'valid': 'false' if isleo else 'true'})
-        ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '4', 'valid': 'true'})
-        ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '1', 'gf_rms_limit': '2', 'valid': 'true'})
-        ET.SubElement(tb, 'check_sf', attrib={'sf_limit': '1', 'valid': 'false'})
-        ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '20', 'valid': 'true'})
-        ET.SubElement(tb, 'check_short', attrib={'short_limit': '10', 'valid': 'true'})
-        ET.SubElement(tb, 'check_statistics', attrib={'min_percent': '60', 'min_mean_nprn': '4',
-                                                      'max_mean_namb': '50' if isleo else '3', 'valid': 'true'})
+    def get_xml_turboedit(isleo=False, lite_mode=False) -> ET.Element:
+        tb = ET.Element('turboedit', attrib={'lite_mode': 'ture' if lite_mode else 'false'})
+        if lite_mode:
+            # settings from glfeng
+            ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
+            ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.05', 'valid': 'true'})
+            ET.SubElement(tb, 'smooth_win', attrib={'value': '25'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '60', 'valid': 'true'})
+        else:
+            ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
+            ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
+            ET.SubElement(tb, 'check_pc', attrib={'pc_limit': '250', 'valid': 'false' if isleo else 'true'})
+            ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '4', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '1', 'gf_rms_limit': '2', 'valid': 'true'})
+            ET.SubElement(tb, 'check_sf', attrib={'sf_limit': '1', 'valid': 'false'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '20', 'valid': 'true'})
+            ET.SubElement(tb, 'check_short', attrib={'short_limit': '10', 'valid': 'true'})
+            ET.SubElement(tb, 'check_statistics', attrib={'min_percent': '60', 'min_mean_nprn': '4',
+                                                          'max_mean_namb': '50' if isleo else '3', 'valid': 'true'})
         return tb
 
     def get_xml_force(self, sattype='gns') -> ET.Element:
