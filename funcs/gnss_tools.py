@@ -325,8 +325,9 @@ def get_rnxc_satlist(f_name):
             for line in f:
                 if line.find("END OF HEADER") > 0:
                     break
-                if line[60:68] == "PRN LIST":
-                    info = line[0:60]
+                pos = line.find('PRN LIST') 
+                if pos > 0:
+                    info = line[0: pos]
                     sats.extend(info.split())
             return sats
     except FileNotFoundError:
