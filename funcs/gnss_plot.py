@@ -285,8 +285,8 @@ def read_clkdif_series(sats_in, f_name, intv = 300):
                 break
             if line.find('NAME') >= 0:
                 continue
-            nepo = int(line[0:4])
-            info = line[4:].replace('\n','').split()
+            nepo = int(line[0:5])
+            info = line[5:].replace('\n','').split()
             res = float(info[isat])
             sec = (nepo - 1)*intv
             new_rec = {'sec':sec, 'res':res}

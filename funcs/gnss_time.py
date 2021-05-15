@@ -195,7 +195,7 @@ class GnssTime:
         return cls(mjd, float(sod))
 
     @classmethod
-    def today(cls):
+    def now(cls):
         t_loc = time.localtime()
         mjd = ymd2mjd(t_loc.tm_year, t_loc.tm_mon, t_loc.tm_mday)
         sod = t_loc.tm_hour * 3600 + t_loc.tm_min * 60 + t_loc.tm_sec

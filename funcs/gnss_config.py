@@ -816,7 +816,7 @@ class GnssConfig:
         tb = ET.Element('turboedit', attrib={'lite_mode': 'ture' if lite_mode else 'false'})
         if lite_mode:
             # settings from glfeng
-            ET.SubElement(tb, 'ephemeris', attrib={'valid': 'false'})
+            ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.05', 'valid': 'true'})
             ET.SubElement(tb, 'smooth_win', attrib={'value': '25'})
