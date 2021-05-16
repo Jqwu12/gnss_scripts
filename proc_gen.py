@@ -29,9 +29,10 @@ def basic_args(default_args: dict):
                         help='used GNSS frequencies')
     parser.add_argument('-rt', dest='real_time', action='store_true', help='real-time processing')
     parser.add_argument('-lite', dest='lite_tb', action='store_true', help='lite mode for turboedit')
+    parser.add_argument('-ultra', dest='ultra_sp3', action='store_true', help='use ultra sp3')
     # File argument
     parser.add_argument('-cen', dest='cen', default=default_args['cen'],
-                        choices={'igs', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+                        choices={'igs', 'igr', 'igu', 'igc', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
                         help='GNSS precise orbits and clocks')
     parser.add_argument('-bia', dest='bia', default=default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
                         help='bias files')
@@ -44,8 +45,11 @@ def get_args_config(args) -> GnssConfig:
     config = GnssConfig.from_file(args.cf)
     config.gsys, config.freq, config.obs_comb, config.lsq_mode, config.intv = \
         args.sys, args.freq, args.obs_comb, args.lsq_mode, args.intv
+
+    # true if option in arg or config file is true
     config.lite_mode = config.lite_mode or args.lite_tb
     config.real_time = config.real_time or args.real_time
+    config.ultra_sp3 = config.ultra_sp3 or args.ultra_sp3
     if args.sod:
         sod = args.sod
     elif args.hms:

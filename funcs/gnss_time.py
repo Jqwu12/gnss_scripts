@@ -290,7 +290,8 @@ class GnssTime:
     def config_timedic(self):
         """ return a dictionary of time information for config file """
         return {'yyyy': f"{self.year:4d}", 'ddd': f"{self.doy:0>3d}", 'yy': f"{self.yr:0>2d}",
-                'mm': f"{self.month:0>2d}", 'gwk': f"{self.gwk:0>4d}", 'gwkd': f"{self:gwkd}"}
+                'mm': f"{self.month:0>2d}", 'hh': f'{math.floor(self.sod / 3600):0>2d}',
+                'gwk': f"{self.gwk:0>4d}", 'gwkd': f"{self:gwkd}"}
 
 
 __all__ = ['doy2mjd', 'doy2ymd', 'ymd2doy', 'ymd2mjd', 'ymd2gpsweek', 'mjd2ydoy', 'sod2hms', 'hms2sod', 'GnssTime']

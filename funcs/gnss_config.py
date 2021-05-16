@@ -2,6 +2,7 @@ import os
 import configparser
 import shutil
 import logging
+import math
 import platform
 import xml.etree.ElementTree as ET
 from typing import List
@@ -250,6 +251,16 @@ class GnssConfig:
         if not isinstance(value, bool):
             raise TypeError('Expected a bool')
         self.config.set('process_scheme', 'lite_mode', str(value))
+
+    @property
+    def ultra_sp3(self) -> bool:
+        return self.config.getboolean('process_scheme', 'ultra_sp3', fallback=False)
+
+    @ultra_sp3.setter
+    def ultra_sp3(self, value: bool):
+        if not isinstance(value, bool):
+            raise TypeError('Expected a bool')
+        self.config.set('process_scheme', 'ultra_sp3', str(value))
 
     def set_process(self, **kwargs):
         """ Update any process item in config """
@@ -590,10 +601,17 @@ class GnssConfig:
         elif f_type == 'sp3':
             f_list = []
             if 'gns' in sattype:
-                f_list.extend(self._daily_file('sp3', {}, sec, check))
+                if not self.ultra_sp3:
+                    f_list.extend(self._daily_file('sp3', {}, sec, check))
+                else:
+                    t_beg = self.beg_time - 5400
+                    step = 1 if self.orb_ac == 'wum' else 6
+                    hh = math.floor(math.floor(t_beg.sod / 3600) / step)*step
+                    t_ultra = GnssTime(t_beg.mjd, hh*3600)
+                    f_list.append(self._file_name('usp3', t_ultra.config_timedic(), sec, check))
             if 'leo' in sattype:
                 f_list.extend(self.get_xml_file('kin', 'leo', sec, check))
-            return f_list
+            return [f for f in f_list if f]
         elif f_type in ['rinexn', 'rinexc']:
             return self._daily_file(f_type, {}, sec, check)
         elif f_type == 'rinexc_all':
@@ -801,6 +819,7 @@ class GnssConfig:
                 proc_dict[opt] = self.config.get('process_scheme', opt)
 
         proc_dict['real_time'] = 'true' if self.real_time else 'false'
+        proc_dict['ultrasp3'] = 'true' if self.ultra_sp3 else 'false'
         proc = ET.Element('process', attrib=proc_dict)
         return proc
 
