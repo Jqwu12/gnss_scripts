@@ -175,6 +175,8 @@ class GnssConfig:
         if not isinstance(value, str):
             raise TypeError('Expected a string')
         self.config.set('process_scheme', 'cen', value)
+        if value == 'igu':
+            self.ultra_sp3 = True
 
     @property
     def bia_ac(self) -> str:
@@ -623,6 +625,8 @@ class GnssConfig:
         elif f_type == 'clk':
             fs = [self._file_name('satclk', {}, sec, check), self._file_name('recclk', {}, sec, check)]
             return [f for f in fs if f]
+        elif f_type == 'satclk_epo':
+            return self._daily_file('satclk_epo', {}, sec, check)
         elif f_type == 'biabern':
             if not self.bia_ac:
                 return [f for f in [self._file_name('dcb_p1c1', {}, sec, check),
@@ -830,16 +834,15 @@ class GnssConfig:
             elem.text = ' '.join(self.get_xml_file(f, sattype=sattype, check=check))
         return inps
 
-    @staticmethod
-    def get_xml_turboedit(isleo=False, lite_mode=False) -> ET.Element:
-        tb = ET.Element('turboedit', attrib={'lite_mode': 'ture' if lite_mode else 'false'})
-        if lite_mode:
+    def get_xml_turboedit(self, isleo) -> ET.Element:
+        tb = ET.Element('turboedit', attrib={'lite_mode': 'ture' if self.lite_mode else 'false'})
+        if self.lite_mode:
             # settings from glfeng
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
-            ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.05', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.02' if self.intv < 15 else '0.05', 'valid': 'true'})
             ET.SubElement(tb, 'smooth_win', attrib={'value': '25'})
-            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '60', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '10' if self.intv < 15 else '60', 'valid': 'true'})
         else:
             ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
