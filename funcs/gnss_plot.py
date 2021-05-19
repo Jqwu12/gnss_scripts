@@ -92,35 +92,6 @@ def read_atxpcv(catx, f_atx):
     return dpcv
 
 
-# Orbit and Clock analysis
-def read_clkdif(sats_in, f_name):
-    """read the panda clkdif file"""
-    str_std = ''
-    sats = []
-    try:
-        with open(f_name) as file_object:
-            for line in file_object:
-                if line.find('NAME') >= 0:
-                    sats = line[4:].replace('\n','').split()
-                if line.find('STD') == 0:
-                    str_std = line[4:].replace('\n','')
-    except FileNotFoundError:
-        msg = "Error, the file " + f_name + " does not exist"
-        print(msg)
-        return pd.DataFrame()
-
-    std_sats = []
-    info = str_std.split()
-    for i in range(len(info)):
-        if sats[i] in sats_in:
-            std_sat = {'sat':sats[i],'s': float(info[i])}
-            std_sats.append(std_sat)
-
-    std_sats_pd = pd.DataFrame(std_sats)
-    
-    return std_sats_pd
-
-
 def read_enu(f_enu):
     try:
         with open(f_enu) as f:
@@ -247,9 +218,47 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
     return orbdif
 
 
+def read_clkdif_new(f_name, t_beg=None):
+    try:
+        with open(f_name) as file_object:
+            lines = file_object.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {f_name}")
+        return
+
+    sats = []
+    data = []
+    isfirst = True
+    for line in lines:
+        if line.startswith('---') or line.startswith('MEAN'):
+            break
+        if line.startswith('  MJD       SOD'):
+            sats = line[15:].replace('\n', '').split()
+            continue
+        if not sats or len(line) < len(sats)*9+15:
+            continue
+        mjd = int(line[0:5])
+        sod = int(line[5:15])
+        if isfirst and t_beg is None:
+            t_beg = GnssTime(mjd, sod)
+            isfirst = False
+
+        info = line[15:].split()
+        for i in range(len(sats)):
+            if i > len(info) or '*' in info[i]:
+                continue
+            data.append({'mjd': mjd, 'sod': sod, 'sec': (mjd-t_beg.mjd)*86400+sod-t_beg.sod,
+                        'sat': sats[i], 'val': float(info[i])})
+
+    return pd.DataFrame(data)
+
+
 def read_clkdif_series(sats_in, f_name, intv = 300):
-    """read the clkdif series from panda orbdif file"""
+    """read the clkdif series from panda clkdif file"""
     clkdif = {}
+    if not sats_in:
+        logging.warning('The input satellite list is empty!')
+        return clkdif
     sats = []
     try:
         with open(f_name) as file_object:
@@ -261,22 +270,17 @@ def read_clkdif_series(sats_in, f_name, intv = 300):
     
     for line in lines:
         if line.find('NAME') >= 0:
-            sats = line[6:].replace('\n','').split()
+            sats = line[6:].replace('\n', '').split()
             break
-    
-    if len(sats_in) == 0:
-        msg = 'The input satellite list is empty!'
-        print(msg)
-    if len(sats) == 0:
-        msg = 'No satellite in file!'
-        print(msg)
-    
+
+    if not sats:
+        logging.warning('No satellite in file!')
+        return clkdif
+
     for sat in sats_in:
         if sat in sats:
             isat = sats.index(sat)
         else:
-            msg = 'Cannot find the records for ' + sat
-            print(msg)
             continue
         
         clkdif_sat = []
@@ -286,7 +290,7 @@ def read_clkdif_series(sats_in, f_name, intv = 300):
             if line.find('NAME') >= 0:
                 continue
             nepo = int(line[0:5])
-            info = line[5:].replace('\n','').split()
+            info = line[5:].replace('\n', '').split()
             res = float(info[isat])
             sec = (nepo - 1)*intv
             new_rec = {'sec':sec, 'res':res}
@@ -335,12 +339,12 @@ def draw_clkdif_sats(dif1, dif2, lab1, lab2, ymax = 0.5, save_file = '',
 
     bar_width = 0.3
     if fig_type == 'plot':
-        ax.plot(dif1['std'], 'o', label = lab1)
-        ax.plot(dif2['std'], 'o', label = lab2)
+        ax.plot(dif1['s'], 'o', label = lab1)
+        ax.plot(dif2['s'], 'o', label = lab2)
     elif fig_type == 'bar':
-        ax.bar(np.arange(len(dif1))-bar_width/2,dif1['std'], 
+        ax.bar(np.arange(len(dif1))-bar_width/2,dif1['s'],
                width = bar_width, label = lab1)
-        ax.bar(np.arange(len(dif1))+bar_width/2,dif2['std'], 
+        ax.bar(np.arange(len(dif1))+bar_width/2,dif2['s'],
                width = bar_width, label = lab2)
     else:
         msg = 'Error, unkown fig type' + fig_type

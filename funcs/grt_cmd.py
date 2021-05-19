@@ -383,7 +383,7 @@ class GrtClkdif(GrtCmd):
         inp = ET.SubElement(root, 'inputs')
         elem = ET.SubElement(inp, "rinexc_prd")
         if self._config.lsq_mode == 'EPO':
-            elem.text = f'clk_{self._config.beg_time.year}{self._config.beg_time.doy:0>3d}_epo'
+            elem.text = ' '.join(self._config.get_xml_file('satclk_epo', check=True))
         else:
             elem.text = ' '.join(self._config.get_xml_file('satclk', check=True))
         elem = ET.SubElement(inp, 'rinexc_ref')
@@ -572,6 +572,7 @@ class GrtAmbfix(GrtCmd):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
+        root.append(self._config.get_xml_receiver())
         # <process>
         proc = ET.SubElement(root, 'process', attrib={
             'obs_combination': self._config.obs_combination, 'frequency': str(self._config.freq)})
@@ -695,7 +696,9 @@ class GrtPodlsq(GrtCmd):
         proc.set('num_threads', str(min(MAX_THREAD, 6)))
         proc.set('matrix_remove', 'true')
         proc.set('cmb_equ_multi_thread', 'true')
-        proc.set('sysbias_model', 'ISB+CON')  # only ISB, no GLONASS IFB
+        # proc.set('sysbias_model', 'ISB+CON' if self._config.lsq_mode == 'LSQ' else 'ISB+WHIT')
+        # only ISB, no GLONASS IFB;
+        proc.set('sysbias_model', 'ISB+CON')
         proc.set('lsq_buffer_size', '500')
         elem = ET.SubElement(proc, 'ifb_model')
         elem.text = 'EST_REC_IFB' if self._config.obs_comb == 'UC' else 'NONE'
@@ -733,7 +736,7 @@ class GrtPodlsq(GrtCmd):
         root.append(self.xml_proc())
         # <turboedit>
         if self._config.real_time or self._config.lite_mode:
-            root.append(self._config.get_xml_turboedit(False, self._config.lite_mode))
+            root.append(self._config.get_xml_turboedit(False))
         # <inputs> <outputs>
         root.append(self.xml_inputs())
         root.append(self.xml_outputs())
@@ -813,7 +816,7 @@ class GrtPodleo(GrtPodlsq):
         root.append(self.xml_proc())
         # <turboedit>
         if self._config.real_time or self._config.lite_mode:
-            root.append(self._config.get_xml_turboedit(False, self._config.lite_mode))
+            root.append(self._config.get_xml_turboedit(False))
         # <inputs> <outputs>
         root.append(self.xml_inputs())
         root.append(self.xml_outputs())
