@@ -627,6 +627,16 @@ class GnssConfig:
             return [f for f in fs if f]
         elif f_type == 'satclk_epo':
             return self._daily_file('satclk_epo', {}, sec, check)
+        elif f_type == 'sinex':
+            beg_time = self.beg_time
+            f = ''
+            for i in range(5):
+                f = self._file_name('sinex', {}, 'process_files', True)
+                if f:
+                    break
+                self.beg_time -= 86400 * 7
+            self.beg_time = beg_time
+            return [f] if f else []
         elif f_type == 'biabern':
             if not self.bia_ac:
                 beg_time = self.beg_time
@@ -888,15 +898,7 @@ class GnssConfig:
     def get_xml_receiver(self, use_res_crd=False) -> ET.Element:
         receiver = ET.Element('receiver')
         # get coordinates from IGS snx file
-        beg_time = self.beg_time
-        file = ''
-        for i in range(5):
-            file = self._file_name('sinex', {}, 'process_files', True)
-            if file:
-                break
-            self.beg_time -= 86400*7
-        self.beg_time = beg_time
-        crd_data = gt.get_crd_snx(file, self.site_list)
+        crd_data = gt.get_crd_snx(' '.join(self.get_xml_file('sinex', check=True)), self.site_list)
         # get coordinates from GREAT residuals file
         if use_res_crd:
             f_res = self.get_xml_file('recover_in', check=True)
