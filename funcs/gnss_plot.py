@@ -3,9 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 import logging
+from typing import List
 from .gnss_files import read_sp3_file
 from .gnss_time import GnssTime
-from .coordinate import ell2cart
+from .coordinate import ell2cart, cart2ell
 from .constants import gns_sat
 
 
@@ -97,7 +98,7 @@ def read_enu(f_enu):
         with open(f_enu) as f:
             lines = f.readlines()
     except FileNotFoundError:
-        logging.error(f"{f_enu} not found")
+        logging.error(f"file not found {f_enu}")
         return
     
     data = []
@@ -112,6 +113,49 @@ def read_enu(f_enu):
             du = float(info[3])
             data.append({"sod":sod, "de":de, "dn":dn, "du":du})
     
+    return pd.DataFrame(data)
+
+
+def dxyz2enu(ell: List[float], dxyz: List[float]):
+    sinPhi = math.sin(ell[0])
+    cosPhi = math.cos(ell[0])
+    sinLam = math.sin(ell[1])
+    cosLam = math.cos(ell[1])
+
+    n = -sinPhi * cosLam * dxyz[0] - sinPhi * sinLam * dxyz[1] + cosPhi * dxyz[2]
+    e = -sinLam * dxyz[0] + cosLam * dxyz[1]
+    u = cosPhi * cosLam * dxyz[0] + cosPhi * sinLam * dxyz[1] + sinPhi * dxyz[2]
+
+    return e, n, u
+
+
+def read_enu_kin(f_enu, xyz: List[float]):
+    try:
+        with open(f_enu) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.error(f"{f_enu} not found")
+        return
+
+    if not xyz or len(xyz) < 3:
+        return
+
+    b, l, h = cart2ell(xyz[0], xyz[1], xyz[2], 'WGS84')
+    ell = [math.radians(b), math.radians(l), h]
+
+    data = []
+    for line in lines:
+        info = line.split()
+        if len(info) == 7:
+            mjd = float(info[1])
+            sod = float(info[2])
+            x = float(info[3])
+            y = float(info[4])
+            z = float(info[5])
+            dxyz = [x-xyz[0], y-xyz[1], z-xyz[2]]
+            de, dn, du = dxyz2enu(ell, dxyz)
+            data.append({"mjd": mjd, "sod": sod, "de": de, "dn": dn, "du": du})
+
     return pd.DataFrame(data)
 
 

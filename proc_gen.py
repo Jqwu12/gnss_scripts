@@ -32,7 +32,7 @@ def basic_args(default_args: dict):
     parser.add_argument('-ultra', dest='ultra_sp3', action='store_true', help='use ultra sp3')
     # File argument
     parser.add_argument('-cen', dest='cen', default=default_args['cen'],
-                        choices={'igs', 'igr', 'igu', 'igc', 'cod', 'com', 'wum', 'gbm', 'grm', 'sgg', 'grt'},
+                        choices={'igs', 'igr', 'igu', 'igc', 'cod', 'com', 'wum', 'gbm', 'grm', 'cnt', 'sgg', 'grt'},
                         help='GNSS precise orbits and clocks')
     parser.add_argument('-bia', dest='bia', default=default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
                         help='bias files')
@@ -147,7 +147,7 @@ class ProcGen:
         # --- reset process scheme
         self._config.site_list = self._site_list
         self._config.sat_rm = self.sat_rm
-        self._config.crd_constr = 'EST'
+        # self._config.crd_constr = 'EST'
         # self.config.change_data_path('rinexo', 'obs')
         self.set_workdir()
         os.chdir(self._workdir)

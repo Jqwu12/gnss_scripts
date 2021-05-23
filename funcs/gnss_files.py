@@ -76,9 +76,10 @@ def read_rnxc_file(f_name, mode="AS"):
         return
 
     data = []
+    mode = mode + ' '
     with open(f_name) as f:
         for line in f:
-            if line[0:2] != mode:
+            if line[0:3] != mode:
                 continue
             if len(line) < 59:
                 continue
