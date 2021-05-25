@@ -10,32 +10,22 @@ from funcs import GnssConfig, GnssTime, hms2sod, read_site_list, MAX_THREAD, tim
 def basic_args(default_args: dict):
     parser = argparse.ArgumentParser(description=default_args['dsc'])
     # Time argument
-    parser.add_argument('-n', dest='num', type=int, default=default_args['num'],
-                        help='number of process days')
-    parser.add_argument('-l', dest='seslen', type=int, default=default_args['seslen'],
-                        help='process time length (hours)')
-    parser.add_argument('-i', dest='intv', type=int, default=default_args['intv'],
-                        help='process interval (seconds)')
+    parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
+    parser.add_argument('-l', dest='seslen', type=int, help='process time length (hours)')
+    parser.add_argument('-i', dest='intv', type=int, help='process interval (seconds)')
     parser.add_argument('-t', dest='hms', nargs='+', help='begin date: hh mm ss')
     parser.add_argument('-sod', dest='sod', help='begin date: seconds of day')
     # Estimation argument
-    parser.add_argument('-c', dest='obs_comb', default=default_args['obs_comb'], choices={'UC', 'IF'},
-                        help='observation combination')
-    parser.add_argument('-est', dest='lsq_mode', default=default_args['est'], choices={'EPO', 'LSQ'},
-                        help='estimator: LSQ or EPO')
-    parser.add_argument('-sys', dest='sys', default=default_args['sys'],
-                        help='used GNSS observations, e.g. G/GC/GREC')
-    parser.add_argument('-freq', dest='freq', type=int, default=default_args['freq'],
-                        help='used GNSS frequencies')
+    parser.add_argument('-c', dest='obs_comb', help='observation combination')
+    parser.add_argument('-est', dest='lsq_mode', help='estimator: LSQ or EPO')
+    parser.add_argument('-sys', dest='sys', help='used GNSS observations, e.g. G/GC/GREC')
+    parser.add_argument('-freq', dest='freq', type=int, help='used GNSS frequencies')
     parser.add_argument('-rt', dest='real_time', action='store_true', help='real-time processing')
     parser.add_argument('-lite', dest='lite_tb', action='store_true', help='lite mode for turboedit')
     parser.add_argument('-ultra', dest='ultra_sp3', action='store_true', help='use ultra sp3')
     # File argument
-    parser.add_argument('-cen', dest='cen', default=default_args['cen'],
-                        choices={'igs', 'igr', 'igu', 'igc', 'cod', 'com', 'wum', 'gbm', 'grm', 'cnt', 'sgg', 'grt'},
-                        help='GNSS precise orbits and clocks')
-    parser.add_argument('-bia', dest='bia', default=default_args['bia'], choices={'cod', 'cas', 'whu', 'sgg'},
-                        help='bias files')
+    parser.add_argument('-cen', dest='cen', help='GNSS precise orbits and clocks')
+    parser.add_argument('-bia', dest='bia', help='bias files')
     parser.add_argument('-cf', dest='cf', default=default_args['cf'], help='config file')
     parser.add_argument('-kp', dest='kp_dir', action='store_true', help='Keep the existing work dir')
     return parser
@@ -43,27 +33,40 @@ def basic_args(default_args: dict):
 
 def get_args_config(args) -> GnssConfig:
     config = GnssConfig.from_file(args.cf)
-    config.gsys, config.freq, config.obs_comb, config.lsq_mode, config.intv = \
-        args.sys, args.freq, args.obs_comb, args.lsq_mode, args.intv
-
+    if args.sys:
+        config.gsys = args.sys
+    if args.freq:
+        config.freq = args.freq
+    if args.obs_comb:
+        config.obs_comb = args.obs_comb
+    if args.lsq_mode:
+        config.lsq_mode = args.lsq_mode
+    if args.intv:
+        config.intv = args.intv
+    if args.cen:
+        config.orb_ac = args.cen
+    if args.bia is not None:
+        config.bia_ac = args.bia.upper()
+    if config.orb_ac == 'cod':
+        config.bia_ac = 'COD'
+    if config.freq > 2:
+        config.bia_ac = 'CAS'
     # true if option in arg or config file is true
     config.lite_mode = config.lite_mode or args.lite_tb
     config.real_time = config.real_time or args.real_time
     config.ultra_sp3 = config.ultra_sp3 or args.ultra_sp3
+    # set time
+    sod = 0
     if args.sod:
         sod = args.sod
     elif args.hms:
         hh, mm, ss, *_ = args.hms + [0, 0]
         sod = hms2sod(hh, mm, ss)
-    else:
-        sod = 0
     config.beg_time = GnssTime.from_ydoy(args.year, args.doy, sod)
-    config.end_time = config.beg_time + 3600 * args.seslen - args.intv
-    if args.cen == 'cod':
-        args.bia = 'cod'
-    if args.freq > 2:
-        args.bia = 'CAS'
-    config.orb_ac, config.bia_ac = args.cen, args.bia.upper()
+    if args.seslen is not None:
+        config.end_time = config.beg_time + 3600 * args.seslen - config.intv
+    else:
+        config.end_time = config.beg_time + 86400 - config.intv
     return config
 
 

@@ -634,6 +634,7 @@ class GnssConfig:
                 f = self._file_name('sinex', {}, 'process_files', True)
                 if f:
                     break
+                logging.warning('find sinex of last week...')
                 self.beg_time -= 86400 * 7
             self.beg_time = beg_time
             return [f] if f else []
@@ -647,6 +648,7 @@ class GnssConfig:
                     f2 = self._file_name('dcb_p2c2', {}, sec, check)
                     if f1 and f2:
                         break
+                    logging.warning('find DCB of last month...')
                     self.beg_time -= 30*86400
                 self.beg_time = beg_time
                 return [f1, f2] if f1 and f2 else []
