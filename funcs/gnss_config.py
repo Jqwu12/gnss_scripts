@@ -256,7 +256,10 @@ class GnssConfig:
 
     @property
     def ultra_sp3(self) -> bool:
-        return self.config.getboolean('process_scheme', 'ultra_sp3', fallback=False)
+        if self.orb_ac == 'igu':
+            return True
+        else:
+            return self.config.getboolean('process_scheme', 'ultra_sp3', fallback=False)
 
     @ultra_sp3.setter
     def ultra_sp3(self, value: bool):
@@ -550,7 +553,7 @@ class GnssConfig:
     def file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
         return self._file_name(f_type, cf_vars, sec, check, quiet)
 
-    def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False):
+    def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
         if cf_vars is None:
             cf_vars = {}
         if f_type == 'sp3':
@@ -563,13 +566,14 @@ class GnssConfig:
         f_list = []
         while t_beg < end_time:
             cf_vars.update(t_beg.config_timedic())
-            f = self._file_name(f_type, cf_vars, sec, check)
+            f = self._file_name(f_type, cf_vars, sec, check, quiet)
             if f:
                 f_list.append(f)
             t_beg += 86400
         return f_list
 
-    def get_xml_file(self, f_type: str, sattype='gns', sec='process_files', check=False, remove=False) -> list:
+    def get_xml_file(self, f_type: str, sattype='gns', sec='process_files', check=False,
+                     remove=False, quiet=False) -> list:
         # -------------------------------------------------------------------------------
         # files per site
         if f_type in ['rinexo', 'kin', 'ambupd_in', 'recover_all', 'ambflag'] or f_type.startswith('ambflag1'):
@@ -584,7 +588,7 @@ class GnssConfig:
                         f_atx = self._file_name('atx')
                         fs = [f for f in fs if gf.check_rnxo_ant(f, f_atx)]
                 else:
-                    f = self._file_name(f_type, rec, sec, check)
+                    f = self._file_name(f_type, rec, sec, check, quiet)
                     fs = [f] if f else []
                     if f_type == 'ambflag' and check:
                         intv = min(self.intv, 30)
@@ -604,29 +608,29 @@ class GnssConfig:
             f_list = []
             if 'gns' in sattype:
                 if not self.ultra_sp3:
-                    f_list.extend(self._daily_file('sp3', {}, sec, check))
+                    f_list.extend(self._daily_file('sp3', {}, sec, check, quiet))
                 else:
                     t_beg = self.beg_time - 5400
                     step = 1 if self.orb_ac == 'wum' else 6
                     hh = math.floor(math.floor(t_beg.sod / 3600) / step)*step
                     t_ultra = GnssTime(t_beg.mjd, hh*3600)
-                    f_list.append(self._file_name('usp3', t_ultra.config_timedic(), sec, check))
+                    f_list.append(self._file_name('usp3', t_ultra.config_timedic(), sec, check, quiet))
             if 'leo' in sattype:
-                f_list.extend(self.get_xml_file('kin', 'leo', sec, check))
+                f_list.extend(self.get_xml_file('kin', 'leo', sec, check, quiet))
             return [f for f in f_list if f]
         elif f_type in ['rinexn', 'rinexc']:
-            return self._daily_file(f_type, {}, sec, check)
+            return self._daily_file(f_type, {}, sec, check, quiet)
         elif f_type == 'rinexc_all':
-            fl = self._daily_file('rinexc', {}, sec, check)
-            fs = self._file_name('recclk', {}, sec, check)
+            fl = self._daily_file('rinexc', {}, sec, check, quiet)
+            fs = self._file_name('recclk', {}, sec, check, quiet)
             if fs:
                 fl.append(fs)
             return fl
         elif f_type == 'clk':
-            fs = [self._file_name('satclk', {}, sec, check), self._file_name('recclk', {}, sec, check)]
+            fs = [self._file_name('satclk', {}, sec, check), self._file_name('recclk', {}, sec, check, quiet)]
             return [f for f in fs if f]
         elif f_type == 'satclk_epo':
-            return self._daily_file('satclk_epo', {}, sec, check)
+            return self._daily_file('satclk_epo', {}, sec, check, quiet)
         elif f_type == 'sinex':
             beg_time = self.beg_time
             f = ''
@@ -634,7 +638,7 @@ class GnssConfig:
                 f = self._file_name('sinex', {}, 'process_files', True)
                 if f:
                     break
-                logging.warning('find sinex of last week...')
+                logging.warning('find sinex file of last week...')
                 self.beg_time -= 86400 * 7
             self.beg_time = beg_time
             return [f] if f else []
@@ -644,35 +648,35 @@ class GnssConfig:
                 f1 = ''
                 f2 = ''
                 for i in range(2):
-                    f1 = self._file_name('dcb_p1c1', {}, sec, check)
-                    f2 = self._file_name('dcb_p2c2', {}, sec, check)
+                    f1 = self._file_name('dcb_p1c1', {}, sec, check, quiet)
+                    f2 = self._file_name('dcb_p2c2', {}, sec, check, quiet)
                     if f1 and f2:
                         break
-                    logging.warning('find DCB of last month...')
+                    logging.warning('find DCB file of last month...')
                     self.beg_time -= 30*86400
                 self.beg_time = beg_time
                 return [f1, f2] if f1 and f2 else []
-            return self._daily_file('bia', {}, sec, check)
+            return self._daily_file('bia', {}, sec, check, quiet)
         elif f_type == 'upd':
             f_list = []
             if self.upd_mode == 'OSB':
                 return []
             if self.upd_mode == 'UPD':
-                f_list.extend(self._daily_file('upd_nl', {}, sec, check))
-            f_list.append(self._file_name('upd_wl', {}, sec, check))
+                f_list.extend(self._daily_file('upd_nl', {}, sec, check, quiet))
+            f_list.append(self._file_name('upd_wl', {}, sec, check, quiet))
             if self.freq > 2:
-                f_list.append(self._file_name('upd_ewl', {}, sec, check))
+                f_list.append(self._file_name('upd_ewl', {}, sec, check, quiet))
             if self.freq > 3:
-                f_list.append(self._file_name('upd_ewl24', {}, sec, check))
+                f_list.append(self._file_name('upd_ewl24', {}, sec, check, quiet))
             if self.freq > 4:
-                f_list.append(self._file_name('upd_ewl25', {}, sec, check))
+                f_list.append(self._file_name('upd_ewl25', {}, sec, check, quiet))
             return [f for f in f_list if f]
         # -------------------------------------------------------------------------------
         # files for POD
         elif f_type in ['attitude', 'pso']:
             f_list = []
             for rec in self.leo_receivers:
-                fs = self._daily_file(f_type, rec, sec, check)
+                fs = self._daily_file(f_type, rec, sec, check, quiet)
                 if f_type == 'attitude' and check:
                     fs = [f for f in fs if gf.check_att_file(f)]
                 f_list.extend(fs)
@@ -680,18 +684,20 @@ class GnssConfig:
         elif f_type in ['orb', 'ics', 'orbdif']:
             f_list = []
             if 'leo' in sattype:
-                f_list.append(self._file_name(f_type, {'sattype': 'leo'}, sec, check))
+                f_list.append(self._file_name(f_type, {'sattype': 'leo'}, sec, check, quiet))
             if 'gns' in sattype:
-                f_list.append(self._file_name(f_type, {'sattype': 'gns'}, sec, check))
+                f_list.append(self._file_name(f_type, {'sattype': 'gns'}, sec, check, quiet))
             return f_list
         elif f_type == 'solar':
-            fs = [self._file_name('solar_flux', {}, sec, check), self._file_name('geomag_kp', {}, sec, check)]
+            fs = [self._file_name('solar_flux', {}, sec, check, quiet),
+                  self._file_name('geomag_kp', {}, sec, check, quiet)]
             return [f for f in fs if f]
         elif f_type == 'solar_MSISE':
-            fs = [self._file_name('solar_flux_MSISE', {}, sec, check), self._file_name('geomag_ap', {}, sec, check)]
+            fs = [self._file_name('solar_flux_MSISE', {}, sec, check, quiet),
+                  self._file_name('geomag_ap', {}, sec, check, quiet)]
             return [f for f in fs if f]
         else:
-            f = self._file_name(f_type, {}, sec, check)
+            f = self._file_name(f_type, {}, sec, check, quiet)
             return [f] if f else []
 
     def remove_ambflag_file(self, sites: List[str]):
@@ -900,7 +906,7 @@ class GnssConfig:
     def get_xml_receiver(self, use_res_crd=False) -> ET.Element:
         receiver = ET.Element('receiver')
         # get coordinates from IGS snx file
-        crd_data = gt.get_crd_snx(' '.join(self.get_xml_file('sinex', check=True)), self.site_list)
+        crd_data = gt.get_crd_snx(' '.join(self.get_xml_file('sinex', check=True, quiet=True)), self.site_list)
         # get coordinates from GREAT residuals file
         if use_res_crd:
             f_res = self.get_xml_file('recover_in', check=True)
