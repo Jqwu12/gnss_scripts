@@ -33,24 +33,23 @@ def basic_args(default_args: dict):
 
 def get_args_config(args) -> GnssConfig:
     config = GnssConfig.from_file(args.cf)
-    if args.sys:
-        config.gsys = args.sys
-    if args.freq:
-        config.freq = args.freq
-    if args.obs_comb:
-        config.obs_comb = args.obs_comb
-    if args.lsq_mode:
-        config.lsq_mode = args.lsq_mode
-    if args.intv:
-        config.intv = args.intv
-    if args.cen:
-        config.orb_ac = args.cen
-    if args.bia is not None:
-        config.bia_ac = args.bia.upper()
+    config.obs_comb = args.obs_comb if args.obs_comb else config.obs_comb
+    config.orb_ac = args.cen if args.cen else config.orb_ac
+    config.bia_ac = args.bia if args.bia else config.bia_ac
     if config.orb_ac == 'cod':
         config.bia_ac = 'COD'
     if config.freq > 2:
         config.bia_ac = 'CAS'
+
+    if args.sys:
+        config.gsys = args.sys
+    if args.freq:
+        config.freq = args.freq
+    if args.lsq_mode:
+        config.lsq_mode = args.lsq_mode
+    if args.intv:
+        config.intv = args.intv
+
     # true if option in arg or config file is true
     config.lite_mode = config.lite_mode or args.lite_tb
     config.real_time = config.real_time or args.real_time
