@@ -635,10 +635,11 @@ class GnssConfig:
             beg_time = self.beg_time
             f = ''
             for i in range(5):
-                f = self._file_name('sinex', {}, 'process_files', True)
+                f = self._file_name('sinex', {}, 'process_files', True, quiet)
                 if f:
                     break
-                logging.warning('find sinex file of last week...')
+                if not quiet:
+                    logging.warning('find sinex file of last week...')
                 self.beg_time -= 86400 * 7
             self.beg_time = beg_time
             return [f] if f else []
