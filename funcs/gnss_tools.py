@@ -528,26 +528,42 @@ def get_crd_snx(f_snx, site_list):
     data = []
     try:
         with open(f_snx, 'r', encoding='UTF-8') as f:
-            lfound = False
+            block = ''
             for line in f:
-                if line.startswith('+SOLUTION/ESTIMATE'):
-                    lfound = True
-                if not lfound:
-                    continue
                 if line.startswith('-SOLUTION/ESTIMATE'):
                     break
-                site = line[14:18].lower()
-                if site not in site_list:
+                if line.startswith('+'):
+                    block = line[1:].rstrip()
                     continue
-                if line[7:11] == 'STAX':
-                    data.append({'site': site, 'type': 'crd_x', 'val': float(line[47:68]),
-                                 'sig': float(line[69:80]), 'obj': 'SNX'})
-                elif line[7:11] == 'STAY':
-                    data.append({'site': site, 'type': 'crd_y', 'val': float(line[47:68]),
-                                 'sig': float(line[69:80]), 'obj': 'SNX'})
-                elif line[7:11] == 'STAZ':
-                    data.append({'site': site, 'type': 'crd_z', 'val': float(line[47:68]),
-                                 'sig': float(line[69:80]), 'obj': 'SNX'})
+                if line.startswith('-'):
+                    block = ''
+                    continue
+                if line[0] != ' ':
+                    continue
+                if block == 'SITE/RECEIVER':
+                    site = line[1:5].lower()
+                    if site not in site_list:
+                        continue
+                    data.append({'site': site, 'type': 'rec', 'val': line[42:62], 'obj': 'SNX'})
+                elif block == 'SITE/ANTENNA':
+                    site = line[1:5].lower()
+                    if site not in site_list:
+                        continue
+                    data.append({'site': site, 'type': 'ant', 'val': line[42:62], 'obj': 'SNX'})
+                elif block == 'SOLUTION/ESTIMATE':
+                    site = line[14:18].lower()
+                    if site not in site_list:
+                        continue
+                    if line[7:11] == 'STAX':
+                        data.append({'site': site, 'type': 'crd_x', 'val': float(line[47:68]),
+                                     'sig': float(line[69:80]), 'obj': 'SNX'})
+                    elif line[7:11] == 'STAY':
+                        data.append({'site': site, 'type': 'crd_y', 'val': float(line[47:68]),
+                                     'sig': float(line[69:80]), 'obj': 'SNX'})
+                    elif line[7:11] == 'STAZ':
+                        data.append({'site': site, 'type': 'crd_z', 'val': float(line[47:68]),
+                                     'sig': float(line[69:80]), 'obj': 'SNX'})
+
     except FileNotFoundError:
         logging.warning(f'file not found {f_snx}')
     return pd.DataFrame(data)

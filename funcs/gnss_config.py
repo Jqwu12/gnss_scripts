@@ -924,7 +924,7 @@ class GnssConfig:
             df_z = df[df.type == 'crd_z'].sort_values(by=['obj'], ascending=False)
             if df_x.empty or df_y.empty or df_z.empty:
                 continue
-            ET.SubElement(receiver, 'rec', attrib={
+            info = {
                 'X': f'{df_x.val.values[0]:20.8f}',
                 'Y': f'{df_y.val.values[0]:20.8f}',
                 'Z': f'{df_z.val.values[0]:20.8f}',
@@ -932,7 +932,14 @@ class GnssConfig:
                 'dY': f'{df_y.sig.values[0]:8.4f}',
                 'dZ': f'{df_z.sig.values[0]:8.4f}',
                 'id': site.upper(), 'obj': df_x.obj.values[0]
-            })
+            }
+            rec = df[df.type == 'rec'].val
+            ant = df[df.type == 'ant'].val
+            if rec:
+                info['rec'] = rec
+            if ant:
+                info['ant'] = ant
+            ET.SubElement(receiver, 'rec', attrib=info)
 
         return receiver
 
