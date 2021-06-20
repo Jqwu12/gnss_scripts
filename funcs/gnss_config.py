@@ -10,7 +10,7 @@ from typing import List
 from . import gnss_files as gf
 from . import gnss_tools as gt
 from .gnss_time import GnssTime
-from .constants import gns_name, gns_id, gns_sat, gns_band, gns_sig, leo_df
+from .constants import gns_name, gns_id, gns_sat, gns_band, gns_sig, leo_df, site_namelong
 
 default_process = {
     'apply_carrier_range': 'false',
@@ -389,7 +389,7 @@ class GnssConfig:
 
     @property
     def site_receivers(self):
-        return [{'rec': s, 'rec_u': s.upper(), 'rec_l': s, 'leo': False} for s in self.site_list]
+        return [{'rec': s, 'rec_u': s.upper(), 'rec_l': site_namelong[s].upper(), 'leo': False} for s in self.site_list]
 
     @property
     def leo_receivers(self):
@@ -760,7 +760,7 @@ class GnssConfig:
 
     def set_ref_clk(self, mode='sat', sats=None):
         ref_sats = ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']
-        ref_sites = ['hob2', 'gop6', 'ptbb', 'algo', 'albh', 'nrc1', 'ons1']
+        ref_sites = ['hob2', 'gop6', 'ptbb', 'algo', 'ons1', 'albh', 'nrc1']
         if sats is None:
             sats = []
         sat_list = [s for s in self.all_gnssat if s in sats]
@@ -933,12 +933,10 @@ class GnssConfig:
                 'dZ': f'{df_z.sig.values[0]:8.4f}',
                 'id': site.upper(), 'obj': df_x.obj.values[0]
             }
-            rec = df[df.type == 'rec'].val
-            ant = df[df.type == 'ant'].val
-            if rec:
-                info['rec'] = rec
-            if ant:
-                info['ant'] = ant
+            if not df[df.type == 'rec'].empty:
+                info['rec'] = df[df.type == 'rec']['val'].values[0]
+            if not df[df.type == 'ant'].empty:
+                info['ant'] = df[df.type == 'ant']['val'].values[0]
             ET.SubElement(receiver, 'rec', attrib=info)
 
         return receiver

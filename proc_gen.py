@@ -24,6 +24,7 @@ def basic_args(default_args: dict):
     parser.add_argument('-lite', dest='lite_tb', action='store_true', help='lite mode for turboedit')
     parser.add_argument('-ultra', dest='ultra_sp3', action='store_true', help='use ultra sp3')
     # File argument
+    parser.add_argument('-s', dest='f_list', help='site_list file')
     parser.add_argument('-cen', dest='cen', help='GNSS precise orbits and clocks')
     parser.add_argument('-bia', dest='bia', help='bias files')
     parser.add_argument('-cf', dest='cf', default=default_args['cf'], help='config file')
@@ -66,6 +67,9 @@ def get_args_config(args) -> GnssConfig:
         config.end_time = config.beg_time + 3600 * args.seslen - config.intv
     else:
         config.end_time = config.beg_time + 86400 - config.intv
+    # set sites
+    if args.f_list:
+        config.site_list = read_site_list(args.f_list)
     return config
 
 
@@ -97,14 +101,12 @@ class ProcGen:
     def from_args(cls):
         args = cls.get_args(cls.default_args)
         cf = get_args_config(args)
-        cf.site_list = read_site_list(args.f_list)
         return cls(cf, args.num, args.kp_dir)
 
     @staticmethod
     def get_args(default_args):
         parser = basic_args(default_args)
         # Required argument
-        parser.add_argument('-s', dest='f_list', required=True, help='site_list file')
         parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
         parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')
         args = parser.parse_args()
@@ -131,6 +133,8 @@ class ProcGen:
             files = []
         if opts is None:
             opts = []
+        if not self._config.site_list:
+            return False
         return self._config.basic_check(opts, files)
 
     def set_workdir(self):

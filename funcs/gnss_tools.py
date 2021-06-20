@@ -4,6 +4,7 @@ import logging
 import shutil
 import pandas as pd
 import time
+import xml.etree.ElementTree as ET
 from functools import wraps
 from contextlib import contextmanager
 from . import gnss_files as gf
@@ -73,6 +74,52 @@ def _split_list(list_in, num):
         sub_list = list_in[ibeg: iend]
         list_out.append(sub_list)
     return list_out
+
+
+def _auto_wrap(line, intent, linelen=60):
+    if isinstance(line, list):
+        parts = line
+    else:
+        parts = line.split()
+    info = ''
+    newline = 1
+    for part in parts:
+        info = info + ' ' + part
+        if len(info) >= newline * linelen + (1 + len(intent)) * (newline - 1):
+            if newline == 1:
+                linelen = len(info)
+            info = info + '\n' + intent
+            newline += 1
+    info = info.rstrip()
+    return info
+
+
+def pretty_xml(element, indent='\t', newline='\n', level=0):
+    """
+    element:  xml node
+    indent:   '\t'
+    newline:  '\n'
+    """
+    if element:
+        if (element.text is None) or element.text.isspace():
+            element.text = newline + indent * (level + 1)
+        else:
+            element.text = newline + indent * (level + 1) + element.text.strip() + newline + indent * (level + 1)
+    else:
+        if element.text is not None:
+            if len(element.text) > 60:
+                element.text = newline + indent * (level + 1) + _auto_wrap(element.text, indent * (
+                        level + 1)) + newline + indent * level
+                element.tail = newline + indent * level
+            else:
+                element.text = ' ' + element.text + ' '
+    temp = list(element)
+    for subelement in temp:
+        if temp.index(subelement) < (len(temp) - 1):
+            subelement.tail = newline + indent * (level + 1)
+        else:
+            subelement.tail = newline + indent * level
+        pretty_xml(subelement, indent, newline, level=level + 1)
 
 
 def check_pod_sigma(config, maxsig=8):
@@ -588,6 +635,53 @@ def get_crd_res(f_res, site_list):
     except FileNotFoundError:
         logging.warning(f'file not found {f_res}')
     return pd.DataFrame(data)
+
+
+def xml_receiver_snx(sites: list, f_snxs: list, f_xml):
+
+    receiver = ET.Element('receiver')
+    data = pd.DataFrame()
+    for file in f_snxs:
+        if not os.path.isfile(file):
+            continue
+        data = data.append(get_crd_snx(file, sites))
+
+    sites_used = []
+    for site in sites:
+        df = data[data.site == site]
+        df_x = df[df.type == 'crd_x'].sort_values(by=['obj'], ascending=False)
+        df_y = df[df.type == 'crd_y'].sort_values(by=['obj'], ascending=False)
+        df_z = df[df.type == 'crd_z'].sort_values(by=['obj'], ascending=False)
+        if df_x.empty or df_y.empty or df_z.empty:
+            logging.warning(f'site info not found: {site}')
+            continue
+
+        sites_used.append(site)
+        info = {
+            'X': f'{df_x.val.values[0]:20.8f}',
+            'Y': f'{df_y.val.values[0]:20.8f}',
+            'Z': f'{df_z.val.values[0]:20.8f}',
+            'dX': f'{df_x.sig.values[0]:8.4f}',
+            'dY': f'{df_y.sig.values[0]:8.4f}',
+            'dZ': f'{df_z.sig.values[0]:8.4f}',
+            'id': site.upper(), 'obj': df_x.obj.values[0]
+        }
+        if not df[df.type == 'rec'].empty:
+            info['rec'] = df[df.type == 'rec']['val'].values[0]
+        if not df[df.type == 'ant'].empty:
+            info['ant'] = df[df.type == 'ant']['val'].values[0]
+
+        ET.SubElement(receiver, 'rec', attrib=info)
+
+    root = ET.Element('config')
+    gen = ET.SubElement(root, 'gen')
+    rec = ET.SubElement(gen, 'rec')
+    rec.text = ' '.join([s.upper() for s in sites_used])
+    root.append(receiver)
+
+    tree = ET.ElementTree(root)
+    pretty_xml(root, '\t', '\n', 0)
+    tree.write(f_xml, encoding='utf-8', xml_declaration=True)
 
 
 def mkdir(dir_list):

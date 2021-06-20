@@ -4,7 +4,7 @@ import platform
 import xml.etree.ElementTree as ET
 import os
 import logging
-from .gnss_tools import timeblock, split_receivers, get_rnxc_satlist
+from .gnss_tools import timeblock, split_receivers, get_rnxc_satlist, pretty_xml
 from .gnss_config import GnssConfig
 from .constants import MAX_THREAD, gns_sat
 
@@ -17,52 +17,6 @@ def _run_cmd(cmd):
     except subprocess.CalledProcessError:
         logging.error(f"RunTimeError: {cmd}")
         return False
-
-
-def _auto_wrap(line, intent, linelen=60):
-    if isinstance(line, list):
-        parts = line
-    else:
-        parts = line.split()
-    info = ''
-    newline = 1
-    for part in parts:
-        info = info + ' ' + part
-        if len(info) >= newline * linelen + (1 + len(intent)) * (newline - 1):
-            if newline == 1:
-                linelen = len(info)
-            info = info + '\n' + intent
-            newline += 1
-    info = info.rstrip()
-    return info
-
-
-def _pretty_xml(element, indent='\t', newline='\n', level=0):
-    """
-    element:  xml node
-    indent:   '\t'
-    newline:  '\n'
-    """
-    if element:
-        if (element.text is None) or element.text.isspace():
-            element.text = newline + indent * (level + 1)
-        else:
-            element.text = newline + indent * (level + 1) + element.text.strip() + newline + indent * (level + 1)
-    else:
-        if element.text is not None:
-            if len(element.text) > 60:
-                element.text = newline + indent * (level + 1) + _auto_wrap(element.text, indent * (
-                        level + 1)) + newline + indent * level
-                element.tail = newline + indent * level
-            else:
-                element.text = ' ' + element.text + ' '
-    temp = list(element)
-    for subelement in temp:
-        if temp.index(subelement) < (len(temp) - 1):
-            subelement.tail = newline + indent * (level + 1)
-        else:
-            subelement.tail = newline + indent * level
-        _pretty_xml(subelement, indent, newline, level=level + 1)
 
 
 class GrtCmd:
@@ -92,7 +46,7 @@ class GrtCmd:
     def prepare_xml(self):
         root = self.form_xml()
         tree = ET.ElementTree(root)
-        _pretty_xml(root, '\t', '\n', 0)
+        pretty_xml(root, '\t', '\n', 0)
         tree.write(self.xml, encoding='utf-8', xml_declaration=True)
 
     def form_cmd(self):
@@ -532,7 +486,9 @@ class GrtUpdlsq(GrtCmd):
                         f_inputs.append('ambflag')
                         if self._config.freq > 2:
                             f_inputs.append('ambflag13')
+                    self._config.upd_mode = 'IRC'
                     inp = self._config.get_xml_inputs(f_inputs)
+                    self._config.upd_mode = 'UPD'
                     elem = ET.SubElement(inp, "ambupd")
                     elem.text = ' '.join(self._config.get_xml_file("ambupd_in", check=True))
                     root.append(inp)
