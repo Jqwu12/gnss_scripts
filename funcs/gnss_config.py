@@ -389,7 +389,8 @@ class GnssConfig:
 
     @property
     def site_receivers(self):
-        return [{'rec': s, 'rec_u': s.upper(), 'rec_l': site_namelong[s].upper(), 'leo': False} for s in self.site_list]
+        return [{'rec': s, 'rec_u': s.upper(), 'rec_l': site_namelong[s].upper() if s in site_namelong.keys()
+                else s.upper(), 'leo': False} for s in self.site_list]
 
     @property
     def leo_receivers(self):

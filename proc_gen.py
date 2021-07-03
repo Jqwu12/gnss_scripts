@@ -96,6 +96,8 @@ class ProcGen:
         self._intv = self._config.intv
         self._gsys = ''.join(self._config.gsys)
         self._workdir = self._config.workdir
+        if self._config.sat_rm:
+            self.sat_rm = self._config.sat_rm
 
     @classmethod
     def from_args(cls):
