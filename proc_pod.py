@@ -11,7 +11,7 @@ class ProcPod(ProcGen):
     default_args = {
         'dsc': 'GREAT GNSS Precise Orbit Determination',
         'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pod.ini'
+        'freq': 2, 'cen': 'com', 'bia': '', 'cf': 'cf_pod.ini'
     }
 
     proj_id = 'POD'

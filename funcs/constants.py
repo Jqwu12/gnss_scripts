@@ -18,7 +18,7 @@ _GNS_BAND = {'GPS': [1, 2, 5],
 _GNS_SIG = {'GPS': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02},
             'BDS': {'code': 1.70, 'phase': 0.01, 'code_leo': 4.0, 'phase_leo': 0.02},
             'GAL': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02},
-            'GLO': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02},
+            'GLO': {'code': 3.00, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02},
             'QZS': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0.02}}
 
 
@@ -246,7 +246,9 @@ site_namelong = {
     'yakt': 'YAKT00RUS', 'yar2': 'YAR200AUS', 'yar3': 'YAR300AUS', 'yarr': 'YARR00AUS', 'yebe': 'YEBE00ESP',
     'yel2': 'YEL200CAN', 'yell': 'YELL00CAN', 'yibl': 'YIBL00OMN', 'ykro': 'YKRO00CIV', 'yons': 'YONS00KOR',
     'yssk': 'YSSK00RUS', 'zamb': 'ZAMB00ZMB', 'zeck': 'ZECK00RUS', 'zim2': 'ZIM200CHE', 'zim3': 'ZIM300CHE',
-    'zimm': 'ZIMM00CHE'
+    'zimm': 'ZIMM00CHE', 'bing': 'BING00AUS', 'cmak': 'CMAK00IDN', 'cool': 'COOL00AUS', 'csby': 'CSBY00IDN',
+    'cuke': 'CUKE00IDN', 'hklm': 'HKLM00HKG', 'lamb': 'LAMB00AUS', 'lord': 'LORD00AUS', 'mao0': 'MAO000USA',
+    'norf': 'NORF00AUS', 'nrmg': 'NRMG00NCL', 'pthl': 'PTHL00AUS'
 }
 
 __all__ = ['gns_id', 'gns_name', 'gns_sat', 'gns_band', 'gns_sig', 'leo_df', 'site_namelong', 'MAX_THREAD']
