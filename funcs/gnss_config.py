@@ -352,13 +352,13 @@ class GnssConfig:
     def site_list(self) -> list:
         val = self.config.get('process_scheme', 'site_list', fallback='').split()
         val.sort()
-        return val
+        return [s.lower() for s in val]
 
     @site_list.setter
     def site_list(self, value: list):
         if not isinstance(value, list):
             raise TypeError('Expected a list')
-        self.config.set('process_scheme', 'site_list', ' '.join(value))
+        self.config.set('process_scheme', 'site_list', ' '.join([s.lower() for s in value]))
 
     @property
     def leo_list(self) -> list:
@@ -366,13 +366,13 @@ class GnssConfig:
         val = [s for s in val if s in list(leo_df.name)]
         val = list(set(val))
         val.sort()
-        return val
+        return [s.lower() for s in val]
 
     @leo_list.setter
     def leo_list(self, value: list):
         if not isinstance(value, list):
             raise TypeError('Expected a list')
-        self.config.set('process_scheme', 'leo_list', ' '.join(value))
+        self.config.set('process_scheme', 'leo_list', ' '.join([s.lower() for s in value]))
 
     @property
     def leo_sats(self):
@@ -390,7 +390,7 @@ class GnssConfig:
     @property
     def site_receivers(self):
         return [{'rec': s, 'rec_u': s.upper(), 'rec_l': site_namelong[s].upper() if s in site_namelong.keys()
-                else s.upper(), 'leo': False} for s in self.site_list]
+                else f'{s.upper()}00CHN', 'leo': False} for s in self.site_list]
 
     @property
     def leo_receivers(self):

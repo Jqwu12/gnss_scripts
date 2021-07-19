@@ -43,6 +43,16 @@ class GrtCmd:
     def form_xml(self):
         raise NotImplementedError
 
+    def xml_receiver(self):
+        f_preedit = os.path.join('xml', 'preedit.xml')
+        if os.path.isfile(f_preedit):
+            ref_tree = ET.parse(f_preedit)
+            ref_root = ref_tree.getroot()
+            rec = ref_root.find('receiver')
+        else:
+            rec = self._config.get_xml_receiver()
+        return rec
+
     def prepare_xml(self):
         root = self.form_xml()
         tree = ET.ElementTree(root)
@@ -110,7 +120,7 @@ class GrtTurboedit(GrtCmd):
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
         if self._config.site_list:
-            root.append(self._config.get_xml_receiver())
+            root.append(self.xml_receiver())
         isleo = True if self._config.leo_list else False
         proc = self._config.get_xml_process()
         if isleo or self._config.crd_constr.startswith('K'):
