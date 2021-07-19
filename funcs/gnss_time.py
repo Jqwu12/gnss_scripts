@@ -1,5 +1,6 @@
 import math
 import time
+from datetime import datetime
 
 monthdays = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -195,6 +196,11 @@ class GnssTime:
         return cls(mjd, float(sod))
 
     @classmethod
+    def from_datetime(cls, dt: datetime):
+        """ set GNSSTime by datetime """
+        return cls.from_str(dt.strftime('%Y-%m-%d %H:%M:%S'))
+
+    @classmethod
     def now(cls):
         t_loc = time.localtime()
         mjd = ymd2mjd(t_loc.tm_year, t_loc.tm_mon, t_loc.tm_mday)
@@ -281,6 +287,11 @@ class GnssTime:
 
     def __ge__(self, other):
         return (self.mjd > other.mjd) or (self.mjd == other.mjd and self.sod >= other.sod)
+
+    def datetime(self) -> datetime:
+        hh, mm, ss = sod2hms(int(self.sod))
+        ms = 1000*(int(self.sod - int(self.sod)))
+        return datetime(self.year, self.month, self.day, hh, mm, ss, ms)
 
     def diff(self, other):
         if not isinstance(other, GnssTime):

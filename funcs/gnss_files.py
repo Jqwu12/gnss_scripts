@@ -1,11 +1,11 @@
 import time
 import numpy as np
 import pandas as pd
-import math
 import os
 import logging
 import math
-from .gnss_time import GnssTime, hms2sod
+import datetime
+from .gnss_time import GnssTime, hms2sod, sod2hms
 from .constants import gns_name, leo_df
 
 
@@ -274,6 +274,29 @@ def read_clkdif_sum(f_name, mjd):
     dd = dd[(dd.sat != ref_sat) & (dd['val'] < 3)]
     return dd
 
+
+def read_time_info_new(file):
+    try:
+        with open(file) as file_object:
+            lines = file_object.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {file}")
+        return
+
+    data = []
+    for line in lines:
+        if not line.startswith('Time for Processing epoch'):
+            continue
+        tt = GnssTime.from_str(line[27:46])
+        hh, mm, ss = sod2hms(tt.sod)
+        mss = int((tt.sod - int(tt.sod)) * 1000)
+        crt_date = datetime.datetime(tt.year, tt.month, tt.day, hh, mm, ss, mss)
+        data.append({
+            'mjd': tt.fmjd, 'sod': tt.sod, 'date': crt_date, 'time': float(line[55:65]), 'nrec': int(line[92:95]),
+            'nobs': int(line[115:123])
+        })
+
+    return pd.DataFrame(data)
 
 def sum_clkdif(f_list, mjds, mode=None):
     if not f_list:

@@ -51,7 +51,7 @@ class GnssConfig:
         return cls(config)
 
     def __check(self):
-        required_sections = ["process_scheme", "ambiguity_scheme", "common", "process_files"]
+        required_sections = ["process_scheme", "common", "process_files"]
         for sec in required_sections:
             if not self.config.has_section(sec):
                 logging.critical(f"[{sec}] not found in config!")
@@ -619,7 +619,7 @@ class GnssConfig:
             if 'leo' in sattype:
                 f_list.extend(self.get_xml_file('kin', 'leo', sec, check, quiet))
             return [f for f in f_list if f]
-        elif f_type in ['rinexn', 'rinexc']:
+        elif f_type in ['rinexn', 'rinexc', 'ssrclk']:
             return self._daily_file(f_type, {}, sec, check, quiet)
         elif f_type == 'rinexc_all':
             fl = self._daily_file('rinexc', {}, sec, check, quiet)

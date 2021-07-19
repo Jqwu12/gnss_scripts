@@ -22,6 +22,9 @@ class ProcUdPod(ProcPod):
             logging.critical("NO ambflag files ! skip to next day")
             return False
 
+    # def prepare_ics(self):  # for test!
+    #     return True
+
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
                      f"Everything is ready: number of stations = {len(self._config.site_list)}, "
