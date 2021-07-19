@@ -223,15 +223,14 @@ def monitor_clkdif(cen, gns: str):
     config.beg_time = t_beg
     config.end_time = GnssTime.from_datetime(dend_time)
     config.orb_ac = cen
-    label = f'clkdif_{cen}'
-    # GrtClkdif(config, label).run()
+    GrtClkdif(config, f'clkdif_{cen}').run()
 
-    # draw clkdif from the begining
+    # draw clkdif series
     file = os.path.join('clkdif', f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}')
     figname = os.path.join(figdir, f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}_all.png')
     data = read_clkdif(file, t_beg)
-    # if not data.empty:
-    #     draw_clkdif(data, gns, figname, f'{str(t_beg)}~{str(config.end_time)}')
+    if not data.empty:
+        draw_clkdif(data, gns, figname, f'{str(t_beg)}~{str(config.end_time)}')
 
     # draw clkdif statistics
     crt_time = GnssTime(t_beg.mjd + 1, 0)
