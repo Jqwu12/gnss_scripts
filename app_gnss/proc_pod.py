@@ -1,6 +1,8 @@
 import os
+import sys
 import shutil
 import logging
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
 from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
     recover_files, check_pod_residuals, check_pod_sigma, backup_dir, \

@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import logging
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
 from funcs import GrtPpplsq
 

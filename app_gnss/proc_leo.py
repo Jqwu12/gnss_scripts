@@ -1,6 +1,8 @@
 import os
+import sys
 import shutil
 import logging
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen, basic_args, get_args_config
 from funcs import timeblock, copy_result_files, GrtSp3orb, GrtOrbfitLeo, GrtPodleo, GrtOi, GrtAmbfixD, GrtAmbfix
 

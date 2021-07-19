@@ -1,5 +1,7 @@
 import os
+import sys
 import logging
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from funcs import gns_name, timeblock, merge_upd_all, copy_result_files_to_path, backup_dir, GrtUpdlsq, GrtPpplsq
 from proc_gen import ProcGen
 

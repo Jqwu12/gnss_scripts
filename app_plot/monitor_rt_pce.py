@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.dates as mdates
 import seaborn as sns
-from funcs import GnssTime, sod2hms, gns_sat, gns_name, GnssConfig, GrtClkdif
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from funcs import GnssTime, sod2hms, gns_sat, gns_name, GnssConfig, GrtClkdif, timeblock
 from gnss_plot import read_clkdif
 
 
@@ -48,15 +49,16 @@ def draw_time_info(data, figname, title=''):
     if title:
         ax[0].set(title=title)
 
-    ax[1].plot(data.date, data.nrec, '^', color='deeppink', alpha=0.5)
+    ax[1].plot(data.date, data.nrec, '+', color='red', alpha=0.5)
     ax[1].set(ylim=(0, 100), ylabel='Num of rec')
 
-    ax[2].plot(data.date, data.time, 'v', color='darkblue', alpha=0.5)
+    ax[2].plot(data.date, data.time, '+', color='darkblue', alpha=0.5)
     ax[2].hlines(5, data.date.min(), data.date.max(), colors='grey', linestyles='dashed', linewidth=4)
     ax[2].set(ylim=(0, 10), ylabel='Compute time [s]')
 
     plt.xticks(rotation=30)
     fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def read_memory(file):
@@ -70,20 +72,21 @@ def read_memory(file):
     data = []
     for line in lines:
         tt = GnssTime.from_str(line[0:19])
-        val = int(line.split()[2]) / 1024
+        val = int(line.split()[2]) / 1024 / 1024
         data.append({'date': tt.datetime(), 'mem': val})
 
     return pd.DataFrame(data)
 
 
 def draw_memory(data, figname, title=''):
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 8))
 
-    ax.plot(data.date, data['mem'], 'o-')
-    ax.set(ylabel='RAM usage [MB]', title=title)
+    ax.plot(data.date, data['mem'], '-.')
+    ax.set(ylabel='RAM usage [GB]', title=title)
     for tick in ax.get_xticklabels():
         tick.set_rotation(30)
     fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def get_clkdif_statistic(data, beg: datetime, end: datetime):
@@ -91,6 +94,7 @@ def get_clkdif_statistic(data, beg: datetime, end: datetime):
     if data1.empty:
         return pd.DataFrame()
     sats = list(set(data.sat))
+    sats.sort()
     sat_sum = []
     sat_data = pd.DataFrame()
     for sat in sats:
@@ -146,10 +150,12 @@ def draw_clkdif(data, gns: str, figname: str, title=''):
             tick.set_rotation(30)
 
     fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def draw_clkdif_std(data, figname, title=''):
-    gns = list(set(data.gsys))
+    setgns = set(data.gsys)
+    gns = [s for s in 'GECR' if s in setgns]
     nf = len(gns)
     fig, ax = plt.subplots(nf, 1, figsize=(8, 2 * nf + 2), constrained_layout=True)
 
@@ -178,13 +184,15 @@ def draw_clkdif_std(data, figname, title=''):
         ax.set(ylabel='STD [ns]')
 
     fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def draw_boxplot(data, figname, title=''):
     sats = list(set(data['sat']))
-    gns = list(set([gns_name(s[0]) for s in sats]))
+    setgns = set([s[0] for s in sats])
+    gns = [s for s in 'GECR' if s in setgns]
     nf = len(gns)
-    fig, ax = plt.subplots(nf, 1, figsize=(8, 2 * nf + 2), constrained_layout=False)
+    fig, ax = plt.subplots(nf, 1, figsize=(8, 2.5 * nf + 2), constrained_layout=False)
     plt.subplots_adjust(hspace=0.35)
     ymax = 4
 
@@ -207,6 +215,7 @@ def draw_boxplot(data, figname, title=''):
             tick.set_rotation(90)
 
     fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def monitor_clkdif(cen, gns: str):
@@ -229,8 +238,9 @@ def monitor_clkdif(cen, gns: str):
     file = os.path.join('clkdif', f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}')
     figname = os.path.join(figdir, f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}_all.png')
     data = read_clkdif(file, t_beg)
-    if not data.empty:
-        draw_clkdif(data, gns, figname, f'{str(t_beg)}~{str(config.end_time)}')
+    if data.empty:
+        return
+    draw_clkdif(data, gns, figname, f'{str(t_beg)}~{str(config.end_time)}')
 
     # draw clkdif statistics
     crt_time = GnssTime(t_beg.mjd + 1, 0)
@@ -239,9 +249,9 @@ def monitor_clkdif(cen, gns: str):
         data0, data1 = get_clkdif_statistic(data, crt_time.datetime(), end_time.datetime())
         figname1 = os.path.join(figdir, f'clkstd_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
         figname2 = os.path.join(figdir, f'boxplot_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
-        if not data1.empty and not os.path.isfile(figname1):
+        if not data1.empty:
             draw_clkdif_std(data1, figname1, f'{str(crt_time)}~{str(end_time)}')
-        if not data0.empty and not os.path.isfile(figname2):
+        if not data0.empty:
             draw_boxplot(data0, figname2, f'{str(crt_time)}~{str(end_time)}')
         crt_time += 86400
 
@@ -278,19 +288,22 @@ if __name__ == '__main__':
             for line in f:
                 pid = int(line)
         file = f'{pid}_mem.log'
-        data = read_memory(file)
-        if not data.empty:
-            figname = os.path.join(figdir, f'{pid}_mem.png')
-            draw_memory(data, figname, f'PID {pid}')
+        with timeblock('Finished draw RAM usage'):
+            data = read_memory(file)
+            if not data.empty:
+                figname = os.path.join(figdir, f'{pid}_mem.png')
+                draw_memory(data, figname, f'PID {pid}')
 
     # ----------------------- monitor compute time ------------------------
-    data = read_time_info('info_time.log')
-    if not data.empty:
-        figname = os.path.join(figdir, 'info_time.png')
-        draw_time_info(data, figname)
+    with timeblock('Finished draw compute time'):
+        data = read_time_info('pcelsq.log')
+        if not data.empty:
+            figname = os.path.join(figdir, 'info_time.png')
+            draw_time_info(data, figname)
 
-    # run clkdif, multi-thread
+    # ----------------------- monitor clock difference --------------------
     cmd1 = ['clk01', 'clk93', 'gbm']
     cmd2 = ['GE', 'GE', 'GREC']
-    with ThreadPoolExecutor(8) as pool:
-        results = pool.map(monitor_clkdif, cmd1, cmd2)
+    with timeblock('Finished draw clock difference'):
+        with ThreadPoolExecutor(8) as pool:
+            results = pool.map(monitor_clkdif, cmd1, cmd2)

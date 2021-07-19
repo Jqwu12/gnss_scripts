@@ -1,6 +1,8 @@
 import os
+import sys
 import shutil
 import logging
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_pod import ProcPod
 from funcs import copy_ambflag_from, recover_files, switch_ambflag, timeblock
 
