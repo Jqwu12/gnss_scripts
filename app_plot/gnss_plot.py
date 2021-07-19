@@ -3,11 +3,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 import logging
+from datetime import datetime
 from typing import List
-from .gnss_files import read_sp3_file
-from .gnss_time import GnssTime
-from .coordinate import ell2cart, cart2ell
-from .constants import gns_sat
+from funcs.gnss_files import read_sp3_file
+from funcs.gnss_time import GnssTime, sod2hms
+from funcs.coordinate import ell2cart, cart2ell
+from funcs.constants import gns_sat
 
 
 def isfloat(value):
@@ -262,13 +263,13 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
     return orbdif
 
 
-def read_clkdif_new(f_name, t_beg=None):
+def read_clkdif(f_name, beg_time=None):
     try:
         with open(f_name) as file_object:
             lines = file_object.readlines()
     except FileNotFoundError:
         logging.warning(f"file not found {f_name}")
-        return
+        return pd.DataFrame()
 
     sats = []
     data = []
@@ -279,20 +280,27 @@ def read_clkdif_new(f_name, t_beg=None):
         if line.startswith('  MJD       SOD'):
             sats = line[15:].replace('\n', '').split()
             continue
-        if not sats or len(line) < len(sats)*9+15:
+        if not sats or len(line) < len(sats) * 9 + 15:
             continue
         mjd = int(line[0:5])
         sod = int(line[5:15])
-        if isfirst and t_beg is None:
-            t_beg = GnssTime(mjd, sod)
+        if isfirst and beg_time is None:
+            beg_time = GnssTime(mjd, sod)
             isfirst = False
 
+        crt_time = GnssTime(mjd, sod)
+        if crt_time < beg_time:
+            continue
+        hh, mm, ss = sod2hms(crt_time.sod)
+        mss = int((crt_time.sod - int(crt_time.sod)) * 1000)
+        crt_date = datetime(crt_time.year, crt_time.month, crt_time.day, hh, mm, ss, mss)
         info = line[15:].split()
         for i in range(len(sats)):
             if i > len(info) or '*' in info[i]:
                 continue
-            data.append({'mjd': mjd, 'sod': sod, 'sec': (mjd-t_beg.mjd)*86400+sod-t_beg.sod,
-                        'sat': sats[i], 'val': float(info[i])})
+            data.append(
+                {'mjd': mjd, 'sod': sod, 'sec': (mjd - beg_time.mjd) * 86400 + sod - beg_time.sod, 'date': crt_date,
+                 'sat': sats[i], 'val': float(info[i])})
 
     return pd.DataFrame(data)
 

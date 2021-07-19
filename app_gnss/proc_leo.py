@@ -11,7 +11,7 @@ class ProcLeo(ProcGen):
     default_args = {
         'dsc': 'LEO reduced dynamic POD Processing',
         'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'grm', 'bia': '', 'cf': 'cf_leo.ini'
+        'freq': 2, 'cen': 'grm', 'bia': 'cas', 'cf': 'cf_leo.ini'
     }
 
     proj_id = 'LEO'
@@ -41,7 +41,7 @@ class ProcLeo(ProcGen):
         if not self._config.workdir:
             self._workdir = os.path.join(self.base_dir, 'LEO', self._config.leo_sats[0],
                                          f'Dyn_{int(self._config.seslen / 3600) - 1:0>2d}h_{self._config.orb_ac}',
-                                         str(self.year), f"{self.doy:0>3d}")
+                                         str(self.year), f"{self.doy:0>3d}_test")
         else:
             self._workdir = self._config.workdir
         if not os.path.isdir(self._workdir):
@@ -89,8 +89,8 @@ class ProcLeo(ProcGen):
             copy_result_files(self._config, ['orbdif', 'ics'], label, 'leo')
 
     def ambfix(self):
-        GrtAmbfixD(self._config, 'ambfix', stop=False).run()
-        # GrtAmbfix(self._config, "SD", 'ambfix').run()
+        # GrtAmbfixD(self._config, 'ambfix', stop=False).run()
+        GrtAmbfix(self._config, "SD", 'ambfix').run()
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' ' * 36}"

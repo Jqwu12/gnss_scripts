@@ -43,6 +43,16 @@ class GrtCmd:
     def form_xml(self):
         raise NotImplementedError
 
+    def xml_receiver(self):
+        f_preedit = os.path.join('xml', 'preedit.xml')
+        if os.path.isfile(f_preedit):
+            ref_tree = ET.parse(f_preedit)
+            ref_root = ref_tree.getroot()
+            rec = ref_root.find('receiver')
+        else:
+            rec = self._config.get_xml_receiver()
+        return rec
+
     def prepare_xml(self):
         root = self.form_xml()
         tree = ET.ElementTree(root)
@@ -50,7 +60,7 @@ class GrtCmd:
         tree.write(self.xml, encoding='utf-8', xml_declaration=True)
 
     def form_cmd(self):
-        if self.nmp == 1:
+        if self.nmp < 2:
             self.prepare_xml()
             return [f"{self.grt_exe} -x {self.xml} {self.str_args} > {self.log} 2>&1"]
         else:
@@ -82,6 +92,8 @@ class GrtCmd:
         if not os.path.isdir('tmp'):
             os.makedirs('tmp')
         self.nmp = min(self.nmp, len(self._config.all_sites))
+        if self.nmp == 0:
+            self.nmp = 1
         return True
 
     def run(self):
@@ -108,7 +120,7 @@ class GrtTurboedit(GrtCmd):
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
         if self._config.site_list:
-            root.append(self._config.get_xml_receiver())
+            root.append(self.xml_receiver())
         isleo = True if self._config.leo_list else False
         proc = self._config.get_xml_process()
         if isleo or self._config.crd_constr.startswith('K'):
@@ -322,7 +334,9 @@ class GrtClkdif(GrtCmd):
         super().__init__(config, label, stop=stop)
 
     def ref_clk_sats(self):
-        f_clks = self._config.get_xml_file('rinexc', check=True)
+        if self._config.orb_ac.startswith('clk'):
+            return [s for gs in self._config.gsystem for s in gns_sat(gs)]
+        f_clks = self._config.get_xml_file('rinexc', check=True, quiet=True)
         if not f_clks:
             return []
         return get_rnxc_satlist(f_clks[0])
@@ -341,7 +355,8 @@ class GrtClkdif(GrtCmd):
         else:
             elem.text = ' '.join(self._config.get_xml_file('satclk', check=True))
         elem = ET.SubElement(inp, 'rinexc_ref')
-        elem.text = ' '.join(self._config.get_xml_file('rinexc', check=True))
+        fname = 'ssrclk' if self._config.orb_ac.startswith('clk') else 'rinexc'
+        elem.text = ' '.join(self._config.get_xml_file(fname, check=True))
         out = ET.SubElement(root, 'outputs')
         elem = ET.SubElement(out, 'clkdif')
         elem.text = ' '.join(self._config.get_xml_file('clkdif'))
