@@ -315,6 +315,10 @@ class GnssConfig:
     @property
     def sat_rm(self) -> list:
         return self.config.get('process_scheme', 'sat_rm', fallback='').split()
+    
+    @property
+    def sys_rm(self) -> list:
+        return self.config.get('process_scheme', 'sys_rm', fallback='').split()
 
     @sat_rm.setter
     def sat_rm(self, value: list):
@@ -760,11 +764,9 @@ class GnssConfig:
             logging.info(f"files copied to work directory: {', '.join(f_rst)}")
 
     def set_ref_clk(self, mode='sat', sats=None):
-        ref_sats = ['G08', 'G05', 'E01', 'E02', 'C08', 'R01']
+        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'C22', 'C21', 'R01', 'R02', 'R05']
         ref_sites = ['hob2', 'gop6', 'ptbb', 'algo', 'ons1', 'albh', 'nrc1']
-        if sats is None:
-            sats = []
-        sat_list = [s for s in self.all_gnssat if s in sats]
+        sat_list = self.all_gnssat if sats is None else [s for s in self.all_gnssat if s in sats]
         if mode == 'sat':
             for sat in ref_sats:
                 if sat in sat_list:
@@ -870,8 +872,8 @@ class GnssConfig:
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.02' if self.intv < 15 else '0.05', 'valid': 'true'})
-            ET.SubElement(tb, 'smooth_win', attrib={'value': '25'})
-            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '10' if self.intv < 15 else '60', 'valid': 'true'})
+            ET.SubElement(tb, 'smooth_win', attrib={'value': '0'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '15' if self.intv < 15 else '20', 'valid': 'true'})
         else:
             ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})

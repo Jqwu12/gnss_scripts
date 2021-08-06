@@ -334,7 +334,7 @@ class GrtClkdif(GrtCmd):
         super().__init__(config, label, stop=stop)
 
     def ref_clk_sats(self):
-        if self._config.orb_ac.startswith('clk'):
+        if self._config.orb_ac.startswith('clk') or self._config.orb_ac in ['grt', 'cnt']:
             return [s for gs in self._config.gsystem for s in gns_sat(gs)]
         f_clks = self._config.get_xml_file('rinexc', check=True, quiet=True)
         if not f_clks:
@@ -662,7 +662,11 @@ class GrtPodlsq(GrtCmd):
             proc.set('ambfix', 'true')
         else:
             proc.set('ambfix', 'false')
-        proc.set('ref_clk', self._config.set_ref_clk(mode='site'))
+        # real time or simulating real time, use satellite as reference
+        if self._config.real_time or self._config.ultra_sp3:
+            proc.set('ref_clk', self._config.set_ref_clk(mode='sat'))
+        else:
+            proc.set('ref_clk', self._config.set_ref_clk(mode='site'))
         proc.set('sig_ref_clk', '0.001')
         proc.set('num_threads', str(min(MAX_THREAD, 6)))
         proc.set('matrix_remove', 'true')

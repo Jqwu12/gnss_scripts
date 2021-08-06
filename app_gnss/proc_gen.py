@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 import argparse
-from funcs import GnssConfig, GnssTime, hms2sod, read_site_list, MAX_THREAD, timeblock, mkdir, \
+from funcs import GnssConfig, GnssTime, gns_sat, hms2sod, read_site_list, MAX_THREAD, timeblock, mkdir, \
     get_grg_wsb, check_turboedit_log, check_brd_orbfit, backup_files, \
     GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres
 
@@ -96,8 +96,11 @@ class ProcGen:
         self._intv = self._config.intv
         self._gsys = ''.join(self._config.gsys)
         self._workdir = self._config.workdir
-        if self._config.sat_rm:
-            self.sat_rm = self._config.sat_rm
+        sat_rm = self._config.sat_rm
+        for s in self._config.sys_rm:
+            sat_rm.extend(gns_sat(s))
+        sat_rm = list(set(sat_rm))
+        self.sat_rm = sat_rm
 
     @classmethod
     def from_args(cls):
@@ -136,6 +139,7 @@ class ProcGen:
         if opts is None:
             opts = []
         if not self._config.site_list:
+            logging.error(f'cannot find site list in args or config.ini')
             return False
         return self._config.basic_check(opts, files)
 

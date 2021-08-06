@@ -3,11 +3,16 @@ import pandas as pd
 
 MAX_THREAD = min(8, cpu_count())
 
-_GNS_NAME = {'G': 'GPS',
-             'R': 'GLO',
-             'E': 'GAL',
-             'C': 'BDS',
-             'J': 'QZS'}
+_GNS_NAME = {'G':  'GPS',
+             'R':  'GLO',
+             'E':  'GAL',
+             'C':  'BDS',
+             'C2': 'BD2',
+             'C3': 'BD3',
+             'CG': 'BDG',
+             'CI': 'BDI',
+             'CM': 'BDM',
+             'J':  'QZS'}
 
 _GNS_BAND = {'GPS': [1, 2, 5],
              'BDS': [2, 6, 5, 9, 8],
@@ -23,7 +28,7 @@ _GNS_SIG = {'GPS': {'code': 0.60, 'phase': 0.01, 'code_leo': 2.0, 'phase_leo': 0
 
 
 def gns_name(gsys: str) -> str:
-    if len(gsys) == 1:
+    if len(gsys) < 3:
         if gsys in _GNS_NAME.keys():
             return _GNS_NAME[gsys]
     if len(gsys) == 3:
@@ -33,7 +38,7 @@ def gns_name(gsys: str) -> str:
 
 
 def gns_id(gsys: str) -> str:
-    if len(gsys) == 1:
+    if len(gsys) < 3:
         if gsys in _GNS_NAME.keys():
             return gsys
     if len(gsys) == 3:
@@ -57,7 +62,7 @@ def gns_sig(gsys: str) -> dict:
     return _GNS_SIG[gsys]
 
 
-def gns_sat(gsys, sats_rm=None):
+def gns_sat(gsys, sats_rm=None) -> list:
     if sats_rm is None:
         sats_rm = []
     gsys = gns_name(gsys)
@@ -69,8 +74,39 @@ def gns_sat(gsys, sats_rm=None):
         _GPS_SAT.sort()
         return _GPS_SAT
     elif gsys == 'BDS':
-        _BDS_SAT = [f"C{i:0>2d}" for i in range(1, 62)]
-        _BDS_SAT_EXC = ['C15', 'C17', 'C18', 'C31', 'C47', 'C56', 'C57', 'C58', 'C61']
+        _BDS_SAT = [f"C{i:0>2d}" for i in range(1, 62) if i < 47 or i > 58]
+        _BDS_SAT_EXC = ['C15', 'C17', 'C18', 'C31', 'C61']
+        _BDS_SAT_EXC.extend(sats_rm)
+        _BDS_SAT = list(set(_BDS_SAT).difference(set(_BDS_SAT_EXC)))
+        _BDS_SAT.sort()
+        return _BDS_SAT
+    elif gsys == 'BD2':
+        _BDS_SAT = [f"C{i:0>2d}" for i in range(1, 17)]
+        _BDS_SAT_EXC = ['C15']
+        _BDS_SAT_EXC.extend(sats_rm)
+        _BDS_SAT = list(set(_BDS_SAT).difference(set(_BDS_SAT_EXC)))
+        _BDS_SAT.sort()
+        return _BDS_SAT
+    elif gsys == 'BD3':
+        _BDS_SAT = [f"C{i:0>2d}" for i in range(19, 62) if i < 47 or i > 58]
+        _BDS_SAT_EXC = ['C31', 'C61']
+        _BDS_SAT_EXC.extend(sats_rm)
+        _BDS_SAT = list(set(_BDS_SAT).difference(set(_BDS_SAT_EXC)))
+        _BDS_SAT.sort()
+        return _BDS_SAT
+    elif gsys == 'BDG':
+        _BDS_SAT = ['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60']
+        _BDS_SAT = list(set(_BDS_SAT).difference(set(sats_rm)))
+        _BDS_SAT.sort()
+        return _BDS_SAT
+    elif gsys == 'BDI':
+        _BDS_SAT = ['C06', 'C07', 'C08', 'C09', 'C10', 'C13', 'C16', 'C38', 'C39', 'C40']
+        _BDS_SAT = list(set(_BDS_SAT).difference(set(sats_rm)))
+        _BDS_SAT.sort()
+        return _BDS_SAT
+    elif gsys == 'BDM':
+        _BDS_SAT = [f"C{i:0>2d}" for i in range(11, 47)]
+        _BDS_SAT_EXC = ['C13', 'C16', 'C38', 'C39', 'C40']
         _BDS_SAT_EXC.extend(sats_rm)
         _BDS_SAT = list(set(_BDS_SAT).difference(set(_BDS_SAT_EXC)))
         _BDS_SAT.sort()
@@ -96,6 +132,7 @@ def gns_sat(gsys, sats_rm=None):
         _QZS_SAT = list(set(_QZS_SAT).difference(set(_QZS_SAT_EXC)))
         _QZS_SAT.sort()
         return _QZS_SAT
+    return []
 
 
 def get_gns_info(gsys, sat_rm=None, band=None):

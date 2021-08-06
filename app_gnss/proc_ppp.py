@@ -20,6 +20,10 @@ class ProcPPP(ProcGen):
     required_opt = ['estimator']
     required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
+    def prepare(self):
+        shutil.copy('/home/jqwu/projects/PPP/2021/preedit.xml', 'xml/preedit.xml')
+        return super().prepare()
+
     def process_ppp(self, freq=None, obs_comb=None, fix=True):
         if freq is not None:
             self._config.freq = int(freq)
@@ -45,16 +49,16 @@ class ProcPPP(ProcGen):
         self._config.obs_comb = 'IF'
         self._config.copy_sys_data()
         self.process_ppp(freq=2, fix=False)
-        self.process_ppp(freq=2, fix=True)
-        self.process_ppp(freq=3, fix=False)
-        self.process_ppp(freq=3, fix=True)
+        # self.process_ppp(freq=2, fix=True)
+        # self.process_ppp(freq=3, fix=False)
+        # self.process_ppp(freq=3, fix=True)
 
-        self._config.obs_comb = 'IF'
-        self._config.copy_sys_data()
-        self.process_ppp(freq=2, fix=False)
-        self.process_ppp(freq=2, fix=True)
-        self.process_ppp(freq=3, fix=False)
-        self.process_ppp(freq=3, fix=True)
+        # self._config.obs_comb = 'IF'
+        # self._config.copy_sys_data()
+        # self.process_ppp(freq=2, fix=False)
+        # self.process_ppp(freq=2, fix=True)
+        # self.process_ppp(freq=3, fix=False)
+        # self.process_ppp(freq=3, fix=True)
 
 
 if __name__ == '__main__':

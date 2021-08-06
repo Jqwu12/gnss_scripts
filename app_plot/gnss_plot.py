@@ -263,7 +263,9 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
     return orbdif
 
 
-def read_clkdif(f_name, beg_time=None):
+def read_clkdif(f_name, beg_time=None, ref_sat=None):
+    if ref_sat is None:
+        ref_sat = ""
     try:
         with open(f_name) as file_object:
             lines = file_object.readlines()
@@ -296,7 +298,10 @@ def read_clkdif(f_name, beg_time=None):
         crt_date = datetime(crt_time.year, crt_time.month, crt_time.day, hh, mm, ss, mss)
         info = line[15:].split()
         for i in range(len(sats)):
-            if i > len(info) or '*' in info[i]:
+            if i > len(info) or '*' in info[i] or sats[i] == ref_sat:
+                continue
+            difval = float(info[i])
+            if difval > 10000 or difval == 0:
                 continue
             data.append(
                 {'mjd': mjd, 'sod': sod, 'sec': (mjd - beg_time.mjd) * 86400 + sod - beg_time.sod, 'date': crt_date,
