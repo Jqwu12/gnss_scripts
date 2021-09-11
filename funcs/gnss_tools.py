@@ -616,24 +616,41 @@ def get_crd_snx(f_snx, site_list):
     return pd.DataFrame(data)
 
 
-def get_crd_res(f_res, site_list):
-    data = []
+def get_crd_res(f_res, site_list, max_sig=8):
     try:
         with open(f_res) as f:
-            for line in f:
-                if line.startswith('RES:='):
-                    break
-                if line.startswith('PAR:='):
-                    if len(line) < 155:
-                        continue
-                    tp = line[24:29]
-                    if tp == 'CRD_X' or tp == 'CRD_Y' or tp == 'CRD_Z':
-                        site = line[19:23].lower()
-                        if site in site_list:
-                            data.append({'site': site, 'type': tp.lower(), 'val': float(line[131:156]),
-                                         'sig': 0.001, 'obj': 'RES'})
+            lines = f.readlines()
     except FileNotFoundError:
         logging.warning(f'file not found {f_res}')
+        return pd.DataFrame()
+    
+    data = []
+    sig = -1
+    for line in lines:
+        if line[0:2] != '##':
+            break
+        if line[0:7] == '##Sigma':
+            sig = float(line[10:23])
+    
+    if sig < 0:
+        logging.warning(f"sigma0 not find in {f_res}")
+        return pd.DataFrame()
+    elif sig > max_sig:
+        logging.warning(f"sigma too large {sig}")
+        return pd.DataFrame()
+
+    for line in lines:
+        if line.startswith('RES:='):
+            break
+        if line.startswith('PAR:='):
+            if len(line) < 155:
+                continue
+            tp = line[24:29]
+            if tp == 'CRD_X' or tp == 'CRD_Y' or tp == 'CRD_Z':
+                site = line[19:23].lower()
+                if site in site_list:
+                    data.append({'site': site, 'type': tp.lower(), 'val': float(line[131:156]),
+                                    'sig': 0.001, 'obj': 'RES'})
     return pd.DataFrame(data)
 
 

@@ -216,7 +216,13 @@ class GrtSp3orb(GrtOi):
         elem.text = 'crs'
         elem = ET.SubElement(proc, 'sat')
         elem.text = ' '.join(self._config.leo_sats) if self.sattype == 'leo' else ' '.join(self._config.all_gnssat)
-        root.append(self._config.get_xml_inputs(['poleut1', 'sp3'], sattype=self.sattype))
+        
+        inps = ET.SubElement(root, 'inputs')
+        elem = ET.SubElement(inps, 'sp3')
+        elem.text = ' '.join(self._config.get_xml_file('sp3_inp', sattype=self.sattype, check=True))
+        elem = ET.SubElement(inps, 'poleut1')
+        elem.text = ' '.join(self._config.get_xml_file('poleut1', sattype=self.sattype, check=True))
+        # root.append(self._config.get_xml_inputs(['poleut1', 'sp3'], sattype=self.sattype))
         out = ET.SubElement(root, 'outputs')
         elem = ET.SubElement(out, 'orb')
         elem.text = ' '.join(self._config.get_xml_file('orb', sattype=self.sattype))
@@ -336,7 +342,7 @@ class GrtClkdif(GrtCmd):
     def ref_clk_sats(self):
         if self._config.orb_ac.startswith('clk') or self._config.orb_ac in ['grt', 'cnt']:
             return [s for gs in self._config.gsystem for s in gns_sat(gs)]
-        f_clks = self._config.get_xml_file('rinexc', check=True, quiet=True)
+        f_clks = self._config.get_xml_file('rinexc', check=True)
         if not f_clks:
             return []
         return get_rnxc_satlist(f_clks[0])
