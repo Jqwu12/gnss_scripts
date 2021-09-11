@@ -561,7 +561,7 @@ class GnssConfig:
     def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
         if cf_vars is None:
             cf_vars = {}
-        if f_type == 'sp3':
+        if f_type == 'sp3' or f_type == 'sp3_inp':
             t_beg = self.beg_time - 5400
             t_end = self.end_time + 5400
         else:
@@ -609,11 +609,11 @@ class GnssConfig:
             return f_list
         # -------------------------------------------------------------------------------
         # common files
-        elif f_type == 'sp3':
+        elif f_type == 'sp3' or f_type == 'sp3_inp':
             f_list = []
             if 'gns' in sattype:
                 if not self.ultra_sp3:
-                    f_list.extend(self._daily_file('sp3', {}, sec, check, quiet))
+                    f_list.extend(self._daily_file(f_type, {}, sec, check, quiet))
                 else:
                     t_beg = self.beg_time - 5400
                     step = 1 if self.orb_ac == 'wum' else 6
@@ -873,7 +873,7 @@ class GnssConfig:
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.02' if self.intv < 15 else '0.05', 'valid': 'true'})
             ET.SubElement(tb, 'smooth_win', attrib={'value': '0'})
-            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '15' if self.intv < 15 else '20', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': f'{max(60, 600 / self.intv)}', 'valid': 'true'})
         else:
             ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
