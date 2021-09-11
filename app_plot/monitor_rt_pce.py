@@ -1,3 +1,4 @@
+from genericpath import exists
 import os
 import math
 import shutil
@@ -12,10 +13,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.dates as mdates
+import matplotlib as mpl
 import seaborn as sns
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from funcs import GnssTime, sod2hms, gns_sat, gns_name, GnssConfig, GrtClkdif, timeblock
-from gnss_plot import read_clkdif
+from funcs import GnssTime, sod2hms, gns_sat, gns_name, gns_id, GnssConfig, GrtClkdif, GrtOrbdif, GrtSp3orb, timeblock
+from gnss_plot import draw_orbdif, draw_orbdif_series, read_clkdif, read_orbdif
 
 
 def read_time_info(file):
@@ -28,19 +30,30 @@ def read_time_info(file):
 
     data = []
     for line in lines:
-        if len(line) < 148 or not line.startswith('Time for Processing epoch'):
-            continue
-        tt = GnssTime.from_str(line[27:46])
-        hh, mm, ss = sod2hms(tt.sod)
-        mss = int((tt.sod - int(tt.sod)) * 1000)
-        crt_date = datetime(tt.year, tt.month, tt.day, hh, mm, ss, mss)
-        temp_dict = {
-            'mjd': tt.fmjd, 'sod': tt.sod, 'date': crt_date, 'time': float(line[55:65]), 
-            'niter': int(line[80:82]), 'nrec': int(line[92:95]), 'nobs': int(line[115:123])
-        }
-        if len(line) > 148:
-            temp_dict['sig'] = float(line[159:])
-        data.append(temp_dict)
+        if len(line) >= 148 and line.startswith('Time for Processing epoch'):
+            str_time = line[27:46]
+            dd = str_time.strip().split()
+            year, mon, day = dd[0].split('-')
+            hh, mm, ss = dd[1].split(':')
+            crt_date = datetime(int(year), int(mon), int(day), int(hh), int(mm), int(ss))
+            temp_dict = {
+                'date': crt_date, 't2': float(line[55:65]), 
+                'niter': int(line[80:82]), 'nrec': int(line[92:95]), 'nobs': int(line[115:123])
+            }
+            if len(line) > 148:
+                temp_dict['sig'] = float(line[159:])
+            data.append(temp_dict)
+        elif len(line) >= 139 and line.startswith('Finish epoch'):
+            str_time = line[13:32]
+            dd = str_time.strip().split()
+            year, mon, day = dd[0].split('-')
+            hh, mm, ss = dd[1].split(':')
+            crt_date = datetime(int(year), int(mon), int(day), int(hh), int(mm), int(ss))
+            temp_dict = {
+                'date': crt_date, 't0': float(line[39:47]), 't1': float(line[48:55]),
+                't2': float(line[56:63]), 'niter': int(line[76:79]), 'nrec': int(line[87:91]), 'nobs': int(line[99:105]), 'sig': float(line[131:])
+            }
+            data.append(temp_dict)
 
     return pd.DataFrame(data)
 
@@ -71,11 +84,18 @@ def draw_time_info(data, figname, title=''):
     ax2.set_ylabel('Sigma0', color='red')
     ax2.tick_params(axis='y', labelcolor='red')
 
-    ax[2].plot(data.date, data.time, '.', color='darkblue', alpha=0.5)
+    ax[2].plot(data.date, data.t1, '.', color='darkblue', alpha=0.5)
     ax[2].hlines(5, data.date.min(), data.date.max(), colors='grey', linestyles='dashed', linewidth=4)
     ax[2].set(ylim=(0, 10))
     ax[2].set_ylabel('Compute time [s]', color='darkblue')
     ax[2].tick_params(axis='y', labelcolor='darkblue')
+    ax3 = ax[2].twinx()
+    ax3.plot(data.date, data.t2, '.', color='red', alpha=0.5)
+    ax3.grid()
+    ax3.set(ylim=(0, 10))
+    ax3.set_ylabel('Total time [s]', color='red')
+    ax3.tick_params(axis='y', labelcolor='red')
+
     for tick in ax[2].get_xticklabels():
         tick.set_rotation(30)
     if title:
@@ -118,7 +138,7 @@ def draw_memory(data, figname, title=''):
 def get_clkdif_statistic(data, beg: datetime, end: datetime):
     data1 = data[(data.date >= beg) & (data.date < end)]
     if data1.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
     sats = list(set(data.sat))
     sats.sort()
     sat_sum = []
@@ -133,7 +153,13 @@ def get_clkdif_statistic(data, beg: datetime, end: datetime):
             if len(idx) == 0:
                 break
             data_fnl = data_fnl[idx]
-
+        
+        if len(data_fnl) < 100:
+            continue
+        std_val = data_fnl.val.std()
+        if std_val > 1:
+            logging.warning(f'STD of {sat} too large: {std_val:10.5f}')
+            continue
         sat_sum.append({
             'sat': sat, 'mean': data_fnl.val.mean(), 'std': data_fnl.val.std(),
             'rms': math.sqrt(data_fnl.val.dot(data_fnl.val) / len(data_fnl)), 'gsys': gns_name(sat[0])
@@ -187,6 +213,7 @@ def draw_clkdif(data, figname: str, title=''):
             tick.set_rotation(30)
 
     fig.savefig(figname, dpi=1200)
+    logging.info(f'save figure {figname}')
     plt.close()
 
 
@@ -221,6 +248,7 @@ def draw_clkdif_std(data, figname, title=''):
         ax.set(ylabel='STD [ns]')
 
     fig.savefig(figname, dpi=1200)
+    logging.info(f'save figure {figname}')
     plt.close()
 
 
@@ -252,12 +280,13 @@ def draw_boxplot(data, figname, title=''):
             tick.set_rotation(90)
 
     fig.savefig(figname, dpi=1200)
+    logging.info(f'save figure {figname}')
     plt.close()
 
 
 def monitor_clkdif(cen, gns: str):
     # run clkdif
-    f_pce_xml = os.path.join(wkdir, 'xml', 'pcelsq.xml')
+    f_pce_xml = os.path.join('xml', 'pcelsq.xml')
     ref_tree = ET.parse(f_pce_xml)
     beg = ref_tree.getroot().find('gen').find('beg')
     t_beg = GnssTime.from_str(beg.text)
@@ -269,41 +298,137 @@ def monitor_clkdif(cen, gns: str):
     if dend_time > t_end:
         dend_time = t_end
     config = GnssConfig.from_file('cf_clk.ini')
-    config.gsys = gns
-    config.beg_time = t_beg
-    config.end_time = dend_time
     config.orb_ac = cen
     
-    data = pd.DataFrame()
-    for gs in gns:
-        config.gsys = gs
-        GrtClkdif(config, f'clkdif_{cen}_{gs}').run()
-        # draw clkdif series
-        file = os.path.join('clkdif', f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}_{gs}')
-        # get reference clock
-        f_dif_xml = os.path.join(wkdir, 'xml', f'clkdif_{cen}_{gs}.xml')
-        ref_tree = ET.parse(f_dif_xml)
-        refsat = ref_tree.getroot().find('gen').find('refsat').text.strip()
-        data_tmp = read_clkdif(file, t_beg, refsat)
-        if len(data_tmp) > 1000:
-            data = data.append(data_tmp)
-
-    figname = os.path.join(figdir, f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}_all.png')
-    if data.empty:
-        return
-    draw_clkdif(data, figname, f'{str(t_beg)}~{str(config.end_time)}')
-
-    # draw clkdif statistics
+    # get clkdif data
     crt_time = GnssTime(t_beg.mjd, 0)
-    while crt_time < config.end_time:
+    while crt_time < dend_time:
         end_time = GnssTime(crt_time.mjd, 86400 - intv)
-        data0, data1 = get_clkdif_statistic(data, crt_time.datetime(),end_time.datetime())
-        figname1 = os.path.join(figdir, f'clkstd_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
-        figname2 = os.path.join(figdir, f'boxplot_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
-        if not data1.empty:
-            draw_clkdif_std(data1, figname1, f'{str(crt_time)}~{str(end_time)}')
-        if not data0.empty:
-            draw_boxplot(data0, figname2, f'{str(crt_time)}~{str(end_time)}')
+        config.beg_time = crt_time
+        config.end_time = end_time
+
+        figdir = os.path.join('figs', f'{crt_time.year}{crt_time.doy:0>3d}')
+        if not os.path.isdir(figdir):
+            os.makedirs(figdir)
+        
+        figfile1 = os.path.join(figdir, f'clkdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
+        figfile2 = os.path.join(figdir, f'clkstd_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
+        figfile3 = os.path.join(figdir, f'boxplot_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
+        fig_exist = os.path.isfile(figfile1) and os.path.isfile(figfile2) and os.path.isfile(figfile3)
+        if crt_time.mjd != t_beg.mjd and crt_time.mjd != dend_time.mjd and fig_exist:
+            crt_time += 86400
+            continue
+
+        data = pd.DataFrame()
+        for gs in gns:
+            file = os.path.join('clkdif', f'clkdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}_{gs}')
+            if crt_time.mjd == t_beg.mjd or crt_time.mjd == dend_time.mjd or not os.path.isfile(file):
+                config.gsys = gs
+                GrtClkdif(config, f'clkdif_{cen}_{gs}').run()
+            
+            if not os.path.isfile(file):
+                continue
+            f_dif_xml = os.path.join(wkdir, 'xml', f'clkdif_{cen}_{gs}.xml')
+            ref_tree = ET.parse(f_dif_xml)
+            refsat = ref_tree.getroot().find('gen').find('refsat').text.strip()
+            data_tmp = read_clkdif(file, crt_time, refsat)
+            if not data_tmp.empty and len(data_tmp) > 1000 and len(set(data_tmp.sat)) > 4:
+                data = data.append(data_tmp)
+        
+        if not data.empty:
+            draw_clkdif(data, figfile1, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
+            data0, data1 = get_clkdif_statistic(data, crt_time.datetime(), end_time.datetime())
+            if not data1.empty:
+                draw_clkdif_std(data1, figfile2, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
+            if not data0.empty:
+                draw_boxplot(data0, figfile3, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
+        else:
+            logging.warning(f'no data for {str(crt_time)}~{str(end_time)}, reference: {cen}')
+
+        crt_time += 86400
+        
+    # figname = os.path.join(figdir, f'clkdif_{t_beg.year}{t_beg.doy:0>3d}_{cen}_all.png')
+    # if data.empty or len(data) < 1000 or len(set(data.sat)) < 4:
+    #     return
+    # draw_clkdif(data, figname, f'{str(t_beg)}~{str(dend_time)} ({cen.upper()})')
+
+    # # draw clkdif statistics
+    # crt_time = GnssTime(t_beg.mjd, 0)
+    # while crt_time < dend_time:
+    #     end_time = GnssTime(crt_time.mjd, 86400 - intv)
+    #     data0, data1 = get_clkdif_statistic(data, crt_time.datetime(),end_time.datetime())
+    #     figname1 = os.path.join(figdir, f'clkstd_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
+    #     figname2 = os.path.join(figdir, f'boxplot_{crt_time.year}{crt_time.doy:0>3d}_{cen}.png')
+    #     if not data1.empty:
+    #         draw_clkdif_std(data1, figname1, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
+    #     if not data0.empty:
+    #         draw_boxplot(data0, figname2, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
+    #     crt_time += 86400
+
+def monitor_orbdif(cen, gns: str):
+    f_pce_xml = os.path.join('xml', 'pcelsq.xml')
+    ref_tree = ET.parse(f_pce_xml)
+    beg = ref_tree.getroot().find('gen').find('beg')
+    t_beg = GnssTime.from_str(beg.text)
+    end = ref_tree.getroot().find('gen').find('end')
+    t_end = GnssTime.from_str(end.text)
+    intv = 300
+    
+    dend_time = GnssTime.from_datetime(datetime.utcnow())
+    if dend_time > t_end:
+        dend_time = t_end
+    dend_time -= 86400
+    config = GnssConfig.from_file('cf_clk.ini')
+    config.orb_ac = cen
+    config.intv = intv
+    
+    if not os.path.isdir('orbdif'):
+        os.makedirs('orbdif')
+
+    crt_time = GnssTime(t_beg.mjd, 0)
+    while crt_time < dend_time:
+        end_time = GnssTime(crt_time.mjd, 86400 - intv)
+        if crt_time.mjd == t_beg.mjd:
+            config.beg_time = t_beg + intv*5
+        else:
+            config.beg_time = crt_time
+        config.end_time = end_time
+        
+        figdir = os.path.join('figs', f'{crt_time.year}{crt_time.doy:0>3d}')
+        if not os.path.isdir(figdir):
+            os.makedirs(figdir)
+        
+        fig_exist = True
+        for gs in gns:
+            figfile = os.path.join(figdir, f'orbdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}_{gns_id(gs)}.png')
+            if not os.path.isfile(figfile):
+                fig_exist = False
+                break
+        if fig_exist:
+            crt_time += 86400
+            continue
+
+        f_dif = os.path.join('orbdif', f'orbdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}')
+        if not os.path.isfile(f_dif):
+            f_orb = f'orb_{crt_time.year}{crt_time.doy:0>3d}_{cen}'
+            GrtSp3orb(config, f'sp3orb_{cen}').run()
+            if not os.path.isfile(f_orb):
+                crt_time += 86400
+                continue
+            GrtOrbdif(config, f'orbdif_{cen}', trans='NONE').run()
+
+        data = read_orbdif(f_dif)
+        if not data.empty:
+            sats = list(set(data['sat']))
+            setgns = set([s[0] for s in sats])
+            gnss = [gns_name(s) for s in 'GECR' if s in setgns]
+            for gs in gnss:
+                data_temp = data[data.gns == gs]
+                figfile1 = os.path.join(figdir, f'orbdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}_{gns_id(gs)}.png')
+                draw_orbdif(data_temp, figfile1, f'{gs} {str(crt_time)}~{str(end_time)} ({cen.upper()})')
+        else:
+            logging.warning(f'no data for {str(crt_time)}~{str(end_time)}, reference: {cen}')
+
         crt_time += 86400
 
 
@@ -334,6 +459,7 @@ if __name__ == '__main__':
         os.makedirs(figdir)
 
     # ----------------------- monitor memory usage ------------------------
+    mpl.rcParams['agg.path.chunksize'] = 10000
     if os.path.isfile('pid'):
         pid = 0
         with open('pid') as f:
@@ -354,11 +480,13 @@ if __name__ == '__main__':
             draw_time_info(data, figname)
 
     # ----------------------- monitor clock difference --------------------
-    cmd1 = ['clk01', 'clk93']
-    cmd2 = ['GE', 'GE']
-    if args.use_rapid:
-        cmd1.extend(['gbm', 'cor', 'igc', 'cnt'])
-        cmd2.extend(['GREC', 'GER', 'G', 'GREC'])
+    # cmd1 = ['clk01', 'clk93']
+    # cmd2 = ['GE', 'GE']
+    # if args.use_rapid:
+    #     cmd1.extend(['gbm', 'cor', 'igc', 'cnt'])
+    #     cmd2.extend(['GREC', 'GER', 'G', 'GREC'])
+    cmd1 = ['gbm', 'cor']
+    cmd2 = ['GREC', 'GER']
     gsys = config.gsys
     for i in range(len(cmd2)):
         cmd2[i] = ''.join([s for s in cmd2[i] if s in gsys])
@@ -366,3 +494,7 @@ if __name__ == '__main__':
     with timeblock('Finished draw clock difference'):
         with ThreadPoolExecutor(8) as pool:
             results = pool.map(monitor_clkdif, cmd1, cmd2)
+    
+    with timeblock('Finished draw orbit difference'):
+        with ThreadPoolExecutor(8) as pool:
+            results = pool.map(monitor_orbdif, cmd1, cmd2)

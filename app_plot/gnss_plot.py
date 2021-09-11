@@ -8,7 +8,7 @@ from typing import List
 from funcs.gnss_files import read_sp3_file
 from funcs.gnss_time import GnssTime, sod2hms
 from funcs.coordinate import ell2cart, cart2ell
-from funcs.constants import gns_sat
+from funcs.constants import gns_name, gns_sat
 
 
 def isfloat(value):
@@ -160,7 +160,7 @@ def read_enu_kin(f_enu, xyz: List[float]):
     return pd.DataFrame(data)
 
 
-def read_orbdif(sats_in, f_name):
+def read_orbdif_old(sats_in, f_name):
     """read the panda orbdif file"""
     sats = []
     str_rms = ''
@@ -263,6 +263,71 @@ def read_orbdif_series(sats_in, f_name, beg_fmjd, seslen = 86400):
     return orbdif
 
 
+def read_orbdif(file):
+    try:
+        with open(file) as file_object:
+            lines = file_object.readlines()
+    except FileNotFoundError:
+        logging.warning(f"file not found {file}")
+        return pd.DataFrame()
+    
+    sats = []
+    data = []
+    for line in lines:
+        if line[16:19] == "SAT":
+            sats = line[20:].split()
+            continue
+        if line[0:3] == "ACR" and sats:
+            mjd = int(line[4:9])
+            sod = float(line[10:19])
+            tt = GnssTime(mjd, sod)
+            td = tt.datetime()
+            
+            for isat in range(len(sats)):
+                str_rms = line[20+isat*18: 37+isat*18]
+                vals = str_rms.split() # unit: mm
+                if len(str_rms) != 17 or '*' in str_rms or len(vals) != 3:
+                    continue
+                da, dc, dr = [int(s) for s in vals]
+                d_3d = math.sqrt(da**2+dc**2+dr**2)
+                d_1d = d_3d / math.sqrt(3)
+                data.append({
+                    'date': td, 'sat': sats[isat], 'gns': gns_name(sats[isat][0]), 'da': da, 'dc': dc, 'dr': dr, '3d': d_3d, '1d': d_1d
+                })
+
+    return pd.DataFrame(data)
+
+
+def draw_orbdif(data, figname: str, title=''):
+    sats = list(set(data['sat']))
+    sats.sort()
+    subs = ['da', 'dc', 'dr', '3d']
+    ylabels = ['Along [cm]', 'Cross [cm]', 'Radial [cm]', '3D [cm]']
+    nf = len(subs)
+    fig, ax = plt.subplots(nf, 1, figsize=(8, 2 * nf + 2), sharex='col', constrained_layout=True)
+    ymax = 50
+    
+    markers = ['.', '1', '2', '+']
+    for i in range(nf):
+        j = 0
+        for sat in sats:
+            dd = data[data.sat == sat]
+            ax[i].plot(dd.date, dd[subs[i]]/10, markers[int(j/8)], label=sat)
+            j += 1
+        if subs[i] == '3d' or subs[i] == '1d':
+            ax[i].set(ylim=(0, 2*ymax), ylabel=ylabels[i])
+        else:
+            ax[i].set(ylim=(-1*ymax, ymax), ylabel=ylabels[i])
+    ax[nf - 1].legend(loc='upper left', ncol=12, fontsize=9, columnspacing=0.3, handletextpad=0.05)
+    ax[0].set(title=title)
+    for tick in ax[nf - 1].get_xticklabels():
+        tick.set_rotation(30)
+
+    fig.savefig(figname, dpi=1200)
+    logging.info(f'save figure {figname}')
+    plt.close()
+
+
 def read_clkdif(f_name, beg_time=None, ref_sat=None):
     if ref_sat is None:
         ref_sat = ""
@@ -301,7 +366,7 @@ def read_clkdif(f_name, beg_time=None, ref_sat=None):
             if i > len(info) or '*' in info[i] or sats[i] == ref_sat:
                 continue
             difval = float(info[i])
-            if difval > 10000 or difval == 0:
+            if abs(difval) > 100:
                 continue
             data.append(
                 {'mjd': mjd, 'sod': sod, 'sec': (mjd - beg_time.mjd) * 86400 + sod - beg_time.sod, 'date': crt_date,
@@ -556,6 +621,40 @@ def draw_clkdif_series(difs = [], labs = [],
     plt.show()
     if len(save_file) > 0:
         fig.savefig(save_file) 
+
+
+def draw_clkdif_std(data, figname, title=''):
+    setgns = set(data.gsys)
+    gns = [s for s in ['GPS', 'GAL', 'BDS', 'GLO'] if s in setgns]
+    nf = len(gns)
+    fig, ax = plt.subplots(nf, 1, figsize=(8, 2 * nf + 2), constrained_layout=True)
+
+    bar_width = 0.4
+    ymax = 1.0
+
+    if nf > 1:
+        for i in range(nf):
+            gsys = gns[i]
+            dd1 = data[data.gsys == gsys]
+            ax[i].bar(np.arange(len(dd1)), dd1['std'], width=bar_width)
+            ax[i].grid(axis='x')
+            ax[i].set(xticks=np.arange(len(dd1)), ylim=(0, ymax))
+            ax[i].set_xticklabels(list(dd1.sat), rotation=90)
+            val1 = dd1['std'].mean()
+            ax[i].text(0.1, 0.85, f'{val1:5.3f} ns', transform=ax[i].transAxes)
+            ax[i].set(ylabel='STD [ns]')
+        ax[0].set(title=title)
+    else:
+        ax.bar(np.arange(len(data)), data['std'], width=bar_width)
+        ax.grid(axis='x')
+        ax.set(xticks=np.arange(len(data)), ylim=(0, ymax), title=title)
+        ax.set_xticklabels(list(data.sat), rotation=90)
+        val1 = data['std'].mean()
+        ax.text(0.1, 0.85, f'{val1:5.3f} ns', transform=ax.transAxes)
+        ax.set(ylabel='STD [ns]')
+
+    fig.savefig(figname, dpi=1200)
+    plt.close()
 
 
 def read_orbsum(f_name, labels, year, tbeg, seslen, ymax = 5):
