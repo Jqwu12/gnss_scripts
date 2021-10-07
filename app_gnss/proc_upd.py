@@ -26,8 +26,11 @@ class ProcUpd(ProcGen):
         if not self._config.get_xml_file('ifcb', check=True):
             with timeblock('Finished IFCB estimation'):
                 self._config.gsys = 'G'
+                obs_comb = self._config.obs_comb
+                self._config.obs_comb = "IF"
                 GrtUpdlsq(self._config, mode='IFCB', label='ifcb').run()
                 self._config.gsys = self._gsys
+                self._config.obs_comb = obs_comb
             return True
         return False
 
@@ -68,7 +71,12 @@ class ProcUpd(ProcGen):
         if self.process_ifcb():
             upd_results.append('ifcb')
 
+        freq = self._config.freq
+        if self._config.obs_comb == "IF":
+            self._config.freq = 2
         self.process_ppp()
+        self._config.freq = freq
+
         for gsys in self._gsys:
             upd_results.extend(self.process_upd_onesys(gsys))
 
@@ -84,9 +92,13 @@ class ProcUpd(ProcGen):
     def save_results(self, upd_results):
         if not upd_results:
             return
-        upd_data = self._config.upd_data
+        if 'ifcb' in upd_results:
+            upd_data = os.path.join(self._config.upd_data, "ifcb", f"{self._config.beg_time.year}")
+            logging.info(f"===> Copy IFCB results to {upd_data}")
+
+        upd_data = os.path.join(self._config.upd_data, self._config.orb_ac, f"{self._config.beg_time.year}")
         logging.info(f"===> Copy UPD results to {upd_data}")
-        copy_result_files_to_path(self._config, upd_results, os.path.join(upd_data, f"{self._config.beg_time.year}"))
+        copy_result_files_to_path(self._config, upd_results, upd_data)
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
@@ -97,9 +109,8 @@ class ProcUpd(ProcGen):
         #     self.save_results(self.process_upd(obs_comb='IF'))
         #     backup_dir('ambupd', 'ambupd_IF')
 
-        with timeblock("Finish process UC upd"):
-            self.save_results(self.process_upd(obs_comb='UC'))
-            backup_dir('ambupd', 'ambupd_UC')
+        results = self.process_upd()
+        self.save_results(results)
 
 
 if __name__ == '__main__':

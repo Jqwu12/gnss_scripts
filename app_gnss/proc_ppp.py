@@ -4,7 +4,7 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import GrtPpplsq
+from funcs import GrtPpplsq, copy_ambflag_from
 
 
 class ProcPPP(ProcGen):
@@ -20,9 +20,19 @@ class ProcPPP(ProcGen):
     required_opt = ['estimator']
     required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
-    def prepare(self):
-        shutil.copy('/home/jqwu/projects/PPP/2021/preedit.xml', 'xml/preedit.xml')
-        return super().prepare()
+    # def prepare(self):
+    #     shutil.copy('/home/jqwu/projects/PPP/2021/preedit.xml', 'xml/preedit.xml')
+    #     return super().prepare()
+
+    # def prepare_obs(self):
+    #     ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year), f"{self.doy:0>3d}_G_com", 'log_tb')
+    #     copy_ambflag_from(ambflagdir)
+    #     if self.basic_check(files=['ambflag']):
+    #         logging.info("Ambflag is ok ^_^")
+    #         return True
+    #     else:
+    #         logging.critical("NO ambflag files ! skip to next day")
+    #         return False
 
     def process_ppp(self, freq=None, obs_comb=None, fix=True):
         if freq is not None:
@@ -46,14 +56,15 @@ class ProcPPP(ProcGen):
                      f"{' '*36}Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
 
-        self._config.obs_comb = 'IF'
-        self._config.copy_sys_data()
+        # self._config.obs_comb = 'IF'
+        # self._config.copy_sys_data()
+        # self._config.carrier_range = True
         self.process_ppp(freq=2, fix=False)
-        # self.process_ppp(freq=2, fix=True)
+        self.process_ppp(freq=2, fix=True)
         # self.process_ppp(freq=3, fix=False)
         # self.process_ppp(freq=3, fix=True)
 
-        # self._config.obs_comb = 'IF'
+        # self._config.obs_comb = 'UC'
         # self._config.copy_sys_data()
         # self.process_ppp(freq=2, fix=False)
         # self.process_ppp(freq=2, fix=True)

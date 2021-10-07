@@ -7,9 +7,11 @@ from datetime import datetime
 import pandas as pd
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from funcs import GnssTime, read_clkdif_sum, gns_sat, gns_name, GnssConfig, GrtClkdif, timeblock
 from gnss_plot import draw_clkdif_std
+
 
 def eval_one_prod(cen, gns, overwrite=False):
     cf_file = os.path.join(os.path.dirname(__file__), f'cf_{cen}.ini')
@@ -22,7 +24,7 @@ def eval_one_prod(cen, gns, overwrite=False):
 
     last_time = GnssTime.from_datetime(datetime.utcnow())
     last_time -= 86400
-    first_time = last_time - 7*86400
+    first_time = last_time - 7 * 86400
     wkdir = config.workdir
     if not os.path.isdir(wkdir):
         os.makedirs(wkdir)
@@ -49,7 +51,8 @@ def eval_one_prod(cen, gns, overwrite=False):
             config.orb_ac = cr
             data = pd.DataFrame()
             for gs in gss:
-                file = os.path.join('clkdif', f'{beg_time.doy:0>3d}', f'clkdif_{beg_time.year}{beg_time.doy:0>3d}_{cen}_{cr}_{gs}')
+                file = os.path.join('clkdif', f'{beg_time.doy:0>3d}',
+                                    f'clkdif_{beg_time.year}{beg_time.doy:0>3d}_{cen}_{cr}_{gs}')
                 if not os.path.isfile(file) or overwrite:
                     config.gsys = gs
                     GrtClkdif(config, f'clkdif_{cen}_{cr}_{gs}').run()
@@ -59,7 +62,7 @@ def eval_one_prod(cen, gns, overwrite=False):
                 refsat = ref_tree.getroot().find('gen').find('refsat').text.strip()
                 data_tmp = read_clkdif_sum(file, beg_time.mjd, refsat)
                 data = data.append(data_tmp)
-            
+
             if not data.empty:
                 draw_clkdif_std(data, fig_file, f'{str(beg_time)}~{str(end_time)} ({cen.upper()}-{cr.upper()})')
             else:

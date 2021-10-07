@@ -132,7 +132,7 @@ class ProcPod(ProcGen):
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with timeblock('Finished 3rd POD'):
             self.process_float_pod('F3', True, True)
-            copy_result_files(self._config, ['recover'], 'F3')
+            copy_result_files(self._config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'F3')
 
         logging.info(f"===> 4th iteration for precise orbit determination")
         with timeblock('Finished fixed POD'):

@@ -27,7 +27,7 @@ def norm_doy(year, doy):
     return year, doy
 
 
-def doy2ymd(year, doy):
+def doy2ymd(year: int, doy: int):
     """ Change year,day of year to year,month,day """
     day = doy
     mon = 0
@@ -43,7 +43,7 @@ def doy2ymd(year, doy):
     return mon, day
 
 
-def ymd2doy(year, mon, day):
+def ymd2doy(year: int, mon: int, day: int):
     """ Change year,month,day to year,day of year """
     doy = day
     for i in range(1, mon):
@@ -53,7 +53,7 @@ def ymd2doy(year, mon, day):
     return doy
 
 
-def ymd2mjd(year, mon, day):
+def ymd2mjd(year: int, mon: int, day: int):
     """ Change year,month,day to Modified Julian Day """
     if mon <= 2:
         mon += 12
@@ -90,6 +90,12 @@ def mjd2ydoy(mjd):
         year += 1
         yday = 365 + leapyear(year)
     return int(dd), int(year)
+
+
+def mjd2ymd(mjd):
+    doy, year = mjd2ydoy(mjd)
+    mon, day = doy2ymd(year, doy)
+    return year, mon, day
 
 
 def sod2hms(sod):
@@ -305,4 +311,4 @@ class GnssTime:
                 'gwk': f"{self.gwk:0>4d}", 'gwkd': f"{self:gwkd}"}
 
 
-__all__ = ['doy2mjd', 'doy2ymd', 'ymd2doy', 'ymd2mjd', 'ymd2gpsweek', 'mjd2ydoy', 'sod2hms', 'hms2sod', 'GnssTime']
+__all__ = ['doy2mjd', 'doy2ymd', 'ymd2doy', 'ymd2mjd', 'ymd2gpsweek', 'mjd2ydoy', 'mjd2ymd', 'sod2hms', 'hms2sod', 'GnssTime']

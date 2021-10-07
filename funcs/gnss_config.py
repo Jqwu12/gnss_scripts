@@ -419,7 +419,7 @@ class GnssConfig:
         """ Remove ground stations in config """
         if not isinstance(site_rm, list):
             return
-        site_rm = [s for s in site_rm if s in self.site_list]
+        site_rm = [s.lower() for s in site_rm if s.lower() in self.site_list]
         if not site_rm:
             return
         self.site_list = list(set(self.site_list).difference(set(site_rm)))
@@ -581,11 +581,11 @@ class GnssConfig:
                      remove=False, quiet=False) -> list:
         # -------------------------------------------------------------------------------
         # files per site
-        if f_type in ['rinexo', 'kin', 'ambupd_in', 'recover_all', 'ambflag'] or f_type.startswith('ambflag1'):
+        if f_type in ['rinexo', 'kin', 'ambupd_in', 'recover_all', 'ambcon_all', 'ambflag'] or \
+                f_type.startswith('ambflag1'):
             rec_rm = []
             f_list = []
-            if f_type == 'recover_all':
-                f_type = 'recover_in'
+            f_type = f_type.replace('_all', '_in')
             for rec in self.all_receivers:
                 if f_type == 'rinexo':
                     fs = self._daily_file(f_type, rec, sec, check)
@@ -827,7 +827,6 @@ class GnssConfig:
         amb_dict = default_ambiguity.copy()
         for opt in self.config.options('ambiguity_scheme'):
             amb_dict[opt] = self.config.get('ambiguity_scheme', opt).upper()
-        amb_dict['dd_mode'] = "RAW_CB_WN" if self.obs_comb == "UC" else "IF_CB_WN"
         amb_dict['upd_mode'] = self.upd_mode
         amb_dict['carrier_range_out'] = 'YES' if self.carrier_range_out else 'NO'
         if self.lsq_mode == "EPO":
@@ -847,12 +846,13 @@ class GnssConfig:
 
     def get_xml_process(self) -> ET.Element:
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
-                    'sysbias_model', 'ztd_model', 'apply_carrier_range', 'ambfix']
+                    'sysbias_model', 'ztd_model', 'ambfix']
         proc_dict = default_process.copy()
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):
                 proc_dict[opt] = self.config.get('process_scheme', opt)
 
+        proc_dict['apply_carrier_range'] = 'true' if self.carrier_range else 'false'
         proc_dict['real_time'] = 'true' if self.real_time else 'false'
         proc_dict['ultrasp3'] = 'true' if self.ultra_sp3 else 'false'
         proc = ET.Element('process', attrib=proc_dict)
@@ -861,19 +861,22 @@ class GnssConfig:
     def get_xml_inputs(self, fs: List[str], check=True, sattype='gns') -> ET.Element:
         inps = ET.Element('inputs')
         for f in fs:
-            elem = ET.SubElement(inps, f)
+            f_xml = f
+            for text in ['_all', '_in', '_out']:
+                f_xml = f_xml.replace(text, '')
+            elem = ET.SubElement(inps, f_xml)
             elem.text = ' '.join(self.get_xml_file(f, sattype=sattype, check=check))
         return inps
 
     def get_xml_turboedit(self, isleo) -> ET.Element:
-        tb = ET.Element('turboedit', attrib={'lite_mode': 'ture' if self.lite_mode else 'false'})
+        tb = ET.Element('turboedit', attrib={'lite_mode': 'true' if self.lite_mode else 'false'})
         if self.lite_mode:
             # settings from glfeng
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '2.0', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '0.02' if self.intv < 15 else '0.05', 'valid': 'true'})
             ET.SubElement(tb, 'smooth_win', attrib={'value': '0'})
-            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': f'{max(60, 600 / self.intv)}', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': f'{min(60, int(600 / self.intv))}', 'valid': 'true'})
         else:
             ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
@@ -881,8 +884,8 @@ class GnssConfig:
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '4', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '1', 'gf_rms_limit': '2', 'valid': 'true'})
             ET.SubElement(tb, 'check_sf', attrib={'sf_limit': '1', 'valid': 'false'})
-            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': '20', 'valid': 'true'})
-            ET.SubElement(tb, 'check_short', attrib={'short_limit': '10', 'valid': 'true'})
+            ET.SubElement(tb, 'check_gap', attrib={'gap_limit': f'{min(60, int(600 / self.intv))}', 'valid': 'true'})
+            ET.SubElement(tb, 'check_short', attrib={'short_limit': f'{min(60, int(600 / self.intv))}', 'valid': 'true'})
             ET.SubElement(tb, 'check_statistics', attrib={'min_percent': '60', 'min_mean_nprn': '4',
                                                           'max_mean_namb': '50' if isleo else '3', 'valid': 'true'})
         return tb

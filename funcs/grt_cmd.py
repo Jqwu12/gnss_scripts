@@ -40,7 +40,7 @@ class GrtCmd:
         self.stop = stop
         self.str_args = str_args
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         raise NotImplementedError
 
     def xml_receiver(self):
@@ -53,8 +53,8 @@ class GrtCmd:
             rec = self._config.get_xml_receiver()
         return rec
 
-    def prepare_xml(self):
-        root = self.form_xml()
+    def prepare_xml(self, ithd=-1):
+        root = self.form_xml(ithd)
         tree = ET.ElementTree(root)
         pretty_xml(root, '\t', '\n', 0)
         tree.write(self.xml, encoding='utf-8', xml_declaration=True)
@@ -77,7 +77,7 @@ class GrtCmd:
                     self._config.leo_list = []
                 self.xml = os.path.join('xml', f"{self.label}{i + 1:0>2d}.xml")
                 self.log = os.path.join('tmp', f"{self.label}{i + 1:0>2d}.log")
-                self.prepare_xml()
+                self.prepare_xml(i)
                 cmds.append(f"{self.grt_exe} -x {self.xml} {self.str_args} > {self.log} 2>&1")
 
             self._config.site_list = all_sites
@@ -115,7 +115,7 @@ class GrtCmd:
 class GrtTurboedit(GrtCmd):
     grt_app = 'great_turboedit'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -139,7 +139,7 @@ class GrtTurboedit(GrtCmd):
 class GrtClockRepair(GrtCmd):
     grt_app = 'great_clockrepair'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.append(self._config.get_xml_inputs(['rinexo']))
@@ -155,7 +155,7 @@ class GrtPreedit(GrtCmd):
     def __init__(self, config: GnssConfig, stop=True):
         super().__init__(config, 'preedit', nmp=1, stop=stop)
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -175,7 +175,7 @@ class GrtOi(GrtCmd):
         self.sattype = sattype
         super().__init__(config, label, nmp=1, stop=stop, str_args=str_args)
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys']))
         root.append(self._config.get_xml_force(self.sattype))
@@ -207,7 +207,7 @@ class GrtOi(GrtCmd):
 class GrtSp3orb(GrtOi):
     grt_app = 'great_sp3orb'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys']))
         root.append(self._config.get_xml_force(self.sattype))
@@ -238,7 +238,7 @@ class GrtSp3orb(GrtOi):
 class GrtOrbsp3(GrtOi):
     grt_app = 'great_orbsp3'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv']))
         proc = ET.SubElement(root, 'orbsp3')
@@ -254,7 +254,7 @@ class GrtOrbsp3(GrtOi):
 class GrtOrbfit(GrtCmd):
     grt_app = 'great_orbfit'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         root.extend(self._config.get_xml_gns())
@@ -287,7 +287,7 @@ class GrtOrbdif(GrtCmd):
         else:
             return ""
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         orbdif = ET.SubElement(root, 'orbdif')
@@ -310,7 +310,7 @@ class GrtOrbfitLeo(GrtCmd):
         self.fit = fit
         self.unit = unit
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         orbfitleo = ET.SubElement(root, 'orbdifleo')
@@ -347,7 +347,7 @@ class GrtClkdif(GrtCmd):
             return []
         return get_rnxc_satlist(f_clks[0])
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         gen = self._config.get_xml_gen(['sys', 'intv'])
         elem = ET.SubElement(gen, 'refsat')
@@ -389,7 +389,7 @@ class GrtEditres(GrtCmd):
         self.edt_amb = 'YES' if edt_amb else 'NO'
         self.all_sites = all_sites
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         proc = ET.SubElement(root, 'editres')
         for opt in ['edt_amb', 'freq', 'mode', 'short_elisp', 'jump_elisp', 'bad_elisp']:
@@ -416,7 +416,7 @@ class GrtEditres(GrtCmd):
 class GrtConvobs(GrtCmd):
     grt_app = 'great_convobs'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -440,7 +440,7 @@ class GrtUpdlsq(GrtCmd):
         if self.mode not in self.updlsq_mode:
             raise TypeError('Wrong updlsq mode')
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         # <gps> <bds> <gal> <glo>
@@ -545,14 +545,15 @@ class GrtAmbfix(GrtCmd):
         if self.mode not in self.amb_types:
             raise TypeError('Wrong ambiguity types')
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
         root.append(self._config.get_xml_receiver())
         # <process>
         proc = ET.SubElement(root, 'process', attrib={
-            'obs_combination': self._config.obs_combination, 'frequency': str(self._config.freq)})
+            'obs_combination': self._config.obs_combination,
+            'frequency': str(self._config.freq), 'num_threads': str(min(MAX_THREAD, 6, int(16 / self.nmp)))})
         elem = ET.SubElement(proc, 'read_ofile_mode')
         elem.text = "REALTIME"
         # <ambiguity>
@@ -577,14 +578,17 @@ class GrtAmbfix(GrtCmd):
         root.append(inp)
         out = ET.SubElement(root, 'outputs')
         elem = ET.SubElement(out, 'ambcon')
-        elem.text = ' '.join(self._config.get_xml_file('ambcon'))
+        # f_ambcon = self._config.get_xml_file('ambcon')[0]
+        # if ithd >= 0:
+        #     f_ambcon += f"_{ithd+1:0>2d}"
+        elem.text = ' '.join(self._config.get_xml_file("ambcon", check=False))
         return root
 
 
 class GrtAmbfixD(GrtCmd):
     grt_app = 'great_ambfixD'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -607,7 +611,7 @@ class GrtAmbfixD(GrtCmd):
 class GrtAmbfixDd(GrtCmd):
     grt_app = 'great_ambfixDd'
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -664,10 +668,7 @@ class GrtPodlsq(GrtCmd):
 
     def xml_proc(self):
         proc = self._config.get_xml_process()
-        if self.fix_amb:
-            proc.set('ambfix', 'true')
-        else:
-            proc.set('ambfix', 'false')
+        proc.set('ambfix', 'true' if self.fix_amb and self._config.lsq_mode == 'LSQ' else 'false')
         # real time or simulating real time, use satellite as reference
         if self._config.real_time or self._config.ultra_sp3:
             proc.set('ref_clk', self._config.set_ref_clk(mode='sat'))
@@ -706,7 +707,7 @@ class GrtPodlsq(GrtCmd):
             elem.text = ' '.join(self._config.get_xml_file(f))
         return out
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec', 'est']))
         root.append(self.xml_receiver())
@@ -731,10 +732,7 @@ class GrtPodleo(GrtPodlsq):
 
     def xml_proc(self):
         proc = self._config.get_xml_process()
-        if self.fix_amb:
-            proc.set('ambfix', 'true')
-        else:
-            proc.set('ambfix', 'false')
+        proc.set('ambfix', 'true' if self.fix_amb and self._config.lsq_mode == 'LSQ' else 'false')
         proc.set('num_threads', str(min(MAX_THREAD, 6)))
         proc.set('matrix_remove', 'false')
         proc.set('cmb_equ_multi_thread', 'true')
@@ -785,7 +783,7 @@ class GrtPodleo(GrtPodlsq):
             elem.text = ' '.join(self._config.get_xml_file('sp3', sattype='leo'))
         return out
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec', 'est']))
         # <gps> <glo> <gal> <bds>
@@ -833,7 +831,8 @@ class GrtPpplsq(GrtPodlsq):
     f_outs = ['ppp', 'enu', 'flt', 'ambupd', 'recover']
 
     def __init__(self, config, label=None, stop=True, nmp=1, fix_amb=False):
-        super().__init__(config, label, stop, '', fix_amb)
+        super().__init__(config, label, stop)
+        self.fix_amb = fix_amb
         self.nmp = min(nmp, MAX_THREAD)
 
     def xml_parameter(self):
@@ -849,6 +848,7 @@ class GrtPpplsq(GrtPodlsq):
         proc = self._config.get_xml_process()
         elem = ET.SubElement(proc, 'ifb_model')
         elem.text = 'EST_REC_IFB' if self._config.obs_comb == 'UC' else 'NONE'
+        proc.set('ambfix', 'true' if self.fix_amb and self._config.lsq_mode == 'LSQ' else 'false')
         return proc
 
     def xml_inputs(self):
@@ -857,17 +857,18 @@ class GrtPpplsq(GrtPodlsq):
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
-            f_inps.append('upd')
+            f_inps.append('upd' if self._config.lsq_mode == 'EPO' else 'ambcon_all')
         return self._config.get_xml_inputs(f_inps)
 
-    def form_xml(self):
+    def form_xml(self, ithd=-1):
         if self.fix_amb:
             self._config.set_process(ambiguity='AR')
         else:
             self._config.set_process(ambiguity='F')
         root = super().form_xml()
-        amb = self._config.get_xml_ambiguity()
-        elem = ET.SubElement(amb, 'fix_mode')
-        elem.text = 'SEARCH' if self.fix_amb else 'NO'
-        root.append(amb)
+        if self._config.lsq_mode == 'EPO':
+            amb = self._config.get_xml_ambiguity()
+            elem = ET.SubElement(amb, 'fix_mode')
+            elem.text = 'SEARCH' if self.fix_amb else 'NO'
+            root.append(amb)
         return root

@@ -365,6 +365,7 @@ def monitor_clkdif(cen, gns: str):
     #         draw_boxplot(data0, figname2, f'{str(crt_time)}~{str(end_time)} ({cen.upper()})')
     #     crt_time += 86400
 
+
 def monitor_orbdif(cen, gns: str):
     f_pce_xml = os.path.join('xml', 'pcelsq.xml')
     ref_tree = ET.parse(f_pce_xml)
@@ -458,6 +459,23 @@ if __name__ == '__main__':
     if not os.path.isdir(figdir):
         os.makedirs(figdir)
 
+    # ----------------------- monitor compute time ------------------------
+    with timeblock('Finished draw compute time'):
+        data = read_time_info('pcelsq.log')
+        if not data.empty:
+            dt_tmp0 = data['date'].min()
+            dt_tmp1 = data['date'].max()
+            t_beg = GnssTime.from_ymd(dt_tmp0.year, dt_tmp0.month, dt_tmp0.day)
+            t_end = GnssTime.from_datetime(dt_tmp1)
+            while t_beg < t_end:
+                t_next = t_beg + 86400*7
+                dt0 = t_beg.datetime()
+                dt1 = t_next.datetime()
+                data_tmp = data[(data.date > dt0) & (data.date < dt1)]
+                figname = os.path.join(figdir, f'info_time_{t_beg.year}{t_beg.doy}.png')
+                draw_time_info(data_tmp, figname)
+                t_beg += 86400*7
+
     # ----------------------- monitor memory usage ------------------------
     mpl.rcParams['agg.path.chunksize'] = 10000
     if os.path.isfile('pid'):
@@ -471,13 +489,6 @@ if __name__ == '__main__':
             if not data.empty:
                 figname = os.path.join(figdir, f'{pid}_mem.png')
                 draw_memory(data, figname, f'PID {pid}')
-
-    # ----------------------- monitor compute time ------------------------
-    with timeblock('Finished draw compute time'):
-        data = read_time_info('pcelsq.log')
-        if not data.empty:
-            figname = os.path.join(figdir, 'info_time.png')
-            draw_time_info(data, figname)
 
     # ----------------------- monitor clock difference --------------------
     # cmd1 = ['clk01', 'clk93']

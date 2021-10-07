@@ -15,7 +15,9 @@ class ProcUdPod(ProcPod):
     }
 
     def prepare_obs(self):
-        ambflagdir = os.path.join(self.base_dir, 'UPD', str(self.year), f"{self.doy:0>3d}_G_com", 'log_tb')
+        shutil.rmtree('log_tb')
+        os.makedirs('log_tb')
+        ambflagdir = os.path.join(self.base_dir, 'CarRng', str(self.year), f"{self.doy:0>3d}_G_com_new1", 'log_tb')
         copy_ambflag_from(ambflagdir)
         if self.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
@@ -24,8 +26,8 @@ class ProcUdPod(ProcPod):
             logging.critical("NO ambflag files ! skip to next day")
             return False
 
-    # def prepare_ics(self):  # for test!
-    #     return True
+    def prepare_ics(self):  # for test!
+        return True
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
