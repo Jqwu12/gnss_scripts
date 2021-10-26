@@ -4,4 +4,4 @@ __pycache__/*
 funcs/__pycache__/*
 .vscode/*
 app_gnss/site_list_*
-app_gnss/
+app_gnss/*.ini

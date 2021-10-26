@@ -178,6 +178,7 @@ class GrtOi(GrtCmd):
     def form_xml(self, ithd=-1):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys']))
+        ET.SubElement(root, 'process', attrib={'num_threads': str(min(MAX_THREAD, 6))})
         root.append(self._config.get_xml_force(self.sattype))
         f_inputs = ['blq', 'poleut1', 'oceantide', 'leapsecond', 'satpars', 'de', 'egm']
         if self.sattype == 'leo':

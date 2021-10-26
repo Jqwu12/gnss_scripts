@@ -753,7 +753,7 @@ def draw_slromc_site(omc1, omc2, labs, exc_sites="", save_file=""):
 
 
 def draw_slromc_points(omc1, omc2, labs="", exc_sites="", save_file=""):
-    omc_p1 = [];
+    omc_p1 = []
     doy_p1 = []
     for key, value in omc1.items():
         if key in exc_sites:
@@ -762,7 +762,7 @@ def draw_slromc_points(omc1, omc2, labs="", exc_sites="", save_file=""):
             doy_p1.append(value['doy'][i])
             omc_p1.append(value['omc'][i])
 
-    omc_p2 = [];
+    omc_p2 = []
     doy_p2 = []
     for key, value in omc2.items():
         if key in exc_sites:
@@ -909,10 +909,10 @@ def read_residuals(f_name):
         lines = file_object.readlines()
 
     ## read resfile header
-    mjd0 = 0;
-    intv = 0;
+    mjd0 = 0
+    intv = 0
     sod0 = 0
-    sats = [];
+    sats = []
     sites = []
     for line in lines:
         if line.find('Time&Interval') == 0:
@@ -965,22 +965,6 @@ def read_residuals(f_name):
     return pd.DataFrame(data)
 
 
-def draw_residuals(res, sats_in=[], sites_in=[], ymax=10, fig_type='sat', save_file=''):
-    """"draw the phase residuals for each satellite or station"""
-    if len(res) == 0:
-        msg = "Error, the imput list is empty!"
-        print(msg)
-        return
-    if fig_type != 'sat' and fig_type != 'sta':
-        msg = "Error, unkown fig type " + fig_type + ' !'
-        print(msg)
-        return
-    if len(sats_in) == 0 or len(sites_in) == 0:
-        msg = "Error, the imput sat list or site list is empty!"
-        print(msg)
-        return
-
-
 def read_ressum(f_name, labels, year, tbeg, seslen, ymax=15):
     try:
         with open(f_name) as file_object:
@@ -1027,107 +1011,63 @@ def read_ressum(f_name, labels, year, tbeg, seslen, ymax=15):
     return lcres_all
 
 
-# UPD analysis
-def get_wlupd_days(sats_in, f_list, doys):
-    """get the WL UPD for each day"""
-    upd_wl = []
-    wl_first = {}
-    for i in range(len(doys)):
-        doy = doys[i]
-        f_name = f_list[i]
+def read_daily_upd(files: dict):
+    upd_first = {}
+    data = []
+    for mjd, file in files.items():
         try:
-            with open(f_name) as file_object:
-                lines = file_object.readlines()
+            with open(file) as f:
+                lines = f.readlines()
         except FileNotFoundError:
-            msg = "Error, the file " + f_name + " does not exist"
-            print(msg)
+            logging.warning(f"file not found {file}")
             continue
 
-        new_rec = {'doy': doy}
+        year, mon, day = mjd2ymd(mjd)
+        cal_time = datetime(year, mon, day)
+        data_tmp = {}
         for line in lines:
-            if line.find('%') == 0 or line.find('X') == 0 or line.find('x') == 0:
+            if not line.startswith(' '):
                 continue
-            info = line.replace('\n', '').split()
-            sat = info[0]
-            if not sat in sats_in:
-                continue
-            upd_rec = float(info[1])
-            if not sat in wl_first:
-                if upd_rec > 0.5:
-                    upd_rec = upd_rec - 1
-                elif upd_rec <= -0.5:
-                    upd_rec = upd_rec + 1
-                wl_first[sat] = upd_rec
-                new_rec[sat] = upd_rec
+            sat, val, sig, nobs, *_ = line.split()
+            data_tmp[sat] = [float(val), float(sig), int(nobs)]
+
+        ref_val = {"G": 0, "R": 0, "E": 0, "C": 0}
+        ref_sats = {
+            "G": ["G01", "G05", "G06", "G08"],
+            "R": ["R01", "R02", "R03"],
+            "E": ["E01", "E02", "E03"],
+            "C": ["C21", "C22", "C23", "C08"]
+        }
+        for sys, sats in ref_sats.items():
+            for sat in sats:
+                if sat in data_tmp.keys():
+                    ref_val[sys] = data_tmp[sat][0]
+                    break
+            if ref_val[sys] == 0:
+                for sat, vals in data_tmp.items():
+                    if sys == sat[0]:
+                        ref_val[sys] = vals[0]
+                        break
+
+        for sat, vals in data_tmp.items():
+            vals[0] -= ref_val[sat[0]]
+            if not sat in upd_first:
+                if vals[0] > 0.5:
+                    vals[0] -= 1
+                elif vals[0] <= -0.5:
+                    vals[0] += 1
+                upd_first[sat] = vals[0]
             else:
-                if upd_rec > wl_first[sat] + 0.5:
-                    upd_rec = upd_rec - 1
-                elif upd_rec < wl_first[sat] - 0.5:
-                    upd_rec = upd_rec + 1
-                new_rec[sat] = upd_rec
-        upd_wl.append(new_rec)
+                if vals[0] > upd_first[sat] + 0.5:
+                    vals[0] -= 1
+                elif vals[0] < upd_first[sat] - 0.5:
+                    vals[0] += 1
+            data.append({
+                'date': cal_time, 'sat': sat, 'upd': vals[0], 'sig': vals[1],
+                'nobs': vals[2], 'sys': gns_name(sat[0])
+            })
 
-    upd_wl_pd = pd.DataFrame(upd_wl)
-    return upd_wl_pd
-
-
-def read_upd_nl(sats_in, f_name, beg_fmjd, seslen=86400):
-    """read the panda upd file"""
-    try:
-        with open(f_name) as file_object:
-            lines = file_object.readlines()
-    except FileNotFoundError:
-        msg = "Error, the file " + f_name + " does not exist!"
-        print(msg)
-        return pd.DataFrame()
-
-    ipt_heads = []
-    nline = len(lines)
-    for i in range(0, nline):
-        if "EPOCH-TIME" in lines[i]:
-            ipt_heads.append(i)
-
-    rec_len = ipt_heads[1] - ipt_heads[0]
-    upd_nl = []
-    # nl_first = {}
-    for ipt in ipt_heads:
-        new_rec = {}
-        info = lines[ipt].split()
-        mjd = int(info[1])
-        sod = float(info[2])
-        sec = (mjd + sod / 86400.0 - beg_fmjd) * 86400
-        if sec < 0:
-            continue
-        elif sec > seslen:
-            break
-
-        new_rec = {'sec': sec}
-        for i in range(1, rec_len):
-            if lines[ipt + i][0] == 'x' or lines[ipt + i][0] == 'X':
-                continue
-            info = lines[ipt + i].split()
-            sat = info[0]
-            if not sat in sats_in:
-                continue
-            upd_rec = float(info[1])
-            new_rec[sat] = upd_rec
-            # if not sat in nl_first:
-            #    if upd_rec > 0.5:
-            #        upd_rec = upd_rec - 1
-            #    elif upd_rec <= -0.5:
-            #        upd_rec = upd_rec + 1
-            #    nl_first[sat] = upd_rec
-            #    new_rec[sat] = upd_rec
-            # else:
-            #    if upd_rec > nl_first[sat] + 0.8:
-            #        upd_rec = upd_rec - 1
-            #    elif upd_rec < nl_first[sat] - 0.8:
-            #        upd_rec = upd_rec + 1
-            #    new_rec[sat] = upd_rec
-        upd_nl.append(new_rec)
-
-    upd_nl_pd = pd.DataFrame(upd_nl)
-    return upd_nl_pd
+    return pd.DataFrame(data)
 
 
 def read_epo_upd(file):
@@ -1158,7 +1098,7 @@ def read_epo_upd(file):
     return pd.DataFrame(data)
 
 
-def draw_upd(data, figname="", dform="%H:%M"):
+def draw_upd(data, figfile="", dform="%H:%M", linestyle='.', dpi=1200):
     sats = list(set(data.sat))
     sats.sort()
     if len(sats) == 0:
@@ -1167,25 +1107,41 @@ def draw_upd(data, figname="", dform="%H:%M"):
     ncol = 2 if len(sats) > 8 else 1
 
     nf = ncol * nrow
-    nsat = int(len(sats) / nf) + 1
-    fig = plt.figure(figsize=(ncol * 5 + 2, ncol * 3 + 1.5))
+    nsat = int(len(sats) / nf)
+    fig = plt.figure(figsize=(ncol * 5 + 2, nrow * 3 + 1.5))
 
     for i in range(nf):
         ax = fig.add_subplot(nrow, ncol, i + 1)
         sats_tmp = sats[nsat * i: nsat * (i + 1)]
+
+        val = 0
+        num = 0
+        sat = ''
         for sat in sats_tmp:
             dd = data[data.sat == sat]
-            ax.plot(dd.date, dd.upd, '.', label=sat)
-        ax.set(ylabel='UPD [cycle]', ylim=(-1.2, 1.4))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter(dform))
-        ax.legend(loc='upper left', ncol=6, fontsize=12, columnspacing=0, handletextpad=0.01)
-        for tick in ax.get_xticklabels():
-            tick.set_rotation(30)
-    fig.subplots_adjust(wspace=0.25, hspace=0.25)
+            ax.plot(dd.date, dd.upd, linestyle, label=sat)
+            val += dd.upd.std()
+            num += 1
 
-    if figname:
-        fig.savefig(figname, dpi=1200)
-        logging.info(f'save figure {figname}')
+        ax.text(0.05, 0.01, f"Mean STD ({gns_name(sat[0])}): {val / num:6.3f} cyc", weight='semibold',
+                transform=ax.transAxes)
+        ax.set(ylim=(-1.2, 1.7))
+        ax.legend(loc='upper left', ncol=6, fontsize=13, columnspacing=0, handletextpad=0.01)
+        if i % ncol == 0:
+            ax.set(ylabel='UPD [cycle]')
+        else:
+            ax.set_yticklabels([])
+        if i >= ncol * (nrow - 1):
+            ax.xaxis.set_major_formatter(mdates.DateFormatter(dform))
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(45)
+        else:
+            ax.set_xticklabels([])
+    fig.subplots_adjust(wspace=0.05, hspace=0.05)
+
+    if figfile:
+        fig.savefig(figfile, dpi=dpi, bbox_inches='tight')
+        logging.info(f'save figure {figfile}')
         plt.close()
 
 
@@ -1208,131 +1164,6 @@ def read_nl_res(f_name):
 
     nl_amb_pd = pd.DataFrame(nl_amb)
     return nl_amb_pd
-
-
-def draw_nl_upd(sats_in, nl_upd_pd, ymax=1.5, save_file=''):
-    """draw the NL UPD of each satellite"""
-    if nl_upd_pd.empty:
-        msg = "Error, the imput DataFrame is empty!"
-        print(msg)
-        return
-
-    sats = []
-    for sat in sats_in:
-        if sat in nl_upd_pd:
-            sats.append(sat)
-
-    if len(sats) <= 0:
-        msg = "No common satellite! Please check"
-        print(msg)
-        return
-    elif 8 >= len(sats) > 0:
-        fig, ax = plt.subplots(figsize=(7.5, 4))
-        for sat in sats:
-            ax.plot(nl_upd_pd['sec'] / 3600, nl_upd_pd[sat],
-                    '.', label=sat)
-        ax.set(xlabel='Hour', ylabel='NL UPD [cycle]', ylim=(-1 * ymax, ymax))
-        ax.legend(ncol=4)
-    elif 8 < len(sats) <= 16:
-        fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey='row', constrained_layout=True)
-        nsat_fig = math.ceil(len(sats) / 2)
-        for j in range(2):
-            for k in range(nsat_fig):
-                ipt = j * nsat_fig + k
-                if ipt >= len(sats):
-                    break
-                if sats[ipt] in nl_upd_pd:
-                    ax[j].plot(nl_upd_pd['sec'] / 3600, nl_upd_pd[sats[ipt]],
-                               '.', label=sats[ipt])
-            ax[j].legend(ncol=4)
-            ax[j].grid()
-        ax[0].set(xlabel='Hour', ylabel='NL UPD [cycle]', ylim=(-1 * ymax, ymax))
-        ax[1].set(xlabel='Hour', ylim=(-1 * ymax, ymax))
-    else:
-        fig, ax = plt.subplots(2, 2, figsize=(12, 7.5), constrained_layout=True, sharex='col', sharey='row')
-        nsat_fig = math.ceil(len(sats) / 4)
-        for i in range(2):
-            for j in range(2):
-                for k in range(nsat_fig):
-                    ipt = i * nsat_fig * 2 + j * nsat_fig + k
-                    if ipt >= len(sats):
-                        break
-                    if sats[ipt] in nl_upd_pd:
-                        ax[i, j].plot(nl_upd_pd['sec'] / 3600, nl_upd_pd[sats[ipt]],
-                                      '.', label=sats[ipt])
-                ax[i, j].set(ylim=(-1 * ymax, ymax))
-                if j == 0:
-                    ax[i, j].set(ylabel='NL UPD [cycle]')
-                if i == 1:
-                    ax[i, j].set(xlabel='Hour')
-                ax[i, j].legend(ncol=4)
-                ax[i, j].grid()
-
-    if len(save_file) > 0:
-        fig.savefig(save_file, dpi=300)
-
-
-def draw_wl_upd(sats_in, wl_upd_pd, mode="WL", save_file=''):
-    """draw the WL UPD of each satellite"""
-    if wl_upd_pd.empty:
-        msg = "Error, the imput DataFrame is empty!"
-        print(msg)
-        return
-
-    sats = []
-    for sat in sats_in:
-        if sat in wl_upd_pd:
-            sats.append(sat)
-
-    if len(sats) <= 0:
-        msg = "No common satellite! Please check"
-        print(msg)
-        return
-    elif len(sats) <= 8 and len(sats) > 0:
-        fig, ax = plt.subplots(figsize=(7.5, 4))
-        for sat in sats:
-            ax.plot(wl_upd_pd['doy'], wl_upd_pd[sat],
-                    '-o', label=sat)
-        ax.set(xlabel='Day of year', ylabel=f"{mode.upper()} UPD [cycle]", ylim=(-1.5, 1.5))
-        ax.legend(ncol=4)
-        ax.grid()
-    elif len(sats) > 8 and len(sats) <= 16:
-        fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey='row', constrained_layout=True)
-        nsat_fig = math.ceil(len(sats) / 2)
-        for j in range(2):
-            for k in range(nsat_fig):
-                ipt = j * nsat_fig + k
-                if ipt >= len(sats):
-                    break
-                if sats[ipt] in wl_upd_pd:
-                    ax[j].plot(wl_upd_pd['doy'], wl_upd_pd[sats[ipt]],
-                               '-o', label=sats[ipt])
-            ax[j].set(xlabel='Day of year', ylim=(-1.5, 1.5))
-            ax[j].legend(ncol=4)
-            ax[j].grid()
-        ax[0].set(ylabel=f"{mode.upper()} UPD [cycle]")
-    else:
-        fig, ax = plt.subplots(2, 2, figsize=(12, 7.5), constrained_layout=True, sharex='col', sharey='row')
-        nsat_fig = math.ceil(len(sats) / 4)
-        for i in range(2):
-            for j in range(2):
-                for k in range(nsat_fig):
-                    ipt = i * nsat_fig * 2 + j * nsat_fig + k
-                    if ipt >= len(sats):
-                        break
-                    if sats[ipt] in wl_upd_pd:
-                        ax[i, j].plot(wl_upd_pd['doy'], wl_upd_pd[sats[ipt]],
-                                      '-o', label=sats[ipt])
-                ax[i, j].set(ylim=(-1.5, 1.5))
-                if j == 0:
-                    ax[i, j].set(ylabel=f"{mode.upper()} UPD [cycle]")
-                if i == 1:
-                    ax[i, j].set(xlabel='DOY')
-                ax[i, j].legend(ncol=4)
-                ax[i, j].grid()
-
-    if len(save_file) > 0:
-        fig.savefig(save_file, dpi=300)
 
 
 def draw_upd_std(sats_in, nl_upd_pd, ymax=0.5, save_file='', unit="cycle"):
