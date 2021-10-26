@@ -45,11 +45,13 @@ class GrtCmd:
 
     def xml_receiver(self):
         f_preedit = os.path.join('xml', 'preedit.xml')
+        rec = None
         if os.path.isfile(f_preedit):
             ref_tree = ET.parse(f_preedit)
             ref_root = ref_tree.getroot()
             rec = ref_root.find('receiver')
-        else:
+        
+        if not rec:
             rec = self._config.get_xml_receiver()
         return rec
 
@@ -152,15 +154,19 @@ class GrtClockRepair(GrtCmd):
 class GrtPreedit(GrtCmd):
     grt_app = 'great_preedit'
 
-    def __init__(self, config: GnssConfig, stop=True):
+    def __init__(self, config: GnssConfig, stop=True, crd=False):
         super().__init__(config, 'preedit', nmp=1, stop=stop)
+        self.crd = crd
 
     def form_xml(self, ithd=-1):
         root = ET.Element('config')
-        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
+        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec'] if self.crd else ['intv', 'sys']))
         root.extend(self._config.get_xml_gns())
         root.append(self._config.get_xml_force())
-        root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'poleut1', 'sinex'], check=True))
+        if self.crd:
+            root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'poleut1', 'sinex'], check=True))
+        else:
+            root.append(self._config.get_xml_inputs(['rinexn', 'poleut1'], check=True))
         out = ET.SubElement(root, 'outputs')
         elem = ET.SubElement(out, 'ics')
         elem.text = ' '.join(self._config.get_xml_file('ics'))
@@ -648,11 +654,13 @@ class GrtPodlsq(GrtCmd):
         if self.use_res_crd:
             rec = self._config.get_xml_receiver(True)
         else:
+            rec  = None
             if os.path.isfile(f_preedit):
                 ref_tree = ET.parse(f_preedit)
                 ref_root = ref_tree.getroot()
                 rec = ref_root.find('receiver')
-            else:
+        
+            if not rec:
                 rec = self._config.get_xml_receiver()
         return rec
 
@@ -857,7 +865,9 @@ class GrtPpplsq(GrtPodlsq):
                   'rinexn', 'sp3', 'rinexc', 'blq']
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
-        if self.fix_amb:
+        if self._config.carrier_range:
+            f_inps.append('upd')
+        elif self.fix_amb:
             f_inps.append('upd' if self._config.lsq_mode == 'EPO' else 'ambcon_all')
         return self._config.get_xml_inputs(f_inps)
 

@@ -287,6 +287,78 @@ def check_brd_orbfit(f_name):
     return sat_rm
 
 
+def edit_ics(file, sat_rm):
+    try:
+        with open(file) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        logging.warning(f"ics file not found {file}")
+        return
+    
+    new_lines = []
+    sats = []
+    tmp0 = ""
+    tmp1 = ""
+    tmp2 = ""
+    for line in lines:
+        if line.startswith("## Header"):
+            new_lines.append(line)
+        if line.startswith("%Satellite"):
+            tmp0, tmp1, tmp2, *_ = line.split()[2:]
+        if line.startswith("%PRN"):
+            info = line.replace('++', '').split()
+            sats += info[2:]
+
+    sats = [s for s in sats if s not in sat_rm]
+    new_lines.append(f"%Satellite        = {tmp0}  {tmp1}  {tmp2}  {len(sats):>4d}\n")
+    nline = math.ceil(len(sats) / 10)
+    for i in range(nline):
+        new_lines.append("%PRN              = " + " ".join(sats[i*10: i*10+10]) + " ++\n")
+
+    sat_use = False
+    for line in lines:
+        if line.startswith("## Header") or line.startswith("%Satellite") or line.startswith("%PRN"):
+            continue
+        if line.startswith("%") or line.startswith("#"):
+            new_lines.append(line)
+        elif line.startswith("END of FILE"):
+            new_lines.append(line)
+            break
+        elif line[0:3] in sats and not sat_use:
+            sat_use = True
+            new_lines.append(line)
+        elif line.startswith("END of SAT"):
+            if (sat_use):
+                new_lines.append(line)
+            sat_use = False
+        elif sat_use:
+            new_lines.append(line)
+    
+    with open(file, 'w') as f:
+        f.writelines(new_lines)
+
+
+def check_ics(config):
+    file = config.get_xml_file('ics')[0]
+    if not os.path.isfile(file):
+        logging.warning(f"ics file not found {file}")
+        return False
+    
+    with open(file) as f:
+        lines = f.readlines()
+
+    sats = []
+    for line in lines:
+        if line.startswith("%PRN"):
+            info = line.replace('++', '').split()
+            sats += info[2:]
+
+    sat_rm = [s for s in config.all_gnssat if s not in sats]
+    if sat_rm:
+        logging.warning(f"remove satellites not in {file}: {' '.join(sat_rm)}")
+        config.sat_rm += sat_rm
+
+
 def check_res_sigma(config, max_sig=8):
     site_rm = []
     for rec in config.all_receivers:

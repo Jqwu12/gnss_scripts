@@ -14,20 +14,22 @@ class ProcUdPod(ProcPod):
         'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_udpod.ini'
     }
 
-    def prepare_obs(self):
-        shutil.rmtree('log_tb')
-        os.makedirs('log_tb')
-        ambflagdir = os.path.join(self.base_dir, 'CarRng', str(self.year), f"{self.doy:0>3d}_G_com_new1", 'log_tb')
-        copy_ambflag_from(ambflagdir)
-        if self.basic_check(files=['ambflag']):
-            logging.info("Ambflag is ok ^_^")
-            return True
-        else:
-            logging.critical("NO ambflag files ! skip to next day")
-            return False
+    proj_id = 'POD_UD'
 
-    def prepare_ics(self):  # for test!
-        return True
+    # def prepare_obs(self):
+    #     shutil.rmtree('log_tb')
+    #     os.makedirs('log_tb')
+    #     ambflagdir = os.path.join(self.base_dir, 'CarRng', str(self.year), f"{self.doy:0>3d}_GEC_grt_test5", 'log_tb')
+    #     copy_ambflag_from(ambflagdir)
+    #     if self.basic_check(files=['ambflag']):
+    #         logging.info("Ambflag is ok ^_^")
+    #         return True
+    #     else:
+    #         logging.critical("NO ambflag files ! skip to next day")
+    #         return False
+
+    # def prepare_ics(self):  # for test!
+    #     return True
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
@@ -54,6 +56,7 @@ class ProcUdPod(ProcPod):
         with timeblock("Finished 2nd POD"):
             self.process_float_pod('AR2', True, False)
 
+        self.save_results(['AR1', 'AR2'])
         # self.editres(bad=80, jump=80, nshort=600)
         # switch_ambflag(self._config, mode='12')
 

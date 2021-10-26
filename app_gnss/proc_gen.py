@@ -3,7 +3,7 @@ import shutil
 import logging
 import argparse
 from funcs import GnssConfig, GnssTime, gns_sat, hms2sod, read_site_list, MAX_THREAD, timeblock, mkdir, \
-    get_grg_wsb, check_turboedit_log, check_brd_orbfit, backup_files, \
+    get_grg_wsb, check_turboedit_log, check_brd_orbfit, backup_files, edit_ics, \
     GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres
 
 
@@ -39,8 +39,8 @@ def get_args_config(args) -> GnssConfig:
     config.bia_ac = args.bia if args.bia else config.bia_ac
     if config.orb_ac == 'cod':
         config.bia_ac = 'COD'
-    if config.freq > 2:
-        config.bia_ac = 'CAS'
+    # if config.freq > 2:
+    #     config.bia_ac = 'CAS'
 
     if args.sys:
         config.gsys = args.sys
@@ -70,6 +70,8 @@ def get_args_config(args) -> GnssConfig:
     # set sites
     if args.f_list:
         config.site_list = read_site_list(args.f_list)
+    elif config.site_file:
+        config.site_list = read_site_list(config.site_file)
     return config
 
 
@@ -185,17 +187,18 @@ class ProcGen:
         if self._config.lite_mode or self._config.real_time:
             logging.info("Real-time Turboedit mode...")
             return True
-        logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit\n{' ' * 36}"
-                     f"number of receivers = {len(self._config.all_sites)}, number of threads = {self.nthread}")
-        self._config.intv = min(30, self._intv)
-        # GrtClockRepair(self._config, 'clockrepair', nmp=self.nthread).run()
-        # self._config.change_data_path('rinexo', 'obs_trimcor')
-        # if not self._config.basic_check(files=['rinexo']):
-        #     return False
-        tb_label = 'turboedit'
-        GrtTurboedit(self._config, tb_label, nmp=self.nthread).run()
-        self._config.intv = self._intv
-        check_turboedit_log(self._config, self.nthread, label=tb_label)
+        if not self._config.ext_ambflag:
+            logging.info(f"===> Preprocess RINEXO files with Clock-Repair and Turboedit\n{' ' * 36}"
+                        f"number of receivers = {len(self._config.all_sites)}, number of threads = {self.nthread}")
+            self._config.intv = min(30, self._intv)
+            # GrtClockRepair(self._config, 'clockrepair', nmp=self.nthread).run()
+            # self._config.change_data_path('rinexo', 'obs_trimcor')
+            # if not self._config.basic_check(files=['rinexo']):
+            #     return False
+            tb_label = 'turboedit'
+            GrtTurboedit(self._config, tb_label, nmp=self.nthread).run()
+            self._config.intv = self._intv
+            check_turboedit_log(self._config, self.nthread, label=tb_label)
         if self.basic_check(files=['ambflag']):
             logging.info("Ambflag is ok ^_^")
             return True
@@ -205,6 +208,12 @@ class ProcGen:
 
     def prepare_ics(self):
         logging.info(f"===> Prepare initial orbits using broadcast ephemeris")
+        if self._config.ext_ics:
+            if self._config.get_xml_file('ics', check=True) and self._config.get_xml_file('ics', check=True):
+                backup_files(self._config, ['ics', 'orb'])
+                return True
+            else:
+                return False
         orb_ac = self._config.orb_ac
         self._config.orb_ac = 'brd'
 
@@ -215,7 +224,8 @@ class ProcGen:
         GrtOrbfit(self._config, 'orbfit').run()
 
         sat_rm = check_brd_orbfit(self._config.get_xml_file('orbdif')[0])
-        self._config.sat_rm = sat_rm
+        self._config.sat_rm += sat_rm
+        edit_ics(self._config.get_xml_file('ics')[0], sat_rm)
         GrtOi(self._config, 'oi').run()
         self._config.orb_ac = orb_ac
         backup_files(self._config, ['ics', 'orb'])
