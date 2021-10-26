@@ -266,6 +266,14 @@ class GnssConfig:
         if not isinstance(value, bool):
             raise TypeError('Expected a bool')
         self.config.set('process_scheme', 'ultra_sp3', str(value))
+    
+    @property
+    def ext_ambflag(self) -> bool:
+        return self.config.getboolean('process_scheme', 'ext_ambflag', fallback=False)
+
+    @property
+    def ext_ics(self) -> bool:
+        return self.config.getboolean('process_scheme', 'ext_ics', fallback=False)
 
     def set_process(self, **kwargs):
         """ Update any process item in config """
@@ -352,6 +360,10 @@ class GnssConfig:
 
     # -----------------------------------------------------------------------------------
     # site and LEO list
+    @property
+    def site_file(self) -> str:
+        return self.config.get('process_scheme', 'site_file', fallback='')
+
     @property
     def site_list(self) -> list:
         val = self.config.get('process_scheme', 'site_list', fallback='').split()
@@ -564,6 +576,9 @@ class GnssConfig:
         if f_type == 'sp3' or f_type == 'sp3_inp':
             t_beg = self.beg_time - 5400
             t_end = self.end_time + 5400
+        elif f_type == 'rinexc':
+            t_beg = self.beg_time
+            t_end = self.end_time + 5400
         else:
             t_beg = self.beg_time
             t_end = self.end_time - 1
@@ -740,7 +755,15 @@ class GnssConfig:
         for f_type in self.config.options('source_files'):
             if f_type in ['upd_ewl25', 'upd_ewl24', 'upd_ewl', 'upd_wl', 'upd_nl'] and self.upd_mode != 'UPD':
                 continue
+            if (f_type == 'upd_ewl25' and self.freq < 5) or (f_type == 'upd_ewl24' and self.freq < 4) or (f_type == 'upd_ewl' and self.freq < 3):
+                continue
             if f_type == 'ifcb' and (self.freq < 3 or 'G' not in self.gsys):
+                continue
+            if not self.ext_ambflag and f_type.startswith('ambflag'):
+                continue
+            if not self.ext_ics and f_type in ['ics', 'orb']:
+                continue
+            if (f_type == 'ambflag15' and self.freq < 5) or (f_type == 'ambflag14' and self.freq < 4) or (f_type == 'ambflag13' and self.freq < 3):
                 continue
             if f_type == 'attitude' and not self.leo_list:
                 continue
@@ -761,11 +784,14 @@ class GnssConfig:
                     continue
                 f_rst.append(os.path.basename(f1))
         if f_rst:
-            logging.info(f"files copied to work directory: {', '.join(f_rst)}")
+            if len(f_rst) > 6:
+                logging.info(f"files copied to work directory: {', '.join(f_rst[0:6])} ...")
+            else:
+                logging.info(f"files copied to work directory: {', '.join(f_rst)}")
 
     def set_ref_clk(self, mode='sat', sats=None):
         ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'C22', 'C21', 'R01', 'R02', 'R05']
-        ref_sites = ['hob2', 'gop6', 'ptbb', 'algo', 'ons1', 'albh', 'nrc1']
+        ref_sites = ['ptbb', 'brux', 'twtf', 'mgue', 'hob2', 'nrc1']
         sat_list = self.all_gnssat if sats is None else [s for s in self.all_gnssat if s in sats]
         if mode == 'sat':
             for sat in ref_sats:

@@ -3,9 +3,9 @@ import sys
 import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from proc_gen import ProcGen
+from app_gnss.proc_gen import ProcGen
 from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
-    recover_files, check_pod_residuals, check_pod_sigma, backup_dir, \
+    recover_files, check_pod_residuals, check_pod_sigma, backup_dir, check_ics, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd, GrtAmbfix
 
 
@@ -58,8 +58,6 @@ class ProcPod(ProcGen):
     def detect_outliers(self):
         for i in range(4):
             GrtPodlsq(self._config, 'podlsq', str_args='-brdm').run()
-            if not check_pod_sigma(self._config, maxsig=500):
-                return False
             bad_site, bad_sat = check_pod_residuals(self._config)
             if not bad_site and not bad_sat:
                 break
@@ -77,6 +75,7 @@ class ProcPod(ProcGen):
             self.generate_products(label)
 
     def process_1st_pod(self, label='F1', eval=True, prod=False):
+        check_ics(self._config)
         if not self.detect_outliers():
             logging.error("podlsq wrong!")
             return False
@@ -122,6 +121,9 @@ class ProcPod(ProcGen):
                 logging.error('process POD failed! no valid ambflag file')
                 return
             copy_result_files(self._config, ['recover'], 'F1')
+        
+        if not check_pod_sigma(self._config, maxsig=500):
+            return False
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with timeblock("Finished 2nd POD"):
@@ -139,6 +141,8 @@ class ProcPod(ProcGen):
             self.process_ambfix()
             self.process_fix_pod('AR', True, True)
             copy_result_files(self._config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'AR')
+        
+        self.save_results(['F3', 'AR'])
 
 
 if __name__ == '__main__':

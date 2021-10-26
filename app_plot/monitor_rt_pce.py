@@ -189,7 +189,7 @@ def draw_clkdif(data, figname: str, title=''):
                 dd = data[data.sat == sat]
                 ax[i].plot(dd.date, dd.val, markers[int(j/8)], label=sat)
                 j += 1
-            mid_val = int(data.val.median() / 5) * 5
+            mid_val = int(dd.val.median() / 5) * 5
             ax[i].set(ylim=(mid_val - ymax, mid_val + ymax), ylabel='Clock Diff [ns]')
             ax[i].text(0.1, 0.1, gns_name(gsys), size='large', weight='bold', transform=ax[i].transAxes)
             ax[i].legend(loc='upper left', ncol=12, fontsize=9, columnspacing=0.3, handletextpad=0.05)
@@ -205,7 +205,7 @@ def draw_clkdif(data, figname: str, title=''):
             dd = data[data.sat == sat]
             ax.plot(dd.date, dd.val, markers[int(j/8)], label=sat)
             j += 1
-        mid_val = int(data.val.median() / 5) * 5
+        mid_val = int(dd.val.median() / 5) * 5
         ax.set(ylim=(mid_val - ymax, mid_val + ymax), ylabel='Clock Diff [ns]', title=title)
         ax.text(0.1, 0.1, gns_name(gsys), size='large', weight='bold', transform=ax.transAxes)
         ax.legend(loc='upper left', ncol=12, fontsize=9, columnspacing=0.3, handletextpad=0.05)

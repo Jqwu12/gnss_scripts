@@ -59,16 +59,16 @@ class ProcPce(ProcGen):
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
-        self._config.crd_constr = 'FIX'
+        # self._config.crd_constr = 'FIX'
         GrtPcelsq(self._config, 'pcelsq').run()
         self.clkdif('F')
         self.generate_products('F')
 
-        if self._config.lsq_mode != "EPO":
-            self.process_ambfix()
-            GrtPcelsq(self._config, 'pcelsq', fix_amb=True).run()
-            self.clkdif('AR')
-            self.generate_products('AR')
+        # if self._config.lsq_mode != "EPO":
+        #     self.process_ambfix()
+        #     GrtPcelsq(self._config, 'pcelsq', fix_amb=True).run()
+        #     self.clkdif('AR')
+        #     self.generate_products('AR')
 
 
 if __name__ == '__main__':
