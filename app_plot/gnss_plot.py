@@ -1107,7 +1107,7 @@ def draw_upd(data, figfile="", dform="%H:%M", linestyle='.', dpi=1200):
     ncol = 2 if len(sats) > 8 else 1
 
     nf = ncol * nrow
-    nsat = int(len(sats) / nf)
+    nsat = math.ceil(len(sats) / nf)
     fig = plt.figure(figsize=(ncol * 5 + 2, nrow * 3 + 1.5))
 
     for i in range(nf):
