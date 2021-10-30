@@ -9,6 +9,12 @@ from funcs import check_res_sigma, GrtPpplsq, GrtAmbfix, backup_dir, copy_ambfla
 
 class ProcCarRng(ProcGen):
 
+    default_args = {
+        'dsc': 'GREAT Carrier-range observation generation',
+        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'LSQ', 'sys': 'G',
+        'freq': 3, 'cen': 'com', 'bia': '', 'cf': 'cf_carrng.ini'
+    }
+
     proj_id = 'CarRng'
 
     required_subdir = ['log_tb', 'xml', 'ambupd', 'res', 'tmp', 'ambcon']
@@ -28,17 +34,17 @@ class ProcCarRng(ProcGen):
         check_res_sigma(self._config)
         self.editres(jump=40, edt_amb=True, all_sites=True)
         
-    def prepare_obs(self):
-        shutil.rmtree('log_tb')
-        os.makedirs('log_tb')
-        ambflagdir = os.path.join(self.base_dir, 'POD', str(self.year), f"{self.doy:0>3d}_GEC_2_IF_new", 'log_tb')
-        copy_ambflag_from(ambflagdir)
-        if self.basic_check(files=['ambflag']):
-            logging.info("Ambflag is ok ^_^")
-            return True
-        else:
-            logging.critical("NO ambflag files ! skip to next day")
-            return False
+    # def prepare_obs(self):
+    #     shutil.rmtree('log_tb')
+    #     os.makedirs('log_tb')
+    #     ambflagdir = os.path.join(self.base_dir, 'POD', str(self.year), f"{self.doy:0>3d}_GEC_2_IF_new", 'log_tb')
+    #     copy_ambflag_from(ambflagdir)
+    #     if self.basic_check(files=['ambflag']):
+    #         logging.info("Ambflag is ok ^_^")
+    #         return True
+    #     else:
+    #         logging.critical("NO ambflag files ! skip to next day")
+    #         return False
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
@@ -60,13 +66,13 @@ class ProcCarRng(ProcGen):
         # self.editres(bad=40, jump=40, nshort=600, all_sites=True)
         
         GrtPpplsq(self._config, 'ppplsq_F', nmp=self.nthread).run()
-        # self.basic_check(files=['recover_all', 'ambupd_in'])
-        # GrtAmbfix(self._config, 'SD', 'ambfix', nmp=self.nthread, all_sites=True).run()
-        # backup_dir('log_tb', 'log_tb_edtres')
-        # backup_dir('res', 'res_F')
-        # backup_dir('ambcon', 'ambcon_SD')
+        self.basic_check(files=['recover_all', 'ambupd_in'])
+        GrtAmbfix(self._config, 'SD', 'ambfix', nmp=self.nthread, all_sites=True).run()
+        backup_dir('log_tb', 'log_tb_edtres')
+        backup_dir('res', 'res_F')
+        backup_dir('ambcon', 'ambcon_SD')
 
-        # GrtPpplsq(self._config, 'ppplsq_AR', nmp=self.nthread, fix_amb=True).run()
+        GrtPpplsq(self._config, 'ppplsq_AR', nmp=self.nthread, fix_amb=True).run()
         check_res_sigma(self._config)
         self.basic_check(files=['recover_all', 'ambupd_in'])
 

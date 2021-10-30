@@ -689,7 +689,7 @@ class GrtPodlsq(GrtCmd):
         proc.set('cmb_equ_multi_thread', 'true')
         # proc.set('sysbias_model', 'ISB+CON' if self._config.lsq_mode == 'LSQ' else 'ISB+WHIT')
         # only ISB, no GLONASS IFB;
-        proc.set('sysbias_model', 'ISB+CON')
+        # proc.set('sysbias_model', 'ISB+CON')
         proc.set('lsq_buffer_size', '500')
         elem = ET.SubElement(proc, 'ifb_model')
         elem.text = 'EST_REC_IFB' if self._config.obs_comb == 'UC' else 'NONE'
