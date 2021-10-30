@@ -86,7 +86,7 @@ class ProcGen:
 
     required_subdir = ['log_tb', 'tmp', 'xml']
     required_opt = []
-    required_file = ['rinexo']
+    required_file = []
 
     sat_rm = []
 

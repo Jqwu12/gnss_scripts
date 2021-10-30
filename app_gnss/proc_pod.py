@@ -5,7 +5,7 @@ import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app_gnss.proc_gen import ProcGen
 from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
-    recover_files, check_pod_residuals, check_pod_sigma, backup_dir, check_ics, \
+    recover_files, check_pod_residuals, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfixDd, GrtAmbfix
 
 
@@ -58,7 +58,9 @@ class ProcPod(ProcGen):
     def detect_outliers(self):
         for i in range(4):
             GrtPodlsq(self._config, 'podlsq', str_args='-brdm').run()
-            bad_site, bad_sat = check_pod_residuals(self._config)
+            if i > 0 and check_pod_sigma(self._config, maxsig=10):
+                return True
+            bad_site, bad_sat = check_pod_residuals_new(self._config)
             if not bad_site and not bad_sat:
                 break
             recover_files(self._config, ['ics', 'orb'])
