@@ -278,7 +278,7 @@ class GrtOrbdif(GrtCmd):
     grt_app = 'great_orbdif'
 
     def __init__(self, config: GnssConfig, label=None, nmp=1, stop=False, trans='STRD',
-                 excsat="C01 C02 C03 C04 C05 G18 G23"):
+                 excsat="C01 C02 C03 C04 C05 G04 G14 G18 G23"):
         super().__init__(config, label, nmp, stop)
         self.trans = trans
         self.excsat = excsat
@@ -824,7 +824,7 @@ class GrtPcelsq(GrtPodlsq):
 
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
-                  'rinexn', 'sp3', 'blq', 'satpars', 'sinex']
+                  'rinexn', 'sp3', 'blq', 'sinex']
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:

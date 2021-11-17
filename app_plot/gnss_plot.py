@@ -1033,10 +1033,10 @@ def read_daily_upd(files: dict):
 
         ref_val = {"G": 0, "R": 0, "E": 0, "C": 0}
         ref_sats = {
-            "G": ["G01", "G05", "G06", "G08"],
-            "R": ["R01", "R02", "R03"],
-            "E": ["E01", "E02", "E03"],
-            "C": ["C21", "C22", "C23", "C08"]
+            "G": ["G01", "G05", "G06", "G08", "G30"],
+            "R": ["R01", "R02", "R03", "R04"],
+            "E": ["E01", "E02", "E03", "E04"],
+            "C": ["C21", "C22", "C23", "C24", "C08"]
         }
         for sys, sats in ref_sats.items():
             for sat in sats:
@@ -1098,7 +1098,7 @@ def read_epo_upd(file):
     return pd.DataFrame(data)
 
 
-def draw_upd(data, figfile="", dform="%H:%M", linestyle='.', dpi=1200):
+def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle='.', dpi=600):
     sats = list(set(data.sat))
     sats.sort()
     if len(sats) == 0:
@@ -1125,8 +1125,11 @@ def draw_upd(data, figfile="", dform="%H:%M", linestyle='.', dpi=1200):
 
         ax.text(0.05, 0.01, f"Mean STD ({gns_name(sat[0])}): {val / num:6.3f} cyc", weight='semibold',
                 transform=ax.transAxes)
-        ax.set(ylim=(-1.2, 1.7))
-        ax.legend(loc='upper left', ncol=6, fontsize=13, columnspacing=0, handletextpad=0.01)
+        ax.set(ylim=(-1.2, 1.2))
+        if grid:
+            ax.grid(linestyle='--')
+        ax.legend(ncol=5, prop={'size':13, 'weight':'semibold'}, markerscale=1.5, loc='upper left', bbox_to_anchor=(0, 1.24),
+                    labelcolor='linecolor', columnspacing=0.35, labelspacing=0.1, handletextpad=0.25, frameon=False)
         if i % ncol == 0:
             ax.set(ylabel='UPD [cycle]')
         else:
@@ -1137,7 +1140,9 @@ def draw_upd(data, figfile="", dform="%H:%M", linestyle='.', dpi=1200):
                 tick.set_rotation(45)
         else:
             ax.set_xticklabels([])
-    fig.subplots_adjust(wspace=0.05, hspace=0.05)
+    fig.subplots_adjust(wspace=0.05, hspace=0.24)
+    if figtitle:
+        fig.suptitle(figtitle)
 
     if figfile:
         fig.savefig(figfile, dpi=dpi, bbox_inches='tight')

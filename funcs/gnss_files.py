@@ -262,16 +262,16 @@ def read_clkdif_sum(f_name, mjd, ref_sat=""):
     data = []
     for i in range(len(sats)):
         data.append({
-            'sat': sats[i], 'gsys': gns_name(sats[i][0]), 'std': float(info[i]), 'mjd': int(mjd)
+            'sat': sats[i], 'gsys': gns_name(sats[i][0]), 'val': float(info[i]), 'mjd': int(mjd)
         })
     dd = pd.DataFrame(data)
     # find ref clock
     if not ref_sat:
-        for sat in ['G08', 'G05', 'E01', 'E02', 'C21', 'C22', 'C23', 'C24', 'C08', 'R01', 'R02']:
+        for sat in ['G01', 'G08', 'G05', 'E01', 'E02', 'C21', 'C22', 'C23', 'C24', 'C08', 'R01', 'R02']:
             if sat in set(dd.sat):
                 ref_sat = sat
                 break
-    dd = dd[(dd.sat != ref_sat) & (dd['std'] < 3)]
+    dd = dd[(dd.sat != ref_sat) & (dd['val'] < 3)]
     return dd
 
 

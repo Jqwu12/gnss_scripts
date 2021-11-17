@@ -210,7 +210,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
     return site_rm, sat_rm
 
 
-def check_pod_residuals_new(config, max_res_L=3, max_freq=0.3):
+def check_pod_residuals_new(config, max_res_L=0.3, max_freq=0.3):
     f_res = config.get_xml_file('recover_in')[0]
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
@@ -227,21 +227,24 @@ def check_pod_residuals_new(config, max_res_L=3, max_freq=0.3):
     sats = list(set(data.sat))
     sats.sort()
 
-    sats_rm = []
+    sats_rm0 = []
+    sats_rm1 = []
     sites_rm = []
     ntot = len(data)
     nmin = ntot / len(sats) / 4
-    for sat in sats:
+    for sat in config.all_gnssat:
         num = len(data[data.sat == sat])
         if num < nmin:
             logging.warning(f"satellite {sat} observation too less: {num}")
-            sats_rm.append(sat)
+            sats_rm0.append(sat)
 
     tmp = []
     data_l = data[idx_L]
     for site in sites:
         dd_site = data_l[data_l.site == site]
         for sat in sats:
+            if sat in sats_rm0:
+                continue
             dd = dd_site[dd_site.sat == sat]
             val = dd.res.values
             if len(val) > 0:
@@ -249,8 +252,11 @@ def check_pod_residuals_new(config, max_res_L=3, max_freq=0.3):
                 tmp.append({'site':site, 'sat':sat, 'val':rms})
 
     data_tmp = pd.DataFrame(tmp)
-    for i in range(5):
-        site_rm, sat_rm, val = data_tmp.loc[data_tmp['val'].idxmax()].values
+    for i in range(20):
+        idx_max = data_tmp['val'].idxmax()
+        site_rm, sat_rm, val = data_tmp.loc[idx_max].values
+        if val < 3*max_res_L:
+            break
         # remove site with largest res
         remove_site = False
         dd = data_tmp[['sat', 'val']].groupby('sat', as_index=False).max()
@@ -261,8 +267,13 @@ def check_pod_residuals_new(config, max_res_L=3, max_freq=0.3):
         if mobs > 0 and len(dd_mg) > 10:
             ratio1 = 1.0 * mobs / nobs
             ratio2 = dd_mg['site'].value_counts(normalize=True)[site_rm]
-            if ratio1 > max_freq and ratio2 > max_freq:
+            if ratio1*3 > max_freq and ratio2 > max_freq:
                 remove_site = True
+        
+        if remove_site:
+            data_tmp = data_tmp[data_tmp.site != site_rm]
+            sites_rm.append(site_rm)
+            break
 
         # remove sat with largest res
         remove_sat = False
@@ -274,23 +285,21 @@ def check_pod_residuals_new(config, max_res_L=3, max_freq=0.3):
         if mobs > 0 and len(dd_mg) > 10:
             ratio1 = 1.0 * mobs / nobs
             ratio2 = dd_mg['sat'].value_counts(normalize=True)[sat_rm]
-            if ratio1 > max_freq and ratio2 > max_freq:
+            if ratio1*3 > max_freq and ratio2 > max_freq:
                 remove_sat = True
         
-        if not remove_sat and not remove_site:
-            break
-        if remove_site:
-            data_tmp = data_tmp[data_tmp.site != site_rm]
-            sites_rm.append(site_rm)
         if remove_sat:
             data_tmp = data_tmp[data_tmp.sat != sat_rm]
-            sats_rm.append(sat_rm)
+            sats_rm1.append(sat_rm)
+            break
+        
+        data_tmp.drop(idx_max, inplace=True)
     
     if sites_rm:
         logging.warning(f"too many bad phase residuals for station: {' '.join(sites_rm)}")
-    if sats_rm:
-        logging.warning(f"too many bad phase residuals for satellite: {' '.join(sats_rm)}")
-    return sites_rm, sats_rm
+    if sats_rm1:
+        logging.warning(f"too many bad phase residuals for satellite: {' '.join(sats_rm1)}")
+    return sites_rm, sats_rm0+sats_rm1
 
 
 def good_tb_site(file):
