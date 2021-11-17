@@ -790,7 +790,7 @@ class GnssConfig:
                 logging.info(f"files copied to work directory: {', '.join(f_rst)}")
 
     def set_ref_clk(self, mode='sat', sats=None):
-        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'C22', 'C21', 'R01', 'R02', 'R05']
+        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'E03', 'C21', 'C22', 'C23', 'C08', 'R01', 'R02', 'R05']
         ref_sites = ['ptbb', 'brux', 'twtf', 'mgue', 'hob2', 'nrc1']
         sat_list = self.all_gnssat if sats is None else [s for s in self.all_gnssat if s in sats]
         if mode == 'sat':
@@ -882,6 +882,9 @@ class GnssConfig:
         proc_dict['real_time'] = 'true' if self.real_time else 'false'
         proc_dict['ultrasp3'] = 'true' if self.ultra_sp3 else 'false'
         proc = ET.Element('process', attrib=proc_dict)
+        if not self.config.getboolean('process_scheme', 'trimcor', fallback=True):
+            elem = ET.SubElement(proc, 'trimcor')
+            elem.text = 'false'
         return proc
 
     def get_xml_inputs(self, fs: List[str], check=True, sattype='gns') -> ET.Element:

@@ -17,7 +17,7 @@ class ProcCarRng(ProcGen):
 
     proj_id = 'CarRng'
 
-    required_subdir = ['log_tb', 'xml', 'ambupd', 'res', 'tmp', 'ambcon']
+    required_subdir = ['log_tb', 'xml', 'ambupd', 'res', 'tmp', 'ambcon', 'figs']
     required_opt = ['estimator']
     required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
@@ -31,8 +31,8 @@ class ProcCarRng(ProcGen):
         # self._config.crd_constr = 'FIX'
         self._config.carrier_range = True
         GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread).run()
-        check_res_sigma(self._config)
-        self.editres(jump=40, edt_amb=True, all_sites=True)
+        #check_res_sigma(self._config, max_sig=12)
+        #self.editres(jump=40, edt_amb=True, all_sites=True)
         
     # def prepare_obs(self):
     #     shutil.rmtree('log_tb')
@@ -74,6 +74,7 @@ class ProcCarRng(ProcGen):
 
         GrtPpplsq(self._config, 'ppplsq_AR', nmp=self.nthread, fix_amb=True).run()
         check_res_sigma(self._config)
+        backup_dir('res', 'res_AR')
         self.basic_check(files=['recover_all', 'ambupd_in'])
 
         logging.info(f"===> Fix UD ambiguities of each site")

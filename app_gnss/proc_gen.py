@@ -84,7 +84,7 @@ class ProcGen:
 
     proj_id = ''
 
-    required_subdir = ['log_tb', 'tmp', 'xml']
+    required_subdir = ['log_tb', 'tmp', 'xml', 'figs']
     required_opt = []
     required_file = []
 

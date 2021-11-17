@@ -1027,107 +1027,63 @@ def read_ressum(f_name, labels, year, tbeg, seslen, ymax=15):
     return lcres_all
 
 
-# UPD analysis
-def get_wlupd_days(sats_in, f_list, doys):
-    """get the WL UPD for each day"""
-    upd_wl = []
-    wl_first = {}
-    for i in range(len(doys)):
-        doy = doys[i]
-        f_name = f_list[i]
+def read_daily_upd(files: dict):
+    upd_first = {}
+    data = []
+    for mjd, file in files.items():
         try:
-            with open(f_name) as file_object:
-                lines = file_object.readlines()
+            with open(file) as f:
+                lines = f.readlines()
         except FileNotFoundError:
-            msg = "Error, the file " + f_name + " does not exist"
-            print(msg)
+            logging.warning(f"file not found {file}")
             continue
 
-        new_rec = {'doy': doy}
+        year, mon, day = mjd2ymd(mjd)
+        cal_time = datetime(year, mon, day)
+        data_tmp = {}
         for line in lines:
-            if line.find('%') == 0 or line.find('X') == 0 or line.find('x') == 0:
+            if not line.startswith(' '):
                 continue
-            info = line.replace('\n', '').split()
-            sat = info[0]
-            if not sat in sats_in:
-                continue
-            upd_rec = float(info[1])
-            if not sat in wl_first:
-                if upd_rec > 0.5:
-                    upd_rec = upd_rec - 1
-                elif upd_rec <= -0.5:
-                    upd_rec = upd_rec + 1
-                wl_first[sat] = upd_rec
-                new_rec[sat] = upd_rec
+            sat, val, sig, nobs, *_ = line.split()
+            data_tmp[sat] = [float(val), float(sig), int(nobs)]
+
+        ref_val = {"G": 0, "R": 0, "E": 0, "C": 0}
+        ref_sats = {
+            "G": ["G01", "G05", "G06", "G08", "G30"],
+            "R": ["R01", "R02", "R03", "R04"],
+            "E": ["E01", "E02", "E03", "E04"],
+            "C": ["C21", "C22", "C23", "C24", "C08"]
+        }
+        for sys, sats in ref_sats.items():
+            for sat in sats:
+                if sat in data_tmp.keys():
+                    ref_val[sys] = data_tmp[sat][0]
+                    break
+            if ref_val[sys] == 0:
+                for sat, vals in data_tmp.items():
+                    if sys == sat[0]:
+                        ref_val[sys] = vals[0]
+                        break
+
+        for sat, vals in data_tmp.items():
+            vals[0] -= ref_val[sat[0]]
+            if not sat in upd_first:
+                if vals[0] > 0.5:
+                    vals[0] -= 1
+                elif vals[0] <= -0.5:
+                    vals[0] += 1
+                upd_first[sat] = vals[0]
             else:
-                if upd_rec > wl_first[sat] + 0.5:
-                    upd_rec = upd_rec - 1
-                elif upd_rec < wl_first[sat] - 0.5:
-                    upd_rec = upd_rec + 1
-                new_rec[sat] = upd_rec
-        upd_wl.append(new_rec)
+                if vals[0] > upd_first[sat] + 0.5:
+                    vals[0] -= 1
+                elif vals[0] < upd_first[sat] - 0.5:
+                    vals[0] += 1
+            data.append({
+                'date': cal_time, 'sat': sat, 'upd': vals[0], 'sig': vals[1],
+                'nobs': vals[2], 'sys': gns_name(sat[0])
+            })
 
-    upd_wl_pd = pd.DataFrame(upd_wl)
-    return upd_wl_pd
-
-
-def read_upd_nl(sats_in, f_name, beg_fmjd, seslen=86400):
-    """read the panda upd file"""
-    try:
-        with open(f_name) as file_object:
-            lines = file_object.readlines()
-    except FileNotFoundError:
-        msg = "Error, the file " + f_name + " does not exist!"
-        print(msg)
-        return pd.DataFrame()
-
-    ipt_heads = []
-    nline = len(lines)
-    for i in range(0, nline):
-        if "EPOCH-TIME" in lines[i]:
-            ipt_heads.append(i)
-
-    rec_len = ipt_heads[1] - ipt_heads[0]
-    upd_nl = []
-    # nl_first = {}
-    for ipt in ipt_heads:
-        new_rec = {}
-        info = lines[ipt].split()
-        mjd = int(info[1])
-        sod = float(info[2])
-        sec = (mjd + sod / 86400.0 - beg_fmjd) * 86400
-        if sec < 0:
-            continue
-        elif sec > seslen:
-            break
-
-        new_rec = {'sec': sec}
-        for i in range(1, rec_len):
-            if lines[ipt + i][0] == 'x' or lines[ipt + i][0] == 'X':
-                continue
-            info = lines[ipt + i].split()
-            sat = info[0]
-            if not sat in sats_in:
-                continue
-            upd_rec = float(info[1])
-            new_rec[sat] = upd_rec
-            # if not sat in nl_first:
-            #    if upd_rec > 0.5:
-            #        upd_rec = upd_rec - 1
-            #    elif upd_rec <= -0.5:
-            #        upd_rec = upd_rec + 1
-            #    nl_first[sat] = upd_rec
-            #    new_rec[sat] = upd_rec
-            # else:
-            #    if upd_rec > nl_first[sat] + 0.8:
-            #        upd_rec = upd_rec - 1
-            #    elif upd_rec < nl_first[sat] - 0.8:
-            #        upd_rec = upd_rec + 1
-            #    new_rec[sat] = upd_rec
-        upd_nl.append(new_rec)
-
-    upd_nl_pd = pd.DataFrame(upd_nl)
-    return upd_nl_pd
+    return pd.DataFrame(data)
 
 
 def read_epo_upd(file):
@@ -1158,7 +1114,7 @@ def read_epo_upd(file):
     return pd.DataFrame(data)
 
 
-def draw_upd(data, figname="", dform="%H:%M"):
+def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle='.', dpi=600):
     sats = list(set(data.sat))
     sats.sort()
     if len(sats) == 0:
@@ -1167,25 +1123,46 @@ def draw_upd(data, figname="", dform="%H:%M"):
     ncol = 2 if len(sats) > 8 else 1
 
     nf = ncol * nrow
-    nsat = int(len(sats) / nf) + 1
-    fig = plt.figure(figsize=(ncol * 5 + 2, ncol * 3 + 1.5))
+    nsat = math.ceil(len(sats) / nf)
+    fig = plt.figure(figsize=(ncol * 5 + 2, nrow * 3 + 1.5))
 
     for i in range(nf):
         ax = fig.add_subplot(nrow, ncol, i + 1)
         sats_tmp = sats[nsat * i: nsat * (i + 1)]
+
+        val = 0
+        num = 0
+        sat = ''
         for sat in sats_tmp:
             dd = data[data.sat == sat]
-            ax.plot(dd.date, dd.upd, '.', label=sat)
-        ax.set(ylabel='UPD [cycle]', ylim=(-1.2, 1.4))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter(dform))
-        ax.legend(loc='upper left', ncol=6, fontsize=12, columnspacing=0, handletextpad=0.01)
-        for tick in ax.get_xticklabels():
-            tick.set_rotation(30)
-    fig.subplots_adjust(wspace=0.25, hspace=0.25)
+            ax.plot(dd.date, dd.upd, linestyle, label=sat)
+            val += dd.upd.std()
+            num += 1
 
-    if figname:
-        fig.savefig(figname, dpi=1200)
-        logging.info(f'save figure {figname}')
+        ax.text(0.05, 0.01, f"Mean STD ({gns_name(sat[0])}): {val / num:6.3f} cyc", weight='semibold',
+                transform=ax.transAxes)
+        ax.set(ylim=(-1.2, 1.2))
+        if grid:
+            ax.grid(linestyle='--')
+        ax.legend(ncol=5, prop={'size':13, 'weight':'semibold'}, markerscale=1.5, loc='upper left', bbox_to_anchor=(0, 1.24), 
+                    labelcolor='linecolor', columnspacing=0.35, labelspacing=0.1, handletextpad=0.25, frameon=False)
+        if i % ncol == 0:
+            ax.set(ylabel='UPD [cycle]')
+        else:
+            ax.set_yticklabels([])
+        if i >= ncol * (nrow - 1):
+            ax.xaxis.set_major_formatter(mdates.DateFormatter(dform))
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(45)
+        else:
+            ax.set_xticklabels([])
+    fig.subplots_adjust(wspace=0.05, hspace=0.24)
+    if figtitle:
+        fig.suptitle(figtitle)
+
+    if figfile:
+        fig.savefig(figfile, dpi=dpi, bbox_inches='tight')
+        logging.info(f'save figure {figfile}')
         plt.close()
 
 

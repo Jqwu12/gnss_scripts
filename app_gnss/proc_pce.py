@@ -20,7 +20,7 @@ class ProcPce(ProcGen):
     required_opt = ['estimator']
     required_file = ['rinexo', 'rinexn', 'biabern', 'sp3']
 
-    ref_cen = ['com', 'gbm', 'wum']
+    ref_cen = ['com', 'gbm', 'wum', 'esm']
 
     # def prepare_obs(self):
     #     ref_dir = os.path.join(self.base_dir, 'POD', str(self.year), f'{self.doy:0>3d}_{self._gsys}_2_IF')
@@ -42,9 +42,12 @@ class ProcPce(ProcGen):
         cen = self._config.orb_ac
         for c in self.ref_cen:
             self._config.orb_ac = c
-            GrtClkdif(self._config, 'clkdif').run()
-            if label:
-                copy_result_files(self._config, ['clkdif'], label, 'gns')
+            for g in self._gsys:
+                self._config.gsys = g
+                GrtClkdif(self._config, f'clkdif_{c}_{g}').run()
+                if label:
+                    copy_result_files(self._config, ['clkdif'], label, 'gns')
+            self._config.gsys = self._gsys
         self._config.orb_ac = cen
 
     def generate_products(self, label=''):
