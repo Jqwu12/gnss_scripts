@@ -4,7 +4,8 @@ import shutil
 import logging
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from funcs import gns_name, timeblock, merge_upd_all, copy_result_files_to_path, backup_dir, check_res_sigma, GrtUpdlsq, GrtPpplsq, GrtAmbfix
+from funcs import gns_name, gns_sat, timeblock, merge_upd_all, merge_upd_bds, copy_result_files_to_path, \
+    backup_dir, check_res_sigma, GrtUpdlsq, GrtPpplsq, GrtAmbfix
 from app_gnss.proc_gen import ProcGen
 
 
@@ -17,7 +18,7 @@ class ProcUpd(ProcGen):
 
     proj_id = 'UPD'
 
-    required_subdir = ['log_tb', 'xml', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
+    required_subdir = ['log_tb', 'xml', 'figs', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
     required_opt = ['estimator']
     required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
@@ -44,10 +45,29 @@ class ProcUpd(ProcGen):
         self.basic_check(files=['recover_all', 'ambupd_in'])
         check_res_sigma(self._config)
 
+    def copy_upd(self, upd_results, old, new):
+        if not old or not new or old == new:
+            return
+        for f_type in upd_results:
+            file = self._config.file_name(f_type, check=True)
+            if not file:
+                continue
+            idx = file.rfind(old)
+            file_new = file[0: idx] + new + file[idx+len(old):]
+            try:
+                shutil.copy(file, file_new)
+            except shutil.SameFileError:
+                logging.warning(f'copy failed! files are same {file_new}')
+                continue
+
     def process_upd_onesys(self, gsys):
+        if gsys == "C2":
+            self._config.sat_rm += gns_sat("C3")
+        elif gsys == "C3":
+            self._config.sat_rm += gns_sat("C2")
         nfreq = self._config.freq
-        mfreq = self._config.gnsfreq(gsys)
-        self._config.gsys = gsys
+        mfreq = self._config.gnsfreq(gsys[0])
+        self._config.gsys = gsys[0]
         self._config.freq = mfreq
         upd_results = []
         logging.info(f"===> Start to process {gns_name(gsys)} UPD")
@@ -65,8 +85,11 @@ class ProcUpd(ProcGen):
         GrtUpdlsq(self._config, 'NL', f'upd_nl_{gsys}').run()
         upd_results.append('upd_nl')
 
+        if gsys[0] == "C":
+            self.copy_upd(upd_results, gsys[0], gsys)
         self._config.gsys = self._gsys
         self._config.freq = nfreq
+        self._config.sat_rm = self.sat_rm
         shutil.copy('NL-res', f'NL-res_{gsys}')
         return upd_results
 
@@ -83,11 +106,16 @@ class ProcUpd(ProcGen):
         self.process_ppp(fix)
         self._config.freq = freq
 
-        for gsys in self._gsys:
+        gsys_list = [s for s in self._gsys if s != "C"]
+        if "C" in self._gsys:
+            gsys_list += ["C2", "C3"]
+        for gsys in gsys_list:
             upd_results.extend(self.process_upd_onesys(gsys))
 
         upd_results = list(set(upd_results))
         upd_results.sort()
+        if "C" in self._gsys:
+            merge_upd_bds(self._config, upd_results)
         # Merge multi-GNSS UPD
         if len(self._gsys) > 1:
             logging.info(f"===> Merge UPD: {' '.join(upd_results)}")
@@ -117,7 +145,6 @@ class ProcUpd(ProcGen):
         #     backup_dir('ambupd', 'ambupd_IF')
 
         results = self.process_upd()
-        # results = self.process_upd(fix=True)
         self.save_results(results)
 
 

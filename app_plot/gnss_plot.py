@@ -1098,7 +1098,7 @@ def read_epo_upd(file):
     return pd.DataFrame(data)
 
 
-def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle='.', dpi=600):
+def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle='.', dpi=300):
     sats = list(set(data.sat))
     sats.sort()
     if len(sats) == 0:
@@ -1128,8 +1128,9 @@ def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle=
         ax.set(ylim=(-1.2, 1.2))
         if grid:
             ax.grid(linestyle='--')
-        ax.legend(ncol=5, prop={'size':13, 'weight':'semibold'}, markerscale=1.5, loc='upper left', bbox_to_anchor=(0, 1.24),
-                    labelcolor='linecolor', columnspacing=0.35, labelspacing=0.1, handletextpad=0.25, frameon=False)
+        ax.legend(ncol=5, prop={'size': 13, 'weight': 'semibold'}, markerscale=1.5, loc='lower left',
+                  bbox_to_anchor=(0, 0.965), labelcolor='linecolor',
+                  columnspacing=0.35, labelspacing=0.1, handletextpad=0.25, frameon=False)
         if i % ncol == 0:
             ax.set(ylabel='UPD [cycle]')
         else:
@@ -1140,7 +1141,7 @@ def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle=
                 tick.set_rotation(45)
         else:
             ax.set_xticklabels([])
-    fig.subplots_adjust(wspace=0.05, hspace=0.24)
+    fig.subplots_adjust(wspace=0.05, hspace=0.22)
     if figtitle:
         fig.suptitle(figtitle)
 

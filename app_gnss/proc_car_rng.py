@@ -33,18 +33,6 @@ class ProcCarRng(ProcGen):
         GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread).run()
         #check_res_sigma(self._config, max_sig=12)
         #self.editres(jump=40, edt_amb=True, all_sites=True)
-        
-    # def prepare_obs(self):
-    #     shutil.rmtree('log_tb')
-    #     os.makedirs('log_tb')
-    #     ambflagdir = os.path.join(self.base_dir, 'POD', str(self.year), f"{self.doy:0>3d}_GEC_2_IF_new", 'log_tb')
-    #     copy_ambflag_from(ambflagdir)
-    #     if self.basic_check(files=['ambflag']):
-    #         logging.info("Ambflag is ok ^_^")
-    #         return True
-    #     else:
-    #         logging.critical("NO ambflag files ! skip to next day")
-    #         return False
 
     def process_daily(self):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"

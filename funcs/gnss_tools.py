@@ -647,6 +647,19 @@ def get_grg_wsb(config):
             file_object.write(line)
 
 
+def merge_upd_bds(config, files):
+    for f in files:
+        config.gsys = "C"
+        f_out = config.file_name(f)
+        idx = f_out.rfind("C")
+        f1 = f_out[0: idx] + "C2" + f_out[idx + 1:]
+        f2 = f_out[0: idx] + "C3" + f_out[idx + 1:]
+        if os.path.isfile(f1) and os.path.isfile(f2):
+            idx = f.rfind("_")
+            mode = f[idx + 1:].upper()
+            merge_upd([f1, f2], f_out, mode)
+
+
 def merge_upd_all(config, gsys, files):
     """
     merge ewl, wl and nl UPD files
@@ -662,24 +675,10 @@ def merge_upd_all(config, gsys, files):
             f_in = config.get_xml_file(f, check=True)
             if f_in:
                 f_ins.append(f_in[0])
-        if f == "upd_ewl25":
-            merge_upd(f_ins, f_out, "EWL25")
-            logging.info(f"merge upd_ewl25 complete, file is {f_out}")
-        elif f == "upd_ewl24":
-            merge_upd(f_ins, f_out, "EWL24")
-            logging.info(f"merge upd_ewl24 complete, file is {f_out}")
-        elif f == "upd_ewl":
-            merge_upd(f_ins, f_out, "EWL")
-            logging.info(f"merge upd_ewl complete, file is {f_out}")
-        elif f == "upd_wl":
-            merge_upd(f_ins, f_out, "WL")
-            logging.info(f"merge upd_wl  complete, file is {f_out}")
-        elif f == "upd_nl":
-            merge_upd(f_ins, f_out, "NL", config.intv)
-            logging.info(f"merge upd_nl  complete, file is {f_out}")
-        else:
-            logging.warning(f"unknown UPD type {f}")
-
+        idx = f.rfind("_")
+        mode = f[idx + 1:].upper()
+        merge_upd(f_ins, f_out, mode)
+        logging.info(f"merge {f} complete, file is {f_out}")
     config.gsys = gsys
 
 
