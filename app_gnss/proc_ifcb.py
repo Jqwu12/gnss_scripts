@@ -13,7 +13,7 @@ class ProcIfcb(ProcUpd):
     required_opt = ['estimator']
     required_file = ['rinexo', 'biabern']
 
-    def process_upd(self, obs_comb=None):
+    def process_upd(self, obs_comb=None, fix=False):
         return ['ifcb'] if self.process_ifcb() else []
 
     def process_daily(self):

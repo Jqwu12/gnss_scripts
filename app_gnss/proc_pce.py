@@ -16,9 +16,9 @@ class ProcPce(ProcGen):
 
     proj_id = 'PCE'
 
-    required_subdir = ['log_tb', 'tmp', 'xml', 'clkdif', 'figs']
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'rinexn', 'biabern', 'sp3']
+    required_subdir = super().required_subdir + ['clkdif']
+    required_opt = super().required_opt + ['estimator']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'biabern', 'sp3']
 
     ref_cen = ['com', 'gbm', 'wum', 'esm']
 

@@ -6,3 +6,7 @@ funcs/__pycache__/*
 app_gnss/site_list_*
 app_gnss/*.ini
 app_gnss/log/*
+app_gnss/__pycache__/*
+app_plot/*.ini
+app_plot/log/*
+app_plot/__pycache__/*

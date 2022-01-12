@@ -106,7 +106,7 @@ def read_enu(f_enu):
             lines = f.readlines()
     except FileNotFoundError:
         logging.error(f"file not found {f_enu}")
-        return
+        return pd.DataFrame()
 
     data = []
     for line in lines:
@@ -349,6 +349,8 @@ def read_clkdif(f_name, beg_time=None, ref_sat=None):
     data = []
     isfirst = True
     for line in lines:
+        if line.startswith(' REF SAT:'):
+            ref_sat = line.split()[2]
         if line.startswith('---') or line.startswith('MEAN'):
             break
         if line.startswith('  MJD       SOD'):
@@ -1262,12 +1264,7 @@ def sat_visible(f_sp3, f_out='', gs='G', cut=10):
     if data.empty:
         return
     dd = data[data.sod == 0]
-
     sats = gns_sat(gs)
-    if gs == 'C2':
-        sats = [s for s in sats if s < 'C19']
-    if gs == 'C3':
-        sats = [s for s in sats if s > 'C16']
 
     data_out = []
     lines = []

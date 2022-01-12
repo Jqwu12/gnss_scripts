@@ -275,6 +275,9 @@ class GnssConfig:
     def ext_ics(self) -> bool:
         return self.config.getboolean('process_scheme', 'ext_ics', fallback=False)
 
+    def bds2_isb(self) -> bool:
+        return self.config.getboolean('process_scheme', 'bds2_isb', fallback=False)
+
     def set_process(self, **kwargs):
         """ Update any process item in config """
         for key, val in kwargs.items():
@@ -790,7 +793,7 @@ class GnssConfig:
                 logging.info(f"files copied to work directory: {', '.join(f_rst)}")
 
     def set_ref_clk(self, mode='sat', sats=None):
-        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'E03', 'C21', 'C22', 'C23', 'C08', 'R01', 'R02', 'R05']
+        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'E03', 'C21', 'C22', 'C25', 'C08', 'C11', 'R01', 'R02', 'R05']
         ref_sites = ['ptbb', 'brux', 'twtf', 'mgue', 'hob2', 'nrc1']
         sat_list = self.all_gnssat if sats is None else [s for s in self.all_gnssat if s in sats]
         if mode == 'sat':
@@ -872,7 +875,7 @@ class GnssConfig:
 
     def get_xml_process(self) -> ET.Element:
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
-                    'sysbias_model', 'ztd_model', 'ambfix']
+                    'sysbias_model', 'ztd_model', 'ambfix', 'bds2_isb']
         proc_dict = default_process.copy()
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):

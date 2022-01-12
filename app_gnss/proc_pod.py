@@ -18,9 +18,9 @@ class ProcPod(ProcGen):
 
     proj_id = 'POD'
 
-    required_subdir = ['log_tb', 'tmp', 'xml', 'orbdif', 'clkdif', 'figs']
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'rinexn', 'biabern']
+    required_subdir = super().required_subdir + ['orbdif', 'clkdif']
+    required_opt = super().required_opt + ['estimator']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'biabern']
 
     ref_cen = ['com', 'gbm', 'wum', 'esm']
     sat_rm = ['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60',

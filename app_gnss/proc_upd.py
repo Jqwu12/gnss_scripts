@@ -18,9 +18,9 @@ class ProcUpd(ProcGen):
 
     proj_id = 'UPD'
 
-    required_subdir = ['log_tb', 'xml', 'figs', 'enu', 'flt', 'ppp', 'ambupd', 'res', 'tmp']
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    required_subdir = super().required_subdir + ['enu', 'flt', 'ppp', 'ambupd', 'res']
+    required_opt = super().required_opt + ['estimator']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     def process_ifcb(self):
         if self._config.freq < 3 or 'G' not in self._config.gsys:
@@ -41,7 +41,7 @@ class ProcUpd(ProcGen):
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         if fix:
             GrtAmbfix(self._config, 'SD', 'ambfix', nmp=self.nthread, all_sites=True).run()
-        GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread, fix_amb=fix).run()
+        GrtPpplsq(self._config, 'ppplsq', nmp=self.nthread, fix_amb=fix, stop=False).run()
         self.basic_check(files=['recover_all', 'ambupd_in'])
         check_res_sigma(self._config)
 

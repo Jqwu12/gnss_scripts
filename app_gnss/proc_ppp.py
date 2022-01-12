@@ -16,9 +16,9 @@ class ProcPPP(ProcGen):
 
     proj_id = 'PPP'
 
-    required_subdir = ['log_tb', 'xml', 'enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res', 'tmp']
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    required_subdir = super().required_subdir + ['enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res']
+    required_opt = super().required_opt + ['estimator']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     # def prepare(self):
     #     shutil.copy('/home/jqwu/projects/PPP/2021/preedit.xml', 'xml/preedit.xml')

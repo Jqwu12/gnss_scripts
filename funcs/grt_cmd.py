@@ -573,7 +573,7 @@ class GrtAmbfix(GrtCmd):
         proc = self._config.get_xml_process()
         proc.set('ambfix', 'true')
         # <inputs>
-        f_inps = ['biabern']
+        f_inps = ['biabern', 'rinexn']
         if self._config.obs_comb == "IF":
             f_inps.append('rinexo')
         if self.mode != "DD":

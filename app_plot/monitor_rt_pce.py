@@ -320,11 +320,20 @@ def monitor_clkdif(cen, gns: str):
             continue
 
         data = pd.DataFrame()
-        for gs in gns:
+        sat_rm = config.sat_rm
+        gns_dif = [s for s in gns if s != "C"]
+        if "C" in gns:
+            gns_dif.extend(["C2", "C3"])
+        for gs in gns_dif:
             file = os.path.join('clkdif', f'clkdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}_{gs}')
             if crt_time.mjd == t_beg.mjd or crt_time.mjd == dend_time.mjd or not os.path.isfile(file):
-                config.gsys = gs
+                config.gsys = gs[0]
+                if gs == "C2":
+                    config.sat_rm += gns_sat("C3")
+                elif gs == "C3":
+                    config.sat_rm += gns_sat("C2")
                 GrtClkdif(config, f'clkdif_{cen}_{gs}').run()
+                config.sat_rm = sat_rm
             
             if not os.path.isfile(file):
                 continue
@@ -378,7 +387,7 @@ def monitor_orbdif(cen, gns: str):
     dend_time = GnssTime.from_datetime(datetime.utcnow())
     if dend_time > t_end:
         dend_time = t_end
-    dend_time -= 86400
+    dend_time = GnssTime(dend_time.mjd - 1, 0)
     config = GnssConfig.from_file('cf_clk.ini')
     config.orb_ac = cen
     config.intv = intv
@@ -389,11 +398,10 @@ def monitor_orbdif(cen, gns: str):
     crt_time = GnssTime(t_beg.mjd, 0)
     while crt_time < dend_time:
         end_time = GnssTime(crt_time.mjd, 86400 - intv)
-        if crt_time.mjd == t_beg.mjd:
-            config.beg_time = t_beg + intv*5
-        else:
-            config.beg_time = crt_time
+        config.beg_time = crt_time
         config.end_time = end_time
+        if crt_time.mjd > dend_time.mjd - 2:
+            config.end_time -= intv*5
         
         figdir = os.path.join('figs', f'{crt_time.year}{crt_time.doy:0>3d}')
         if not os.path.isdir(figdir):
@@ -412,7 +420,8 @@ def monitor_orbdif(cen, gns: str):
         f_dif = os.path.join('orbdif', f'orbdif_{crt_time.year}{crt_time.doy:0>3d}_{cen}')
         if not os.path.isfile(f_dif):
             f_orb = f'orb_{crt_time.year}{crt_time.doy:0>3d}_{cen}'
-            GrtSp3orb(config, f'sp3orb_{cen}').run()
+            if not os.path.isfile(f_orb):
+                GrtSp3orb(config, f'sp3orb_{cen}').run()
             if not os.path.isfile(f_orb):
                 crt_time += 86400
                 continue
@@ -472,7 +481,7 @@ if __name__ == '__main__':
                 dt0 = t_beg.datetime()
                 dt1 = t_next.datetime()
                 data_tmp = data[(data.date > dt0) & (data.date < dt1)]
-                figname = os.path.join(figdir, f'info_time_{t_beg.year}{t_beg.doy}.png')
+                figname = os.path.join(figdir, f'info_time_{t_beg.year}{t_beg.doy:0>3d}.png')
                 draw_time_info(data_tmp, figname)
                 t_beg += 86400*7
 

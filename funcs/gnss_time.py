@@ -20,7 +20,7 @@ def norm_doy(year, doy):
             year -= 1
             doy += (365 + leapyear(year))
         elif doy > 365 + leapyear(year):
-            doy -= (365 - leapyear(year))
+            doy -= (365 + leapyear(year))
             year += 1
         else:
             break

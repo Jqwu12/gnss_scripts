@@ -17,9 +17,9 @@ class ProcCarRng(ProcGen):
 
     proj_id = 'CarRng'
 
-    required_subdir = ['log_tb', 'xml', 'ambupd', 'res', 'tmp', 'ambcon', 'figs']
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    required_subdir = super().required_subdir + ['ambupd', 'res', 'ambcon', 'enu']
+    required_opt = super().required_opt + ['estimator']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
 
     def init_daily(self):
         self._config.carrier_range = False

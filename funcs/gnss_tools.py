@@ -587,7 +587,10 @@ def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
     """
     if not os.path.isdir(path):
         # logging.warning(f"Input path {path} not exists, creating...")
-        os.makedirs(path)
+        try:
+            os.makedirs(path)
+        except FileExistsError:
+            logging.warning(f"path already exists: {path}")
     for file in files:
         file_olds = config.get_xml_file(file.lower(), check=False, sattype=sattype)
         for f_name in file_olds:

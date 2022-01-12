@@ -18,8 +18,8 @@ class ProcLeo(ProcGen):
 
     proj_id = 'LEO'
 
-    required_subdir = ['log_tb', 'tmp', 'xml', 'orbdif']
-    required_file = ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude']
+    required_subdir = super().required_subdir + ['log_tb', 'tmp', 'xml', 'orbdif']
+    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude']
 
     @classmethod
     def from_args(cls):
