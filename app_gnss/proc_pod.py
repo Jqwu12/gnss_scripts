@@ -4,27 +4,23 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app_gnss.proc_gen import ProcGen
-from funcs import timeblock, copy_result_files, copy_result_files_to_path, \
+from funcs import GnssConfig, timeblock, copy_result_files, copy_result_files_to_path, \
     recover_files, check_pod_residuals, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfix
 
 
 class ProcPod(ProcGen):
-    default_args = {
-        'dsc': 'GREAT GNSS Precise Orbit Determination',
-        'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': '', 'cf': 'cf_pod.ini'
-    }
 
-    proj_id = 'POD'
-
-    required_subdir = super().required_subdir + ['orbdif', 'clkdif']
-    required_opt = super().required_opt + ['estimator']
-    required_file = super().required_file + ['rinexo', 'rinexn', 'biabern']
-
+    description = 'GREAT GNSS Precise Orbit Determination'
+    default_config = 'cf_pod.ini'
     ref_cen = ['com', 'gbm', 'wum', 'esm']
-    sat_rm = ['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60',
-              'C39', 'C40', 'C41', 'C42', 'C43', 'C44', 'C45', 'C46']
+
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['orbdif', 'clkdif']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn', 'biabern']
+        self.proj_id = 'POD'
 
     def prepare(self):
         with timeblock('Finished prepare ics'):

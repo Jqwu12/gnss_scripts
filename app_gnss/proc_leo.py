@@ -4,34 +4,35 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen, basic_args, get_args_config
-from funcs import timeblock, copy_result_files, GrtSp3orb, GrtOrbfitLeo, GrtPodleo, GrtOi, GrtAmbfixD, GrtAmbfix
+from funcs import GnssConfig, timeblock, copy_result_files, GrtSp3orb, GrtOrbfitLeo, \
+    GrtPodleo, GrtOi, GrtAmbfixD, GrtAmbfix
 
 
 # Todo:  test 30h POD; test irc, osb, upd AR POD
 
 class ProcLeo(ProcGen):
-    default_args = {
-        'dsc': 'LEO reduced dynamic POD Processing',
-        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'grm', 'bia': 'cas', 'cf': 'cf_leo.ini'
-    }
 
-    proj_id = 'LEO'
+    description = 'LEO reduced dynamic POD Processing'
+    default_config = 'cf_leo.ini'
 
-    required_subdir = super().required_subdir + ['log_tb', 'tmp', 'xml', 'orbdif']
-    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['orbdif']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern', 'attitude']
+        self.proj_id = 'LEO'
 
     @classmethod
     def from_args(cls):
-        args = cls.get_args(cls.default_args)
+        args = cls.get_args(cls.description, cls.default_config)
         cf = get_args_config(args)
         cf.site_list = []
         cf.leo_list = args.sat
         return cls(cf, args.num, args.kp_dir)
 
     @staticmethod
-    def get_args(default_args):
-        parser = basic_args(default_args)
+    def get_args(description, config):
+        parser = basic_args(description, config)
         # Required argument
         parser.add_argument('-s', dest='sat', nargs='+', required=True, help='LEO satellite')
         parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')

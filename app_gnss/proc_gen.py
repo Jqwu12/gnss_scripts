@@ -7,8 +7,8 @@ from funcs import GnssConfig, GnssTime, gns_sat, hms2sod, read_site_list, MAX_TH
     GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres
 
 
-def basic_args(default_args: dict):
-    parser = argparse.ArgumentParser(description=default_args['dsc'])
+def basic_args(description: str, config: str):
+    parser = argparse.ArgumentParser(description=description)
     # Time argument
     parser.add_argument('-n', dest='num', type=int, default=1, help='number of process days')
     parser.add_argument('-l', dest='seslen', type=int, help='process time length (hours)')
@@ -27,7 +27,7 @@ def basic_args(default_args: dict):
     parser.add_argument('-s', dest='f_list', help='site_list file')
     parser.add_argument('-cen', dest='cen', help='GNSS precise orbits and clocks')
     parser.add_argument('-bia', dest='bia', help='bias files')
-    parser.add_argument('-cf', dest='cf', default=default_args['cf'], help='config file')
+    parser.add_argument('-cf', dest='cf', default=config, help='config file')
     parser.add_argument('-kp', dest='kp_dir', action='store_true', help='Keep the existing work dir')
     return parser
 
@@ -76,21 +76,16 @@ def get_args_config(args) -> GnssConfig:
 
 
 class ProcGen:
-    default_args = {
-        'dsc': 'GREAT Data Processing',
-        'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_pod.ini'
-    }
 
-    proj_id = ''
-
-    required_subdir = ['log_tb', 'tmp', 'xml', 'figs']
-    required_opt = []
-    required_file = []
-
-    sat_rm = []
+    description = 'GREAT Data Processing'
+    default_config = 'cf_pod.ini'
 
     def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        self.required_subdir = ['log_tb', 'tmp', 'xml', 'figs']
+        self.required_opt = []
+        self.required_file = []
+        self.proj_id = ''
+
         self._config = config
         self._ndays = ndays
         self._kp_dir = kp_dir
@@ -106,13 +101,13 @@ class ProcGen:
 
     @classmethod
     def from_args(cls):
-        args = cls.get_args(cls.default_args)
+        args = cls.get_args(cls.description, cls.default_config)
         cf = get_args_config(args)
         return cls(cf, args.num, args.kp_dir)
 
     @staticmethod
-    def get_args(default_args):
-        parser = basic_args(default_args)
+    def get_args(description, config):
+        parser = basic_args(description, config)
         # Required argument
         parser.add_argument('-y', dest='year', type=int, required=True, help='begin date: year')
         parser.add_argument('-d', dest='doy', type=int, required=True, help='begin date: day of year')

@@ -1,17 +1,20 @@
 import logging
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from funcs import GnssConfig
 from proc_upd import ProcUpd
 
 
 class ProcIfcb(ProcUpd):
 
-    default_args = {
-        'dsc': 'GREAT IFCB Estimation',
-        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_ifcb.ini'
-    }
+    description = 'GREAT IFCB Estimation'
+    default_config = 'cf_ifcb.ini'
 
-    required_opt = ['estimator']
-    required_file = ['rinexo', 'biabern']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_opt = ['estimator']
+        self.required_file = ['rinexo', 'biabern']
 
     def process_upd(self, obs_comb=None, fix=False):
         return ['ifcb'] if self.process_ifcb() else []

@@ -4,27 +4,24 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import timeblock, copy_dir, copy_result_files_to_path
+from funcs import GnssConfig, timeblock, copy_dir, copy_result_files_to_path
 
 
 class ProcPrepare(ProcGen):
-    default_args = {
-        'dsc': 'GREAT preprocess observations and generate init orbits',
-        'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': '', 'cf': 'cf_prepare.ini'
-    }
 
-    proj_id = 'PREPARE'
+    description = 'GREAT preprocess observations and generate init orbits'
+    default_config = 'cf_prepare.ini'
 
-    required_subdir = super().required_subdir + ['orbdif']
-    required_opt = super().required_opt + ['estimator']
-    required_file = super().required_file + ['rinexo', 'rinexn']
-
-    sat_rm = ['C01', 'C02', 'C03', 'C04', 'C05', 'C59', 'C60']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['orbdif']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn']
+        self.proj_id = 'PREPARE'
 
     def prepare(self):
         with timeblock('Finished prepare ics'):
-            #return self.prepare_ics()
+            # return self.prepare_ics()
             self._config.intv = 300
             if not self.prepare_ics():
                 return False
@@ -37,7 +34,6 @@ class ProcPrepare(ProcGen):
         ics_dir = os.path.join(self._config.gnss_data, 'ics', str(self.year))
         logging.info(f"===> Copy ics and orb file to {ics_dir}")
         copy_result_files_to_path(self._config, ['ics', 'orb'], ics_dir)
-        #return 
 
         ambflag_dir = os.path.join(self._config.gnss_data, 'obs', 'log_tb', str(self.year), f'{self.doy:0>3d}')
         logging.info(f"===> Copy ambflag files to {ambflag_dir}")

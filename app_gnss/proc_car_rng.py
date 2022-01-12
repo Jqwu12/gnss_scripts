@@ -4,22 +4,20 @@ import os
 import shutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import check_res_sigma, GrtPpplsq, GrtAmbfix, backup_dir, copy_ambflag_from
+from funcs import GnssConfig, check_res_sigma, GrtPpplsq, GrtAmbfix, backup_dir, copy_ambflag_from
 
 
 class ProcCarRng(ProcGen):
 
-    default_args = {
-        'dsc': 'GREAT Carrier-range observation generation',
-        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'LSQ', 'sys': 'G',
-        'freq': 3, 'cen': 'com', 'bia': '', 'cf': 'cf_carrng.ini'
-    }
+    description = 'GREAT Carrier-range observation generation'
+    default_config = 'cf_carrng.ini'
 
-    proj_id = 'CarRng'
-
-    required_subdir = super().required_subdir + ['ambupd', 'res', 'ambcon', 'enu']
-    required_opt = super().required_opt + ['estimator']
-    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['ambupd', 'res', 'ambcon', 'enu']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+        self.proj_id = 'CarRng'
 
     def init_daily(self):
         self._config.carrier_range = False

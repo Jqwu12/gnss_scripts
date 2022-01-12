@@ -4,21 +4,20 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import GrtPpplsq
+from funcs import GnssConfig, GrtPpplsq
 
 
 class ProcPPP(ProcGen):
-    default_args = {
-        'dsc': 'GREAT Precise Point Positioning',
-        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'EPO', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_ppp.ini'
-    }
 
-    proj_id = 'PPP'
+    description = 'GREAT Precise Point Positioning'
+    default_config = 'cf_ppp.ini'
 
-    required_subdir = super().required_subdir + ['enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res']
-    required_opt = super().required_opt + ['estimator']
-    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+        self.proj_id = 'PPP'
 
     # def prepare(self):
     #     shutil.copy('/home/jqwu/projects/PPP/2021/preedit.xml', 'xml/preedit.xml')

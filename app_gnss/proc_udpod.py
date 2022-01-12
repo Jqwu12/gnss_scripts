@@ -4,29 +4,16 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_pod import ProcPod
-from funcs import copy_ambflag_from, recover_files, switch_ambflag, timeblock
+from funcs import GnssConfig, copy_ambflag_from, recover_files, switch_ambflag, timeblock
 
 
 class ProcUdPod(ProcPod):
-    default_args = {
-        'dsc': 'GREAT GNSS Precise Orbit Determination',
-        'num': 1, 'seslen': 24, 'intv': 300, 'obs_comb': 'IF', 'est': 'LSQ', 'sys': 'G',
-        'freq': 2, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_udpod.ini'
-    }
 
-    proj_id = 'POD_UD'
+    default_config = 'cf_udpod.ini'
 
-    # def prepare_obs(self):
-    #     shutil.rmtree('log_tb')
-    #     os.makedirs('log_tb')
-    #     ambflagdir = os.path.join(self.base_dir, 'CarRng', str(self.year), f"{self.doy:0>3d}_GEC_grt_test5", 'log_tb')
-    #     copy_ambflag_from(ambflagdir)
-    #     if self.basic_check(files=['ambflag']):
-    #         logging.info("Ambflag is ok ^_^")
-    #         return True
-    #     else:
-    #         logging.critical("NO ambflag files ! skip to next day")
-    #         return False
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.proj_id = 'POD_UD'
 
     # def prepare_ics(self):  # for test!
     #     return True

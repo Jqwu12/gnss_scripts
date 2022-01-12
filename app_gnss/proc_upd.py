@@ -2,25 +2,23 @@ import os
 import sys
 import shutil
 import logging
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from funcs import gns_name, gns_sat, timeblock, merge_upd_all, merge_upd_bds, copy_result_files_to_path, \
+from funcs import GnssConfig, gns_name, gns_sat, timeblock, merge_upd_all, merge_upd_bds, copy_result_files_to_path, \
     backup_dir, check_res_sigma, GrtUpdlsq, GrtPpplsq, GrtAmbfix
 from app_gnss.proc_gen import ProcGen
 
 
 class ProcUpd(ProcGen):
-    default_args = {
-        'dsc': 'GREAT Uncalibrated Phase Delay Estimation',
-        'num': 1, 'seslen': 24, 'intv': 30, 'obs_comb': 'UC', 'est': 'LSQ', 'sys': 'G',
-        'freq': 3, 'cen': 'com', 'bia': 'cas', 'cf': 'cf_upd.ini'
-    }
 
-    proj_id = 'UPD'
+    description = 'GREAT Uncalibrated Phase Delay Estimation'
+    default_config = 'cf_upd.ini'
 
-    required_subdir = super().required_subdir + ['enu', 'flt', 'ppp', 'ambupd', 'res']
-    required_opt = super().required_opt + ['estimator']
-    required_file = super().required_file + ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+    def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
+        super().__init__(config, ndays, kp_dir)
+        self.required_subdir += ['enu', 'flt', 'ppp', 'ambupd', 'res']
+        self.required_opt += ['estimator']
+        self.required_file += ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
+        self.proj_id = 'UPD'
 
     def process_ifcb(self):
         if self._config.freq < 3 or 'G' not in self._config.gsys:
