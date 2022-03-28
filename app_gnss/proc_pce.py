@@ -4,7 +4,7 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import GnssConfig, copy_result_files, copy_ambflag_from, GrtClkdif, GrtPcelsq, GrtAmbfixDd, GrtAmbfix
+from funcs import GnssConfig, copy_result_files, GrtClkdif, GrtPcelsq, GrtAmbfix
 
 
 class ProcPce(ProcGen):

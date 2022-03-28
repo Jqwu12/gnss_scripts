@@ -6,6 +6,7 @@ import math
 import platform
 import xml.etree.ElementTree as ET
 from typing import List
+import pandas as pd
 
 from . import gnss_files as gf
 from . import gnss_tools as gt
@@ -274,9 +275,24 @@ class GnssConfig:
     @property
     def ext_ics(self) -> bool:
         return self.config.getboolean('process_scheme', 'ext_ics', fallback=False)
+    
+    @property
+    def ext_ambupd(self) -> bool:
+        return self.config.getboolean('process_scheme', 'ext_ambupd', fallback=False)
 
+    @property
     def bds2_isb(self) -> bool:
         return self.config.getboolean('process_scheme', 'bds2_isb', fallback=False)
+
+    @property
+    def ambupd(self) -> bool:
+        return self.config.getboolean('process_scheme', 'ambupd', fallback=False)
+
+    @ambupd.setter
+    def ambupd(self, value: bool):
+        if not isinstance(value, bool):
+            raise TypeError('Expected a bool')
+        self.config.set('process_scheme', 'ambupd', str(value))
 
     def set_process(self, **kwargs):
         """ Update any process item in config """
@@ -443,6 +459,10 @@ class GnssConfig:
     # -----------------------------------------------------------------------------------
     # ambiguity_scheme settings
     @property
+    def amb_type(self) -> str:
+        return self.config.get('ambiguity_scheme', 'amb_type', fallback='UNDEF')
+
+    @property
     def upd_mode(self) -> str:
         if self.orb_ac in ['grm', 'grg', 'gr2']:
             return 'IRC'
@@ -558,7 +578,11 @@ class GnssConfig:
         self.config.set("process_files", file, new_path)
         logging.info(f"change {file} directory to {target_path}")
 
-    def _file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
+    def is_rec_file(self, f_type, sec='process_files'):
+        file = self.config.get(sec, f_type, raw=True, fallback='')
+        return file.rfind("${rec}") > 0 or file.rfind("${rec_u}") > 0 or file.rfind("${rec_l}") > 0
+
+    def _file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False) -> str:
         if cf_vars is None:
             cf_vars = {}
         cfv = self.beg_time.config_timedic()
@@ -570,13 +594,13 @@ class GnssConfig:
             return ''
         return f
 
-    def file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
+    def file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False) -> str:
         return self._file_name(f_type, cf_vars, sec, check, quiet)
 
     def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
         if cf_vars is None:
             cf_vars = {}
-        if f_type == 'sp3' or f_type == 'sp3_inp':
+        if f_type == 'sp3':
             t_beg = self.beg_time - 5400
             t_end = self.end_time + 5400
         elif f_type == 'rinexc':
@@ -599,11 +623,11 @@ class GnssConfig:
                      remove=False, quiet=False) -> list:
         # -------------------------------------------------------------------------------
         # files per site
-        if f_type in ['rinexo', 'kin', 'ambupd_in', 'recover_all', 'ambcon_all', 'ambflag'] or \
-                f_type.startswith('ambflag1'):
+        if self.is_rec_file(f_type, sec):
+        # if f_type in ['rinexo', 'kin', 'ambupd_in', 'recover_all', 'ambcon_all', 'ambflag'] or \
+        #         f_type.startswith('ambflag1'):
             rec_rm = []
             f_list = []
-            f_type = f_type.replace('_all', '_in')
             for rec in self.all_receivers:
                 if f_type == 'rinexo':
                     fs = self._daily_file(f_type, rec, sec, check)
@@ -627,7 +651,7 @@ class GnssConfig:
             return f_list
         # -------------------------------------------------------------------------------
         # common files
-        elif f_type == 'sp3' or f_type == 'sp3_inp':
+        elif f_type == 'sp3':
             f_list = []
             if 'gns' in sattype:
                 if not self.ultra_sp3:
@@ -643,12 +667,6 @@ class GnssConfig:
             return [f for f in f_list if f]
         elif f_type in ['rinexn', 'rinexc', 'ssrclk']:
             return self._daily_file(f_type, {}, sec, check, quiet)
-        elif f_type == 'rinexc_all':
-            fl = self._daily_file('rinexc', {}, sec, check, quiet)
-            fs = self._file_name('recclk', {}, sec, check, quiet)
-            if fs:
-                fl.append(fs)
-            return fl
         elif f_type == 'clk':
             fs = [self._file_name('satclk', {}, sec, check), self._file_name('recclk', {}, sec, check, quiet)]
             return [f for f in fs if f]
@@ -723,6 +741,10 @@ class GnssConfig:
         else:
             f = self._file_name(f_type, {}, sec, check, quiet)
             return [f] if f else []
+    
+    def get_xml_file_str(self, f_type: str, sattype='gns', sec='process_files', check=False,
+                    remove=False, quiet=False) -> str:
+        return ' '.join(self.get_xml_file(f_type, sattype, sec, check, remove, quiet))
 
     def remove_ambflag_file(self, sites: List[str]):
         for f_type in ['ambflag', 'ambflag13', 'ambflag14', 'ambflag15']:
@@ -765,6 +787,8 @@ class GnssConfig:
             if not self.ext_ambflag and f_type.startswith('ambflag'):
                 continue
             if not self.ext_ics and f_type in ['ics', 'orb']:
+                continue
+            if not self.ext_ambupd and f_type == 'ambupd':
                 continue
             if (f_type == 'ambflag15' and self.freq < 5) or (f_type == 'ambflag14' and self.freq < 4) or (f_type == 'ambflag13' and self.freq < 3):
                 continue
@@ -851,19 +875,24 @@ class GnssConfig:
             efreq.text = ' '.join([str(f) for f in range(1, self.gnsfreq(gs) + 1)])
             elems.append(elem)
         return elems
+    
+    def get_xml_leo(self) -> ET.Element:
+        leo = ET.Element('LEO')
+        leosat = ET.SubElement(leo, 'sat')
+        leosat.text = ' '.join(self._config.leo_sats)
+        return leo
 
     def get_xml_ambiguity(self) -> ET.Element:
         amb_dict = default_ambiguity.copy()
         for opt in self.config.options('ambiguity_scheme'):
             amb_dict[opt] = self.config.get('ambiguity_scheme', opt).upper()
         amb_dict['upd_mode'] = self.upd_mode
-        amb_dict['carrier_range_out'] = 'YES' if self.carrier_range_out else 'NO'
         if self.lsq_mode == "EPO":
             amb_dict['min_common_time'] = '0'
 
         amb = ET.Element('ambiguity')
         for key, val in amb_dict.items():
-            if key == 'fix_mode':
+            if key == 'fix_mode' or key == 'amb_type':
                 continue
             if key.endswith('_decision'):
                 maxdev, maxsig, alpha, *_ = val.split() + ['', '', '']
@@ -875,15 +904,13 @@ class GnssConfig:
 
     def get_xml_process(self) -> ET.Element:
         opt_list = ['obs_combination', 'ion_model', 'frequency', 'crd_constr', 'sig_init_crd', 'lsq_mode',
-                    'sysbias_model', 'ztd_model', 'ambfix', 'bds2_isb']
+                    'sysbias_model', 'ztd_model', 'ambfix', 'bds2_isb', 'sig_ambcon', 'ambupd', 'apply_carrier_range',
+                    'real_time', 'ultrasp3']
         proc_dict = default_process.copy()
         for opt in opt_list:
             if self.config.has_option('process_scheme', opt):
                 proc_dict[opt] = self.config.get('process_scheme', opt)
 
-        proc_dict['apply_carrier_range'] = 'true' if self.carrier_range else 'false'
-        proc_dict['real_time'] = 'true' if self.real_time else 'false'
-        proc_dict['ultrasp3'] = 'true' if self.ultra_sp3 else 'false'
         proc = ET.Element('process', attrib=proc_dict)
         if not self.config.getboolean('process_scheme', 'trimcor', fallback=True):
             elem = ET.SubElement(proc, 'trimcor')
@@ -893,12 +920,37 @@ class GnssConfig:
     def get_xml_inputs(self, fs: List[str], check=True, sattype='gns') -> ET.Element:
         inps = ET.Element('inputs')
         for f in fs:
-            f_xml = f
-            for text in ['_all', '_in', '_out']:
-                f_xml = f_xml.replace(text, '')
-            elem = ET.SubElement(inps, f_xml)
-            elem.text = ' '.join(self.get_xml_file(f, sattype=sattype, check=check))
+            name = f
+            if sattype == 'leo' and f == 'ics':
+                name = 'iceleo'
+            elif f == 'pso':
+                name = 'sp3'
+            elif f == 'clk':
+                name = 'rinexc'
+            elem = ET.SubElement(inps, name)
+            elem.text = self.get_xml_file_str(f, sattype=sattype, sec='process_files', check=check)
         return inps
+    
+    def get_xml_outputs(self, fs: List[str], check=False, sattype='gns', verb="0", log=None) -> ET.Element:
+        outs = ET.Element('outputs', {'verb': verb})
+        for f in fs:
+            name = f.replace('grt', '')
+            file = f
+            if sattype == 'leo' and f == 'ics':
+                name = 'iceleo'
+            elif f == 'orblap':
+                name = 'orbdif'
+            elif f == 'ifcb' or f.startswith('upd'):
+                name = 'upd'
+            elif f == 'orbfit':
+                file = 'orbdif'
+            elem = ET.SubElement(outs, name)
+            elem.text = self.get_xml_file_str(file, sattype=sattype, sec='output_files', check=check)
+        
+        if log is not None:
+            elem = ET.SubElement(outs, 'log')
+            elem.text = log
+        return outs
 
     def get_xml_turboedit(self, isleo) -> ET.Element:
         tb = ET.Element('turboedit', attrib={'lite_mode': 'true' if self.lite_mode else 'false'})
@@ -945,13 +997,14 @@ class GnssConfig:
     def get_xml_receiver(self, use_res_crd=False) -> ET.Element:
         receiver = ET.Element('receiver')
         # get coordinates from IGS snx file
-        crd_data = gt.get_crd_snx(' '.join(self.get_xml_file('sinex', check=True, quiet=True)), self.site_list)
+        crd_data = gt.get_crd_snx(self.file_name('sinex', check=True, quiet=True), self.site_list)
         # get coordinates from GREAT residuals file
         if use_res_crd:
-            f_res = self.get_xml_file('recover_in', check=True)
+            f_res = self.get_xml_file('recover', check=True)
             if f_res:
                 crd_res = gt.get_crd_res(f_res[0], self.site_list)
-                crd_data = crd_data.append(crd_res)
+                # crd_data = crd_data.append(crd_res)
+                crd_data = pd.concat([crd_data, crd_res])
         if crd_data.empty:
             return receiver
         # get receiver elements

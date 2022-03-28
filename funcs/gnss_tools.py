@@ -123,7 +123,7 @@ def pretty_xml(element, indent='\t', newline='\n', level=0):
 
 
 def check_pod_sigma(config, maxsig=8):
-    f_res = config.get_xml_file('recover_in')[0]
+    f_res = config.file_name('recover')
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
         return False
@@ -154,7 +154,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
              max_freq       threshold of outlier numbers
              max_per        threshold of outlier percentage
     """
-    f_res = config.get_xml_file('recover_in')[0]
+    f_res = config.file_name('recover')
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
         return [], []
@@ -211,7 +211,7 @@ def check_pod_residuals(config, max_res_L=10, max_res_P=100, max_count=50, max_f
 
 
 def check_pod_residuals_new(config, max_res_L=0.3, max_freq=0.3):
-    f_res = config.get_xml_file('recover_in')[0]
+    f_res = config.file_name('recover')
     if not os.path.isfile(f_res):
         logging.warning(f"file not found {f_res}")
         return [], []
@@ -362,7 +362,7 @@ def check_brd_orbfit(f_name):
                     num[prn] += 1
     except FileNotFoundError:
         logging.warning(f"orbfit file not found {f_name}")
-        return
+        return []
 
     sat_rm = []
     for prn in val.keys():
@@ -454,7 +454,7 @@ def check_ics(config):
 def check_res_sigma(config, max_sig=8):
     site_rm = []
     for rec in config.all_receivers:
-        file = config.file_name('recover_in', rec, check=True, quiet=True)
+        file = config.file_name('recover', rec, check=True, quiet=True)
         if not file:
             logging.warning(f"cannot find resfile for {rec['rec']}")
             site_rm.append(rec['rec'])
@@ -515,7 +515,7 @@ def backup_files(config, files, sattype='gns', suffix="bak"):
             try:
                 shutil.copy(f_name, f_new)
             except IOError:
-                logging.warning(f"unable to backup file {file}")
+                logging.warning(f"unable to backup file {f_name}")
 
 
 def recover_files(config, files, sattype='gns', suffix="bak"):
@@ -526,7 +526,17 @@ def recover_files(config, files, sattype='gns', suffix="bak"):
             try:
                 shutil.copy(f_new, f_name)
             except IOError:
-                logging.warning(f"unable to recover file {file}.{suffix}")
+                logging.warning(f"unable to recover file {f_new}")
+
+
+def remove_files(config, files, sattype='gns'):
+    for file in files:
+        file_olds = config.get_xml_file(file.lower(), sec='output_files', check=True, sattype=sattype, quiet=True)
+        for f_name in file_olds:
+            try:
+                os.remove(f_name)
+            except IOError:
+                logging.warning(f"unable to remove file {f_name}")
 
 
 def get_rnxc_satlist(f_name):
@@ -571,7 +581,7 @@ def copy_result_files(config, files, scheme, sattype='gns'):
     e.g. cp orbdif_2020001 orbdif_2020001_flt
     """
     for file in files:
-        file_olds = config.get_xml_file(file, check=True, sattype=sattype)
+        file_olds = config.get_xml_file(file, sec="output_files", check=True, sattype=sattype)
         for f_name in file_olds:
             f_new = f"{f_name}_{scheme}"
             try:
@@ -592,7 +602,7 @@ def copy_result_files_to_path(config, files, path, schemes=None, sattype='gns'):
         except FileExistsError:
             logging.warning(f"path already exists: {path}")
     for file in files:
-        file_olds = config.get_xml_file(file.lower(), check=False, sattype=sattype)
+        file_olds = config.get_xml_file(file.lower(), sec='output_files', sattype=sattype)
         for f_name in file_olds:
             if not schemes:
                 if os.path.isfile(f_name):
@@ -655,6 +665,8 @@ def merge_upd_bds(config, files):
         config.gsys = "C"
         f_out = config.file_name(f)
         idx = f_out.rfind("C")
+        if idx < 0:
+            continue
         f1 = f_out[0: idx] + "C2" + f_out[idx + 1:]
         f2 = f_out[0: idx] + "C3" + f_out[idx + 1:]
         if os.path.isfile(f1) and os.path.isfile(f2):

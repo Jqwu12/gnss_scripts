@@ -1013,9 +1013,20 @@ def read_ressum(f_name, labels, year, tbeg, seslen, ymax=15):
     return lcres_all
 
 
+def _sat2sys(sat):
+    return 'C2' if sat[0] == 'C' and sat < 'C17' else sat[0]
+
+
 def read_daily_upd(files: dict):
     upd_first = {}
     data = []
+    ref_sats = {
+        "G":  ["G01", "G05", "G06", "G08", "G30"],
+        "R":  ["R01", "R02", "R03", "R04", "R05"],
+        "E":  ["E01", "E02", "E03", "E04", "E07"],
+        "C":  ["C21", "C22", "C23", "C24", "C25"],
+        "C2": ["C08", "C09", "C11", "C13", "C16"]
+    }
     for mjd, file in files.items():
         try:
             with open(file) as f:
@@ -1033,13 +1044,7 @@ def read_daily_upd(files: dict):
             sat, val, sig, nobs, *_ = line.split()
             data_tmp[sat] = [float(val), float(sig), int(nobs)]
 
-        ref_val = {"G": 0, "R": 0, "E": 0, "C": 0}
-        ref_sats = {
-            "G": ["G01", "G05", "G06", "G08", "G30"],
-            "R": ["R01", "R02", "R03", "R04"],
-            "E": ["E01", "E02", "E03", "E04"],
-            "C": ["C21", "C22", "C23", "C24", "C08"]
-        }
+        ref_val = {"G": 0, "R": 0, "E": 0, "C": 0, "C2": 0}
         for sys, sats in ref_sats.items():
             for sat in sats:
                 if sat in data_tmp.keys():
@@ -1047,12 +1052,12 @@ def read_daily_upd(files: dict):
                     break
             if ref_val[sys] == 0:
                 for sat, vals in data_tmp.items():
-                    if sys == sat[0]:
+                    if sys == _sat2sys(sat):
                         ref_val[sys] = vals[0]
                         break
 
         for sat, vals in data_tmp.items():
-            vals[0] -= ref_val[sat[0]]
+            vals[0] -= ref_val[_sat2sys(sat)]
             if not sat in upd_first:
                 if vals[0] > 0.5:
                     vals[0] -= 1
@@ -1105,16 +1110,37 @@ def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle=
     sats.sort()
     if len(sats) == 0:
         return
+    gs_sats = {}
+    for sat in sats:
+        gs = _sat2sys(sat)
+        if gs not in gs_sats.keys():
+            gs_sats[gs] = []
+        else:
+            gs_sats[gs].append(sat)
     nrow = 2 if len(sats) > 16 else 1
     ncol = 2 if len(sats) > 8 else 1
 
     nf = ncol * nrow
+    nf_sats = []
+    nf0 = nf
+    ngs = len(gs_sats)
+    for _, s in gs_sats.items():
+        if nf0 == 0 or ngs == 0:
+            break
+        nf_gs = math.ceil(nf0 / ngs)
+        ngs -= 1
+        nf0 -= nf_gs
+        n = math.ceil(len(s) / nf_gs)
+        for j in range(nf_gs):
+            nf_sats.append(s[n*j: n*(j+1)])
+
     nsat = math.ceil(len(sats) / nf)
     fig = plt.figure(figsize=(ncol * 5 + 2, nrow * 3 + 1.5))
 
     for i in range(nf):
         ax = fig.add_subplot(nrow, ncol, i + 1)
-        sats_tmp = sats[nsat * i: nsat * (i + 1)]
+        #sats_tmp = sats[nsat * i: nsat * (i + 1)]
+        sats_tmp = nf_sats[i]
 
         val = 0
         num = 0

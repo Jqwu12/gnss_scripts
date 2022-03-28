@@ -40,7 +40,7 @@ class ProcCarRng(ProcGen):
         logging.info(f"===> Calculate float ambiguities by precise point positioning")
         # GrtPpplsq(self._config, 'ppplsq_F', nmp=self.nthread).run()
         # self.basic_check(files=['recover_all', 'ambupd_in'])
-        backup_dir('log_tb', 'log_tb_save')
+        # backup_dir('log_tb', 'log_tb_save')
         # backup_dir('res', 'res_F0')
         # self.editres(bad=80, jump=80, nshort=600, all_sites=True)
 

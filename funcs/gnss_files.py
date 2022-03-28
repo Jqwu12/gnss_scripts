@@ -343,7 +343,7 @@ def sum_clkdif(f_list, mjds, mode=None):
         return data
 
 
-def read_orbdif_sum(f_name):
+def read_orbdif_sum(f_name, max=30):
     try:
         with open(f_name) as f:
             lines = f.readlines()
@@ -395,7 +395,7 @@ def read_orbdif_sum(f_name):
         val_c = int(str_c) / 10
         val_r = int(str_r) / 10
         val_3d = math.sqrt(val_a ** 2 + val_c ** 2 + val_r ** 2)
-        if val_3d > 200:
+        if val_3d > max:
             continue
         data.append({'mjd': mjd, 'sat': sats[i], 'val': val_a, 'type': 'along'})
         data.append({'mjd': mjd, 'sat': sats[i], 'val': val_c, 'type': 'cross'})
@@ -410,7 +410,7 @@ def read_orbdif_file(f_name):
             lines = f.readlines()
     except FileNotFoundError:
         logging.error(f"file not found {f_name}")
-        return
+        return pd.DataFrame()
 
     sats = []
     i = 0
@@ -455,18 +455,15 @@ def read_orbdif_file(f_name):
                 data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_r, 'type': 'radial'})
                 data.append({'mjd': fmjd, 'sec': sec, 'sat': sats[i], 'val': val_3d, 'type': '3d'})
 
-    if data:
-        return pd.DataFrame(data)
-    else:
-        return
+    return pd.DataFrame(data)
 
 
-def sum_orbdif(f_list, mode=None):
+def sum_orbdif(f_list, mode=None, max=30):
     if not f_list:
-        return
+        return pd.DataFrame()
     data_sum = []
     for file in f_list:
-        data_tmp = read_orbdif_sum(file)
+        data_tmp = read_orbdif_sum(file, max)
         if data_tmp is None:
             continue
         else:
@@ -477,7 +474,7 @@ def sum_orbdif(f_list, mode=None):
         sats.sort()
         for sat in sats:
             data_a = data_tmp[(data_tmp.sat == sat) & (data_tmp['type'] == 'along')]
-            if 230 > len(data_a) > 1:
+            if len(data_a) < 200 and len(data_a) != 1:
                 continue
             for tp in ['along', 'cross', 'radial', '3d']:
                 data = data_tmp[(data_tmp.sat == sat) & (data_tmp['type'] == tp)]

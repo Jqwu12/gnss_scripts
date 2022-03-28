@@ -218,7 +218,7 @@ class ProcGen:
         GrtOi(self._config, 'oi').run()
         GrtOrbfit(self._config, 'orbfit').run()
 
-        sat_rm = check_brd_orbfit(self._config.get_xml_file('orbdif')[0])
+        sat_rm = check_brd_orbfit(self._config.get_xml_file('orbdif', sec='output_files')[0])
         self._config.sat_rm += sat_rm
         edit_ics(self._config.get_xml_file('ics')[0], sat_rm)
         GrtOi(self._config, 'oi').run()
@@ -232,9 +232,8 @@ class ProcGen:
                 return False
         return True
 
-    def editres(self, bad=80, jump=80, nshort=600, edt_amb=False, all_sites=False):
-        nmp = self.nthread if all_sites else 1
-        kwargs = {'nmp': nmp, 'bad': bad, 'jump': jump, 'nshort': nshort, 'edt_amb': edt_amb, 'all_sites': all_sites}
+    def editres(self, bad=80, jump=80, nshort=600, edt_amb=False):
+        kwargs = {'nmp': self.nthread, 'bad': bad, 'jump': jump, 'nshort': nshort, 'edt_amb': edt_amb}
         if self._config.obs_comb == 'IF':
             GrtEditres(self._config, 'editres12', mode='L12', freq='LC12', **kwargs).run()
             if self._config.freq > 2:

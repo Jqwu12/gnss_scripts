@@ -4,6 +4,7 @@ import platform
 import xml.etree.ElementTree as ET
 import os
 import logging
+
 from .gnss_tools import timeblock, split_receivers, get_rnxc_satlist, pretty_xml
 from .gnss_config import GnssConfig
 from .constants import MAX_THREAD, gns_sat
@@ -17,6 +18,18 @@ def _run_cmd(cmd):
     except subprocess.CalledProcessError:
         logging.error(f"RunTimeError: {cmd}")
         return False
+    
+
+def multi_run(cmds: list, label="", nmp=None, stop=False):
+    if nmp is None:
+        nmp = min(MAX_THREAD, len(cmds))
+    with timeblock(f'Normal end [{len(cmds):0>2d}] {label}'):
+        with ThreadPoolExecutor(nmp) as pool:
+            results = pool.map(_run_cmd, cmds)
+
+    for rst in results:
+        if stop and not rst:
+            raise RuntimeError
 
 
 class GrtCmd:
@@ -40,7 +53,19 @@ class GrtCmd:
         self.stop = stop
         self.str_args = str_args
 
-    def form_xml(self, ithd=-1):
+    def check(self):
+        if not os.path.isfile(self.grt_exe):
+            raise ValueError(f"GREAT App {self.grt_exe} not exist")
+        if not os.path.isdir('xml'):
+            os.makedirs('xml')
+        if not os.path.isdir('tmp'):
+            os.makedirs('tmp')
+        self.nmp = min(self.nmp, len(self._config.all_sites))
+        if self.nmp == 0:
+            self.nmp = 1
+        return True
+
+    def form_xml(self):
         raise NotImplementedError
 
     def xml_receiver(self):
@@ -55,13 +80,17 @@ class GrtCmd:
             rec = self._config.get_xml_receiver()
         return rec
 
-    def prepare_xml(self, ithd=-1):
-        root = self.form_xml(ithd)
+    def prepare_xml(self):
+        root = self.form_xml()
         tree = ET.ElementTree(root)
         pretty_xml(root, '\t', '\n', 0)
         tree.write(self.xml, encoding='utf-8', xml_declaration=True)
 
     def form_cmd(self):
+        if not self.check():
+            if self.stop:
+                raise RuntimeError('check failed')
+            return []
         if self.nmp < 2:
             self.prepare_xml()
             return [f"{self.grt_exe} -x {self.xml} {self.str_args} > {self.log} 2>&1"]
@@ -79,45 +108,31 @@ class GrtCmd:
                     self._config.leo_list = []
                 self.xml = os.path.join('xml', f"{self.label}{i + 1:0>2d}.xml")
                 self.log = os.path.join('tmp', f"{self.label}{i + 1:0>2d}.log")
-                self.prepare_xml(i)
+                self.prepare_xml()
                 cmds.append(f"{self.grt_exe} -x {self.xml} {self.str_args} > {self.log} 2>&1")
 
             self._config.site_list = all_sites
             self._config.leo_list = all_leos
             return cmds
 
-    def check(self):
-        if not os.path.isfile(self.grt_exe):
-            raise ValueError(f"GREAT App {self.grt_exe} not exist")
-        if not os.path.isdir('xml'):
-            os.makedirs('xml')
-        if not os.path.isdir('tmp'):
-            os.makedirs('tmp')
-        self.nmp = min(self.nmp, len(self._config.all_sites))
-        if self.nmp == 0:
-            self.nmp = 1
-        return True
-
-    def run(self):
-        if not self.check():
-            if self.stop:
-                raise RuntimeError('check failed')
-            return
-
-        cmds = self.form_cmd()
-        with timeblock(f'Normal end [{len(cmds):0>2d}] {self.label}'):
+    def run_cmd(self):
+        with timeblock(f'Normal end [{len(self.cmds):0>2d}] {self.label}'):
             with ThreadPoolExecutor(self.nmp) as pool:
-                results = pool.map(_run_cmd, cmds)
+                results = pool.map(_run_cmd, self.cmds)
 
         for rst in results:
             if self.stop and not rst:
                 raise RuntimeError
 
+    def run(self):
+        cmds = self.form_cmd()
+        multi_run(cmds, self.label, self.nmp, self.stop)
+
 
 class GrtTurboedit(GrtCmd):
     grt_app = 'great_turboedit'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -130,24 +145,19 @@ class GrtTurboedit(GrtCmd):
         root.append(proc)
         root.append(self._config.get_xml_turboedit(isleo))
         root.append(self._config.get_xml_inputs(['rinexo', 'rinexn']))
-        out = ET.SubElement(root, 'outputs', {'append': 'false', 'verb': '1'})
-        elem = ET.SubElement(out, 'log')
-        elem.text = self.xml.replace(".xml", ".log")
-        elem = ET.SubElement(out, 'ambflag_dir')
-        elem.text = ' '.join(self._config.get_xml_file('ambflagdir'))
+        f_log = self.xml.replace(".xml", ".log")
+        root.append(self._config.get_xml_outputs(['ambflag_dir'], verb="1", log=f_log))
         return root
 
 
 class GrtClockRepair(GrtCmd):
     grt_app = 'great_clockrepair'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.append(self._config.get_xml_inputs(['rinexo']))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'obs_dir')
-        elem.text = ' '.join(self._config.get_xml_file('obs_trimcor'))
+        root.append(self._config.get_xml_outputs(['obs_dir']))
         return root
 
 
@@ -158,18 +168,14 @@ class GrtPreedit(GrtCmd):
         super().__init__(config, 'preedit', nmp=1, stop=stop)
         self.crd = crd
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec'] if self.crd else ['intv', 'sys']))
         root.extend(self._config.get_xml_gns())
         root.append(self._config.get_xml_force())
-        if self.crd:
-            root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'poleut1', 'sinex'], check=True))
-        else:
-            root.append(self._config.get_xml_inputs(['rinexn', 'poleut1'], check=True))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'ics')
-        elem.text = ' '.join(self._config.get_xml_file('ics'))
+        f_inps = ['rinexo', 'rinexn', 'poleut1', 'sinex'] if self.crd else ['rinexn', 'poleut1']
+        root.append(self._config.get_xml_inputs(f_inps))
+        root.append(self._config.get_xml_outputs(['ics']))
         return root
 
 
@@ -181,40 +187,30 @@ class GrtOi(GrtCmd):
         self.sattype = sattype
         super().__init__(config, label, nmp=1, stop=stop, str_args=str_args)
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys']))
         ET.SubElement(root, 'process', attrib={'num_threads': str(min(MAX_THREAD, 6))})
         root.append(self._config.get_xml_force(self.sattype))
-        f_inputs = ['blq', 'poleut1', 'oceantide', 'leapsecond', 'satpars', 'de', 'egm']
+        f_inputs = ['ics', 'blq', 'poleut1', 'oceantide', 'leapsecond', 'satpars', 'de', 'egm', 'pannel']
         if self.sattype == 'leo':
-            f_inputs.extend(['pannel', 'attitude', 'desaiscopolecoef'])
+            f_inputs.extend(['attitude', 'desaiscopolecoef'])
             inp = self._config.get_xml_inputs(f_inputs, sattype='leo')
             elem = ET.SubElement(inp, 'solar')
-            if self._config.atoms_drag == "MSISE00":
-                elem.text = ' '.join(self._config.get_xml_file("solar_MSISE", check=True, sattype='leo'))
-            else:
-                elem.text = ' '.join(self._config.get_xml_file("solar", check=True, sattype='leo'))
-            elem = ET.SubElement(inp, 'icsleo')
-            elem.text = ' '.join(self._config.get_xml_file('ics', check=True, sattype='leo'))
-            leo = ET.SubElement(root, 'LEO')
-            leosat = ET.SubElement(leo, 'sat')
-            leosat.text = ' '.join(self._config.leo_sats)
+            solar = 'solar_MSISE' if self._config.atoms_drag == "MSISE00" else 'solar'
+            elem.text = self._config.get_xml_file_str(solar, check=True, sattype='leo')
+            root.append(self._config.get_xml_leo())
         else:
-            f_inputs.extend(['ics'])
-            inp = self._config.get_xml_inputs(f_inputs)
+            root.append(self._config.get_xml_inputs(f_inputs))
             root.extend(self._config.get_xml_gns())
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'orb')
-        elem.text = ' '.join(self._config.get_xml_file('orb', sattype=self.sattype))
+        root.append(self._config.get_xml_outputs(['orb'], sattype=self.sattype))
         return root
 
 
 class GrtSp3orb(GrtOi):
     grt_app = 'great_sp3orb'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys']))
         root.append(self._config.get_xml_force(self.sattype))
@@ -224,53 +220,38 @@ class GrtSp3orb(GrtOi):
         elem = ET.SubElement(proc, 'sat')
         elem.text = ' '.join(self._config.leo_sats) if self.sattype == 'leo' else ' '.join(self._config.all_gnssat)
         
-        inps = ET.SubElement(root, 'inputs')
+        inps = self._config.get_xml_inputs(['poleut1'], sattype=self.sattype)
         elem = ET.SubElement(inps, 'sp3')
-        elem.text = ' '.join(self._config.get_xml_file('sp3_inp', sattype=self.sattype, check=True))
-        elem = ET.SubElement(inps, 'poleut1')
-        elem.text = ' '.join(self._config.get_xml_file('poleut1', sattype=self.sattype, check=True))
-        # root.append(self._config.get_xml_inputs(['poleut1', 'sp3'], sattype=self.sattype))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'orb')
-        elem.text = ' '.join(self._config.get_xml_file('orb', sattype=self.sattype))
-        if self.sattype == 'leo':
-            elem = ET.SubElement(out, 'icsleo')
-            elem.text = ' '.join(self._config.get_xml_file('ics', sattype='leo'))
-        else:
-            elem = ET.SubElement(out, 'ics')
-            elem.text = ' '.join(self._config.get_xml_file('ics', sattype='gns'))
+        elem.text = self._config.get_xml_file_str('sp3', sec='output_files', sattype=self.sattype, check=True)
+        root.append(inps)
+        outs = self._config.get_xml_outputs(['ics', 'orb'], sattype=self.sattype)
+        root.append(outs)
         return root
 
 
 class GrtOrbsp3(GrtOi):
     grt_app = 'great_orbsp3'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv']))
         proc = ET.SubElement(root, 'orbsp3')
         elem = ET.SubElement(proc, 'sat')
         elem.text = ' '.join(self._config.leo_sats) if self.sattype == 'leo' else ' '.join(self._config.all_gnssat)
         root.append(self._config.get_xml_inputs(['poleut1', 'orb'], sattype=self.sattype))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'sp3')
-        elem.text = ' '.join(self._config.get_xml_file('sp3_out'))
+        root.append(self._config.get_xml_outputs(['grtsp3'], sattype=self.sattype))
         return root
 
 
 class GrtOrbfit(GrtCmd):
     grt_app = 'great_orbfit'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         root.extend(self._config.get_xml_gns())
         root.append(self._config.get_xml_inputs(['orb', 'rinexn', 'ics', 'poleut1']))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'ics')
-        elem.text = ' '.join(self._config.get_xml_file('ics'))
-        elem = ET.SubElement(out, 'orbfit')
-        elem.text = ' '.join(self._config.get_xml_file('orbdif'))
+        root.append(self._config.get_xml_outputs(['ics', 'orbfit']))
         return root
 
 
@@ -278,10 +259,11 @@ class GrtOrbdif(GrtCmd):
     grt_app = 'great_orbdif'
 
     def __init__(self, config: GnssConfig, label=None, nmp=1, stop=False, trans='STRD',
-                 excsat="C01 C02 C03 C04 C05 G04 G14 G18 G23"):
+                 excsat="C01 C02 C03 C04 C05 G04 G14 G18 G23", overlap=False):
         super().__init__(config, label, nmp, stop)
         self.trans = trans
         self.excsat = excsat
+        self.overlap = overlap
 
     @property
     def excsys(self):
@@ -294,17 +276,26 @@ class GrtOrbdif(GrtCmd):
         else:
             return ""
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
+        if self.overlap:
+            self._config.end_time += self._config.intv
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         orbdif = ET.SubElement(root, 'orbdif')
         for opt in ['trans', 'excsat', 'excsys']:
             elem = ET.SubElement(orbdif, opt)
             elem.text = getattr(self, opt, '')
-        root.append(self._config.get_xml_inputs(['orb', 'sp3', 'poleut1']))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'orbdif')
-        elem.text = ' '.join(self._config.get_xml_file('orbdif'))
+        inp = self._config.get_xml_inputs(['orb', 'poleut1'])
+        elem = ET.SubElement(inp, 'sp3')
+        if self.overlap:
+            self._config.beg_time += 86400
+            self._config.end_time -= self._config.intv
+            elem.text = os.path.join(self._config.workdir, self._config.file_name('grtsp3', sec='output_files'))
+            self._config.beg_time -= 86400
+        else:
+            elem.text = self._config.get_xml_file_str('sp3', check=True)
+        root.append(inp)
+        root.append(self._config.get_xml_outputs(['orblap'] if self.overlap else ['orbdif']))
         return root
 
 
@@ -317,7 +308,7 @@ class GrtOrbfitLeo(GrtCmd):
         self.fit = fit
         self.unit = unit
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         orbfitleo = ET.SubElement(root, 'orbdifleo')
@@ -326,17 +317,8 @@ class GrtOrbfitLeo(GrtCmd):
         for opt in ['trans', 'fit', 'unit']:
             elem = ET.SubElement(orbfitleo, opt)
             elem.text = str(getattr(self, opt, ''))
-        inp = self._config.get_xml_inputs(['poleut1'])
-        elem = ET.SubElement(inp, 'orb')
-        elem.text = ' '.join(self._config.get_xml_file('orb', check=True, sattype='leo'))
-        elem = ET.SubElement(inp, 'sp3')
-        elem.text = ' '.join(self._config.get_xml_file('pso', check=True))
-        elem = ET.SubElement(inp, 'icsleo')
-        elem.text = ' '.join(self._config.get_xml_file('ics', check=True, sattype='leo'))
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'orbdif')
-        elem.text = ' '.join(self._config.get_xml_file('orbdif', sattype='leo'))
+        root.append(self._config.get_xml_inputs(['poleut1', 'orb', 'pso', 'ics'], sattype='leo'))
+        root.append(self._config.get_xml_outputs(['orbdif'], sattype='leo'))
         return root
 
 
@@ -354,7 +336,7 @@ class GrtClkdif(GrtCmd):
             return []
         return get_rnxc_satlist(f_clks[0])
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         gen = self._config.get_xml_gen(['sys', 'intv'])
         elem = ET.SubElement(gen, 'refsat')
@@ -363,16 +345,12 @@ class GrtClkdif(GrtCmd):
         root.extend(self._config.get_xml_gns())
         inp = ET.SubElement(root, 'inputs')
         elem = ET.SubElement(inp, "rinexc_prd")
-        if self._config.lsq_mode == 'EPO':
-            elem.text = ' '.join(self._config.get_xml_file('satclk_epo', check=True))
-        else:
-            elem.text = ' '.join(self._config.get_xml_file('satclk', check=True))
+        fname = 'satclk_epo' if self._config.lsq_mode == 'EPO' else 'satclk'
+        elem.text = self._config.get_xml_file_str(fname, check=True)
         elem = ET.SubElement(inp, 'rinexc_ref')
         fname = 'ssrclk' if self._config.orb_ac.startswith('clk') else 'rinexc'
-        elem.text = ' '.join(self._config.get_xml_file(fname, check=True))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'clkdif')
-        elem.text = ' '.join(self._config.get_xml_file('clkdif'))
+        elem.text = self._config.get_xml_file_str(fname, check=True)
+        root.append(self._config.get_xml_outputs(['clkdif']))
         return root
 
     def check(self):
@@ -386,7 +364,9 @@ class GrtEditres(GrtCmd):
     grt_app = 'great_editres'
 
     def __init__(self, config, label=None, nmp=1, stop=True,
-                 nshort=600, bad=50, jump=50, freq='LC12', mode='L12', edt_amb=False, all_sites=False):
+                 nshort=600, bad=50, jump=50, freq='LC12', mode='L12', edt_amb=False):
+        if not config.is_rec_file('recover'):
+            nmp = 1
         super().__init__(config, label, nmp, stop)
         self.short_elisp = str(nshort)
         self.bad_elisp = str(bad)
@@ -394,36 +374,31 @@ class GrtEditres(GrtCmd):
         self.freq = freq
         self.mode = mode
         self.edt_amb = 'YES' if edt_amb else 'NO'
-        self.all_sites = all_sites
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         proc = ET.SubElement(root, 'editres')
         for opt in ['edt_amb', 'freq', 'mode', 'short_elisp', 'jump_elisp', 'bad_elisp']:
             elem = ET.SubElement(proc, opt)
             elem.text = getattr(self, opt, '')
-        f_inputs = ['ambflag']
+        f_inputs = ['recover']
         if self.mode == "L13" or self.mode == "L3":
-            f_inputs = [f"ambflag13"]
+            f_inputs.append('ambflag13')
         elif self.mode == "L14" or self.mode == "L4":
-            f_inputs = [f"ambflag14"]
+            f_inputs.append('ambflag14')
         elif self.mode == "L15" or self.mode == "L5":
-            f_inputs = [f"ambflag15"]
-        inp = self._config.get_xml_inputs(f_inputs)
-        elem = ET.SubElement(inp, "recover")
-        elem.text = ' '.join(self._config.get_xml_file("recover_all", check=True)) if self.all_sites \
-            else ' '.join(self._config.get_xml_file("recover_in", check=True))
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'sum')
-        elem.text = ' '.join(self._config.get_xml_file('sum'))
+            f_inputs.append('ambflag15')
+        else:
+            f_inputs.append('ambflag')
+        root.append(self._config.get_xml_inputs(f_inputs))
+        root.append(self._config.get_xml_outputs(['sum']))
         return root
 
 
 class GrtConvobs(GrtCmd):
     grt_app = 'great_convobs'
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
@@ -431,9 +406,7 @@ class GrtConvobs(GrtCmd):
         if self._config.freq > 2:
             f_inputs.append('ambflag13')
         root.append(self._config.get_xml_inputs(f_inputs))
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'obs_dir')
-        elem.text = ' '.join(self._config.get_xml_file('obs_fix'))
+        root.append(self._config.get_xml_outputs(['obs_dir']))
         return root
 
 
@@ -447,7 +420,7 @@ class GrtUpdlsq(GrtCmd):
         if self.mode not in self.updlsq_mode:
             raise TypeError('Wrong updlsq mode')
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         # <gps> <bds> <gal> <glo>
@@ -509,7 +482,7 @@ class GrtUpdlsq(GrtCmd):
                 elif self.mode == 'WL':
                     root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'biabern']))
                 else:
-                    f_inputs = ['rinexn', 'upd']
+                    f_inputs = ['rinexn', 'upd', 'ambupd']
                     if self._config.carrier_range_out:
                         f_inputs.append('ambflag')
                         if self._config.freq > 2:
@@ -517,27 +490,13 @@ class GrtUpdlsq(GrtCmd):
                     self._config.upd_mode = 'IRC'
                     inp = self._config.get_xml_inputs(f_inputs)
                     self._config.upd_mode = 'UPD'
-                    elem = ET.SubElement(inp, "ambupd")
-                    elem.text = ' '.join(self._config.get_xml_file("ambupd_in", check=True))
                     root.append(inp)
         # <outputs>
-        out = ET.SubElement(root, "outputs")
-        elem = ET.SubElement(out, "upd")
-        if self.mode == "IFCB":
-            elem.text = ' '.join(self._config.get_xml_file('ifcb'))
-        elif self.mode == "EWL":
-            elem.text = ' '.join(self._config.get_xml_file('upd_ewl'))
-        elif self.mode == "EWL24":
-            elem.text = ' '.join(self._config.get_xml_file('upd_ewl24'))
-        elif self.mode == "EWL25":
-            elem.text = ' '.join(self._config.get_xml_file('upd_ewl25'))
-        elif self.mode == "WL":
-            elem.text = ' '.join(self._config.get_xml_file('upd_wl'))
-        else:
-            elem.text = ' '.join(self._config.get_xml_file('upd_nl'))
+        outfile = {'IFCB': 'ifcb', 'EWL25': 'upd_ewl25', 'EWL24': 'upd_ewl24', 'EWL': 'upd_ewl', 'WL': 'upd_wl', 'NL': 'upd_nl'}
+        f_outs = [outfile[self.mode]]
         if self.mode == "NL" and self._config.carrier_range_out:
-            out_ele = ET.SubElement(out, "ambflag_dir")
-            out_ele.text = ' '.join(self._config.get_xml_file('ambflagdir'))
+            f_outs.append('ambflag_dir')
+        root.append(self._config.get_xml_outputs(f_outs))
         return root
 
 
@@ -545,24 +504,25 @@ class GrtAmbfix(GrtCmd):
     grt_app = 'great_ambfix'
     amb_types = ["DD", "SD", "UD"]
 
-    def __init__(self, config, mode: str, label=None, nmp=1, stop=True, all_sites=False):
+    def __init__(self, config, mode=None, label=None, nmp=1, stop=True):
         super().__init__(config, label, nmp, stop)
-        self.all_sites = all_sites
-        self.mode = mode.upper()
+        if mode is not None:
+            self.mode = mode.upper()
+        else:
+            self.mode = self._config.amb_type.upper()
         if self.mode not in self.amb_types:
+            logging.error(f"Wrong ambiguity types: {self.mode}")
             raise TypeError('Wrong ambiguity types')
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
         root.extend(self._config.get_xml_gns())
         root.append(self._config.get_xml_receiver())
         # <process>
         proc = ET.SubElement(root, 'process', attrib={
-            'obs_combination': self._config.obs_combination,
+            'obs_combination': self._config.obs_combination, 'bds_code_bias_corr': 'true',
             'frequency': str(self._config.freq), 'num_threads': str(min(MAX_THREAD, 6, int(16 / self.nmp)))})
-        elem = ET.SubElement(proc, 'read_ofile_mode')
-        elem.text = "REALTIME"
         # <ambiguity>
         amb = self._config.get_xml_ambiguity()
         elem = ET.SubElement(amb, 'fix_mode')
@@ -573,74 +533,20 @@ class GrtAmbfix(GrtCmd):
         proc = self._config.get_xml_process()
         proc.set('ambfix', 'true')
         # <inputs>
-        f_inps = ['biabern', 'rinexn']
+        f_inps = ['biabern', 'rinexn', 'recover']
         if self._config.obs_comb == "IF":
             f_inps.append('rinexo')
         if self.mode != "DD":
             f_inps.append('upd')
-        inp = self._config.get_xml_inputs(f_inps)
-        elem = ET.SubElement(inp, "recover")
-        elem.text = ' '.join(self._config.get_xml_file("recover_all", check=True)) if self.all_sites \
-            else ' '.join(self._config.get_xml_file("recover_in", check=True))
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'ambcon')
-        # f_ambcon = self._config.get_xml_file('ambcon')[0]
-        # if ithd >= 0:
-        #     f_ambcon += f"_{ithd+1:0>2d}"
-        elem.text = ' '.join(self._config.get_xml_file("ambcon", check=False))
-        return root
-
-
-class GrtAmbfixD(GrtCmd):
-    grt_app = 'great_ambfixD'
-
-    def form_xml(self, ithd=-1):
-        root = ET.Element('config')
-        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
-        root.extend(self._config.get_xml_gns())
-        amb = self._config.get_xml_ambiguity()
-        elem = ET.SubElement(amb, 'fix_mode')
-        elem.text = 'ROUND'
-        root.append(amb)
-        proc = self._config.get_xml_process()
-        proc.set('ambfix', 'true')
-        inp = self._config.get_xml_inputs(['rinexo', 'biabern', 'upd'])
-        elem = ET.SubElement(inp, "recover")
-        elem.text = ' '.join(self._config.get_xml_file('recover_in', check=True))
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'ambcon_leo')
-        elem.text = ' '.join(self._config.get_xml_file('ambcon'))
-        return root
-
-
-class GrtAmbfixDd(GrtCmd):
-    grt_app = 'great_ambfixDd'
-
-    def form_xml(self, ithd=-1):
-        root = ET.Element('config')
-        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
-        root.extend(self._config.get_xml_gns())
-        amb = self._config.get_xml_ambiguity()
-        elem = ET.SubElement(amb, 'fix_mode')
-        elem.text = 'ROUND'
-        root.append(amb)
-        proc = self._config.get_xml_process()
-        proc.set('ambfix', 'true')
-        inp = self._config.get_xml_inputs(['rinexo', 'biabern'])
-        elem = ET.SubElement(inp, "recover")
-        elem.text = ' '.join(self._config.get_xml_file('recover_in', check=True))
-        root.append(inp)
-        out = ET.SubElement(root, 'outputs')
-        elem = ET.SubElement(out, 'ambcon')
-        elem.text = ' '.join(self._config.get_xml_file('ambcon'))
+        root.append(self._config.get_xml_inputs(f_inps))
+        root.append(self._config.get_xml_outputs(['ambcon']))
         return root
 
 
 class GrtPodlsq(GrtCmd):
     grt_app = 'great_podlsq'
-    f_outs = ['ics', 'satclk', 'recclk', 'recover']
+    f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'orb', 'ics', 'blq', 'satpars', 'rinexn', 'clk']
+    f_outs = ['ics', 'satclk', 'recclk', 'recover', 'ambupd']
 
     def __init__(self, config, label=None, stop=True, str_args='', fix_amb=False, use_res_crd=False):
         super().__init__(config, label, nmp=1, stop=stop, str_args=str_args)
@@ -685,7 +591,7 @@ class GrtPodlsq(GrtCmd):
             proc.set('ref_clk', self._config.set_ref_clk(mode='site'))
         proc.set('sig_ref_clk', '0.001')
         proc.set('num_threads', str(min(MAX_THREAD, 6)))
-        proc.set('matrix_remove', 'true')
+        proc.set('matrix_remove', 'false')
         proc.set('cmb_equ_multi_thread', 'true')
         # proc.set('sysbias_model', 'ISB+CON' if self._config.lsq_mode == 'LSQ' else 'ISB+WHIT')
         # only ISB, no GLONASS IFB;
@@ -696,27 +602,20 @@ class GrtPodlsq(GrtCmd):
         return proc
 
     def xml_inputs(self):
-        f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
-                  'orb', 'ics', 'blq', 'satpars', 'rinexn']
+        f_inps = list(self.f_inps) # copy a new list
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
-        inp = self._config.get_xml_inputs(f_inps)
-        elem = ET.SubElement(inp, 'rinexc')
-        elem.text = ' '.join(self._config.get_xml_file('clk', check=True))
-        return inp
+        if '-brdm' in self.str_args:
+            f_inps.remove('clk')
+        return self._config.get_xml_inputs(f_inps)
 
     def xml_outputs(self):
-        out = ET.Element('outputs')
-        elem = ET.SubElement(out, 'log')
-        elem.text = self.xml.replace(".xml", ".log")
-        for f in self.f_outs:
-            elem = ET.SubElement(out, f)
-            elem.text = ' '.join(self._config.get_xml_file(f))
-        return out
+        f_log = self.xml.replace(".xml", ".log")
+        return self._config.get_xml_outputs(self.f_outs, log=f_log)
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec', 'est']))
         root.append(self.xml_receiver())
@@ -751,55 +650,39 @@ class GrtPodleo(GrtPodlsq):
         return proc
 
     def xml_inputs(self):
-        f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern']
+        f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'clk', 'attitude', 'satpars']
         if 'G' in self._config.gsys and self._config.freq > 2:
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
             if self._config.upd_mode != 'OSB':
                 f_inps.append('upd')
+        inp = self._config.get_xml_inputs(f_inps, sattype='leo')
         if self._config.leo_mode == 'D':
             # LEO Dynamic POD
-            f_inps.extend(['orb', 'rinexc', 'ics', 'satpars', 'attitude'])
-            inp = self._config.get_xml_inputs(f_inps)
-            elem = ET.SubElement(inp, 'rinexc')
-            elem.text = ' '.join(self._config.get_xml_file('rinexc_all', check=True))
             elem = ET.SubElement(inp, 'icsleo')
-            elem.text = ' '.join(self._config.get_xml_file('ics', check=True, sattype='leo'))
+            elem.text = self._config.get_xml_file_str('ics', check=True, sattype='leo')
             elem = ET.SubElement(inp, 'orb')
-            elem.text = ' '.join(self._config.get_xml_file('orb', check=True, sattype='gnsleo'))
+            elem.text = self._config.get_xml_file_str('orb', check=True, sattype='gnsleo')
         else:
             # LEO Kinematic POD
-            f_inps.extend(['orb', 'rinexc', 'satpars', 'attitude'])
-            inp = self._config.get_xml_inputs(f_inps)
-            elem = ET.SubElement(inp, 'rinexc')
-            elem.text = ' '.join(self._config.get_xml_file('rinexc_all', check=True))
             elem = ET.SubElement(inp, 'sp3')
             elem.text = ' '.join(self._config.get_xml_file('sp3', check=True, sattype='gnsleo'))
         return inp
 
     def xml_outputs(self):
-        out = ET.Element('outputs')
-        elem = ET.SubElement(out, 'log')
-        elem.text = self.xml.replace(".xml", ".log")
-        elem = ET.SubElement(out, 'recclk')
-        elem.text = ' '.join(self._config.get_xml_file('recclk', sattype='leo'))
+        f_log = self.xml.replace(".xml", ".log")
         if self._config.leo_mode == 'D':
-            elem = ET.SubElement(out, 'icsleo')
-            elem.text = ' '.join(self._config.get_xml_file('ics', sattype='leo'))
+            return self._config.get_xml_outputs(['recclk', 'ics'], sattype='leo', log=f_log)
         else:
-            elem = ET.SubElement(out, 'sp3')
-            elem.text = ' '.join(self._config.get_xml_file('sp3', sattype='leo'))
-        return out
+            return self._config.get_xml_outputs(['recclk', 'sp3'], sattype='leo', log=f_log)
 
-    def form_xml(self, ithd=-1):
+    def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['intv', 'sys', 'rec', 'est']))
         # <gps> <glo> <gal> <bds>
         root.extend(self._config.get_xml_gns())
-        leo = ET.SubElement(root, 'LEO')
-        elem = ET.SubElement(leo, 'sat')
-        elem.text = ' '.join(self._config.leo_sats)
+        root.extend(self._config.get_xml_leo())
         # <process>
         root.append(self.xml_proc())
         # <turboedit>
@@ -820,20 +703,9 @@ class GrtPodleo(GrtPodlsq):
 
 class GrtPcelsq(GrtPodlsq):
     grt_app = 'great_pcelsq'
-    f_outs = ['satclk', 'recclk', 'recover']
-
-    def xml_inputs(self):
-        f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
-                  'rinexn', 'sp3', 'blq', 'sinex']
-        if 'G' in self._config.gsys and self._config.freq > 2:
-            f_inps.append('ifcb')
-        if self.fix_amb:
-            f_inps.append('ambcon')
-        inp = self._config.get_xml_inputs(f_inps)
-        elem = ET.SubElement(inp, 'rinexc')
-        elem.text = ' '.join(self._config.get_xml_file('clk', check=True))
-        return inp
-
+    f_outs = ['satclk', 'recclk', 'recover', 'ambupd']
+    f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'rinexn', 'sp3', 'blq', 'sinex', 'clk']
+    
 
 class GrtPpplsq(GrtPodlsq):
     grt_app = 'great_ppplsq'
@@ -868,14 +740,11 @@ class GrtPpplsq(GrtPodlsq):
         if self._config.carrier_range:
             f_inps.append('upd')
         elif self.fix_amb:
-            f_inps.append('upd' if self._config.lsq_mode == 'EPO' else 'ambcon_all')
+            f_inps.append('upd' if self._config.lsq_mode == 'EPO' else 'ambcon')
         return self._config.get_xml_inputs(f_inps)
 
-    def form_xml(self, ithd=-1):
-        if self.fix_amb:
-            self._config.set_process(ambiguity='AR')
-        else:
-            self._config.set_process(ambiguity='F')
+    def form_xml(self):
+        self._config.set_process(ambiguity='AR' if self.fix_amb else 'F')
         root = super().form_xml()
         if self._config.lsq_mode == 'EPO':
             amb = self._config.get_xml_ambiguity()

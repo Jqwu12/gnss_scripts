@@ -5,8 +5,8 @@ import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app_gnss.proc_gen import ProcGen
 from funcs import GnssConfig, timeblock, copy_result_files, copy_result_files_to_path, \
-    recover_files, check_pod_residuals, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, \
-    GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfix
+    recover_files, remove_files, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, \
+    GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfix, multi_run
 
 
 class ProcPod(ProcGen):
@@ -29,30 +29,38 @@ class ProcPod(ProcGen):
         return super().prepare()
 
     def orbdif(self, label=''):
+        cmds = []
         for c in self.ref_cen:
             self._config.orb_ac = c
-            GrtOrbdif(self._config, f'orbdif_{c}').run()
-            if label:
-                copy_result_files(self._config, ['orbdif'], label, 'gns')
+            cmds.extend(GrtOrbdif(self._config, f'orbdif_{c}').form_cmd())
             for g in self._gsys:
                 self._config.gsys = g
-                GrtClkdif(self._config, f'clkdif_{c}_{g}').run()
-                if label:
-                    copy_result_files(self._config, ['clkdif'], label, 'gns')
+                cmds.extend(GrtClkdif(self._config, f'clkdif_{c}_{g}').form_cmd())
             self._config.gsys = self._gsys
+        multi_run(cmds, "orbclkdif", self.nthread)
+
+        # save results
+        if label:
+            for c in self.ref_cen:
+                self._config.orb_ac = c
+                copy_result_files(self._config, ['orbdif'], label, 'gns')
+                for g in self._gsys:
+                    self._config.gsys = g
+                    copy_result_files(self._config, ['clkdif'], label, 'gns')
+                self._config.gsys = self._gsys
 
     def generate_products(self, label=''):
         GrtOrbsp3(self._config, 'orbsp3').run()
-        f_sp31 = self._config.get_xml_file('sp3_out', check=True)
-        f_clk0 = self._config.get_xml_file('satclk', check=True)
-        f_clk1 = self._config.get_xml_file('clk_out', check=False)
+        f_sp31 = self._config.file_name('grtsp3', sec='output_files', check=True)
+        f_clk0 = self._config.file_name('satclk', sec='output_files', check=True)
+        f_clk1 = self._config.file_name('grtclk', sec="output_files")
         if f_clk0:
-            shutil.copy(f_clk0[0], f_clk1[0])
+            shutil.copy(f_clk0, f_clk1)
         if label:
             if f_sp31:
-                shutil.copy(f_sp31[0], f"{f_sp31[0]}_{label}")
-            if os.path.isfile(f_clk1[0]):
-                shutil.copy(f_clk1[0], f"{f_clk1[0]}_{label}")
+                shutil.copy(f_sp31, f"{f_sp31}_{label}")
+            if os.path.isfile(f_clk1):
+                shutil.copy(f_clk1, f"{f_clk1}_{label}")
 
     def detect_outliers(self):
         for i in range(10):
@@ -67,6 +75,7 @@ class ProcPod(ProcGen):
             if bad_sat:
                 logging.warning(f"SATELLITES {' '.join(bad_sat)} are removed")
             self._config.sat_rm += bad_sat
+            remove_files(self._config, ['clk'])
             logging.info(f"reprocess-{i+1} great_podlsq due to bad stations or satellites")
         return True
 
@@ -101,12 +110,11 @@ class ProcPod(ProcGen):
         self.process_orb(label, eval, prod)
         return True
 
-    # todo: ambfix is not work for UC model
     def process_ambfix(self):
-        self._config.intv = 30
-        GrtAmbfix(self._config, "DD", 'ambfix').run()
-        # GrtAmbfixDd(self._config, 'ambfix').run()
-        self._config.intv = self._intv
+        #gsys = ''.join([s for s in self._gsys if s != "R"])
+        #self._config.gsys = gsys
+        GrtAmbfix(self._config, None, 'ambfix').run()
+        #self._config.gsys = self._gsys
 
     def save_results(self, labels):
         result_dir = self._config.file_name('result_dir')
@@ -126,6 +134,8 @@ class ProcPod(ProcGen):
         logging.info(f"------------------------------------------------------------------------\n{' '*36}"
                      f"Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
+        
+        self._config.ambupd = False
         logging.info(f"===> 1st iteration for precise orbit determination")
         with timeblock("Finished 1st POD"):
             if not self.process_1st_pod('F1', True, False):
@@ -135,21 +145,24 @@ class ProcPod(ProcGen):
             if not self.basic_check(files=['ambflag']):
                 logging.error('process POD failed! no valid ambflag file')
                 return
-            copy_result_files(self._config, ['recover'], 'F1')
+            #copy_result_files(self._config, ['recover'], 'F1')
 
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with timeblock("Finished 2nd POD"):
             if not self.process_float_pod('F2', True, False):
                 return
             self.editres(bad=40, jump=40, nshort=600)
-            copy_result_files(self._config, ['recover'], 'F2')
+            #copy_result_files(self._config, ['recover'], 'F2')
 
+        self._config.ambupd = True
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with timeblock('Finished 3rd POD'):
             if not self.process_float_pod('F3', True, True):
                 return
             copy_result_files(self._config, ['ics', 'orb', 'satclk', 'recclk', 'recover'], 'F3')
 
+        self.save_results(['F3'])
+        return
         logging.info(f"===> 4th iteration for precise orbit determination")
         with timeblock('Finished fixed POD'):
             self.process_ambfix()
