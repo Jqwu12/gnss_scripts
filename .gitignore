@@ -1,8 +1,11 @@
 *.sh
 *.out
+*.log
+*.ipynb
 __pycache__/*
 funcs/__pycache__/*
 .vscode/*
+.idea/*
 app_gnss/site_list_*
 app_gnss/*.ini
 app_gnss/log/*

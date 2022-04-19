@@ -446,13 +446,15 @@ class GnssConfig:
         self.leo_list = list(set(self.leo_list).difference(set(leo_rm)))
         logging.warning(f"LEOs {' '.join(leo_rm)} are removed")
 
-    def remove_site(self, site_rm: list):
+    def remove_site(self, site_rm: list, ambflag=True):
         """ Remove ground stations in config """
         if not isinstance(site_rm, list):
             return
         site_rm = [s.lower() for s in site_rm if s.lower() in self.site_list]
         if not site_rm:
             return
+        if ambflag:
+            self.remove_ambflag_file(site_rm)
         self.site_list = list(set(self.site_list).difference(set(site_rm)))
         logging.warning(f"STATIONS {' '.join(site_rm)} are removed")
 
@@ -461,6 +463,10 @@ class GnssConfig:
     @property
     def amb_type(self) -> str:
         return self.config.get('ambiguity_scheme', 'amb_type', fallback='UNDEF')
+
+    @property
+    def wl_mode(self) -> str:
+        return self.config.get('ambiguity_scheme', 'wl_mode', fallback='UNDEF')
 
     @property
     def upd_mode(self) -> str:
@@ -588,7 +594,8 @@ class GnssConfig:
         cfv = self.beg_time.config_timedic()
         cfv.update(cf_vars)
         f = self.config.get(sec, f_type, vars=cfv, fallback='')
-        if check and not os.path.isfile(f):
+        f_exsit = os.path.isdir(f) if "_dir" in f_type else os.path.isfile(f)
+        if check and not f_exsit:
             if not quiet:
                 logging.warning(f"file not found {f}")
             return ''
@@ -927,6 +934,10 @@ class GnssConfig:
                 name = 'sp3'
             elif f == 'clk':
                 name = 'rinexc'
+            elif f == 'ambinp':
+                name = 'ambcon'
+            elif f.startswith('upd'):
+                name = 'upd'
             elem = ET.SubElement(inps, name)
             elem.text = self.get_xml_file_str(f, sattype=sattype, sec='process_files', check=check)
         return inps
@@ -944,6 +955,8 @@ class GnssConfig:
                 name = 'upd'
             elif f == 'orbfit':
                 file = 'orbdif'
+            elif f == 'ambinp':
+                name = 'ambcon'
             elem = ET.SubElement(outs, name)
             elem.text = self.get_xml_file_str(file, sattype=sattype, sec='output_files', check=check)
         
@@ -997,7 +1010,7 @@ class GnssConfig:
     def get_xml_receiver(self, use_res_crd=False) -> ET.Element:
         receiver = ET.Element('receiver')
         # get coordinates from IGS snx file
-        crd_data = gt.get_crd_snx(self.file_name('sinex', check=True, quiet=True), self.site_list)
+        crd_data = gt.get_crd_snx(self.get_xml_file_str('sinex', check=True), self.site_list)
         # get coordinates from GREAT residuals file
         if use_res_crd:
             f_res = self.get_xml_file('recover', check=True)

@@ -150,6 +150,23 @@ class GrtTurboedit(GrtCmd):
         return root
 
 
+class GrtMwobs(GrtCmd):
+    grt_app = 'great_mwobs'
+
+    def form_xml(self):
+        root = ET.Element('config')
+        root.append(self._config.get_xml_gen(['intv', 'sys', 'rec']))
+        root.extend(self._config.get_xml_gns())
+        if self._config.site_list:
+            root.append(self.xml_receiver())
+        proc = ET.SubElement(root, 'process', attrib={'num_threads': str(min(MAX_THREAD, 12)), "bds_code_bias_corr": "true"})
+        if self._config.leo_list or self._config.crd_constr.startswith('K'):
+            proc.set('pos_kin', 'true')
+        root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'biabern']))
+        root.append(self._config.get_xml_outputs(['mwobs_dir']))
+        return root
+
+
 class GrtClockRepair(GrtCmd):
     grt_app = 'great_clockrepair'
 
@@ -461,17 +478,14 @@ class GrtUpdlsq(GrtCmd):
             root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern']))
         else:
             if self._config.obs_comb == 'UC':
-                f_inputs = ['rinexn', 'upd'] if self.mode == 'NL' else ['rinexn']
-                if self.mode == 'NL' and self._config.carrier_range_out:
-                    f_inputs.append('ambflag')
-                    if self._config.freq > 2:
-                        f_inputs.append('ambflag13')
-                self._config.upd_mode = 'IRC'
-                inp = self._config.get_xml_inputs(f_inputs)
-                self._config.upd_mode = 'UPD'
-                elem = ET.SubElement(inp, "ambupd")
-                elem.text = ' '.join(self._config.get_xml_file("ambupd_in", check=True))
-                root.append(inp)
+                f_inputs = ['rinexn', 'ambupd']
+                if self.mode == 'NL':
+                    f_inputs.append('upd_wl')
+                    if self._config.carrier_range_out:
+                        f_inputs.append('ambflag')
+                        if self._config.freq > 2:
+                            f_inputs.append('ambflag13')
+                root.append(self._config.get_xml_inputs(f_inputs))
             else:
                 if self.mode == 'EWL':
                     root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'ambflag13', 'biabern', 'ifcb']))
@@ -482,15 +496,12 @@ class GrtUpdlsq(GrtCmd):
                 elif self.mode == 'WL':
                     root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'biabern']))
                 else:
-                    f_inputs = ['rinexn', 'upd', 'ambupd']
+                    f_inputs = ['rinexn', 'upd', 'ambupd', 'upd_wl']
                     if self._config.carrier_range_out:
                         f_inputs.append('ambflag')
                         if self._config.freq > 2:
                             f_inputs.append('ambflag13')
-                    self._config.upd_mode = 'IRC'
-                    inp = self._config.get_xml_inputs(f_inputs)
-                    self._config.upd_mode = 'UPD'
-                    root.append(inp)
+                    root.append(self._config.get_xml_inputs(f_inputs))
         # <outputs>
         outfile = {'IFCB': 'ifcb', 'EWL25': 'upd_ewl25', 'EWL24': 'upd_ewl24', 'EWL': 'upd_ewl', 'WL': 'upd_wl', 'NL': 'upd_nl'}
         f_outs = [outfile[self.mode]]
@@ -533,9 +544,15 @@ class GrtAmbfix(GrtCmd):
         proc = self._config.get_xml_process()
         proc.set('ambfix', 'true')
         # <inputs>
-        f_inps = ['biabern', 'rinexn', 'recover']
-        if self._config.obs_comb == "IF":
-            f_inps.append('rinexo')
+        f_inps = []
+        if self._config.wl_mode.upper() == 'AMB':
+            f_inps = ['ambinp', 'rinexn']
+        elif self._config.wl_mode.upper() == 'MW':
+            f_inps = ['rinexn', 'recover', 'mwobs_dir']
+        else:
+            f_inps = ['biabern', 'rinexn', 'recover']
+            if self._config.obs_comb == "IF":
+                f_inps.append('rinexo')
         if self.mode != "DD":
             f_inps.append('upd')
         root.append(self._config.get_xml_inputs(f_inps))
@@ -545,8 +562,9 @@ class GrtAmbfix(GrtCmd):
 
 class GrtPodlsq(GrtCmd):
     grt_app = 'great_podlsq'
-    f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'orb', 'ics', 'blq', 'satpars', 'rinexn', 'clk']
-    f_outs = ['ics', 'satclk', 'recclk', 'recover', 'ambupd']
+    f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'orb', 
+              'ics', 'blq', 'satpars', 'rinexn', 'clk', 'mwobs_dir']
+    f_outs = ['ics', 'satclk', 'recclk', 'recover', 'ambupd', 'ambinp']
 
     def __init__(self, config, label=None, stop=True, str_args='', fix_amb=False, use_res_crd=False):
         super().__init__(config, label, nmp=1, stop=stop, str_args=str_args)
@@ -751,4 +769,20 @@ class GrtPpplsq(GrtPodlsq):
             elem = ET.SubElement(amb, 'fix_mode')
             elem.text = 'SEARCH' if self.fix_amb else 'NO'
             root.append(amb)
+        return root
+
+
+class GrtSLR(GrtCmd):
+    grt_app = 'great_slr'
+
+    def form_xml(self):
+        root = ET.Element('config')
+        root.append(self._config.get_xml_gen(['sys']))
+        root.extend(self._config.get_xml_gns())
+        slr = ET.SubElement(root, 'SLR')
+        elem = ET.SubElement(slr, 'type')
+        elem.text = "NAV"
+        f_inputs = ['NPT', 'DE', 'poleut1', 'slrf', 'blq', 'atx', 'orb', 'satpars']
+        root.append(self._config.get_xml_inputs(f_inputs))
+        root.append(self._config.get_xml_outputs(['obs_dir']))
         return root

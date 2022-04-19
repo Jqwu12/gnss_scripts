@@ -5,7 +5,7 @@ import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app_gnss.proc_gen import ProcGen
 from funcs import GnssConfig, timeblock, copy_result_files, copy_result_files_to_path, \
-    recover_files, remove_files, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, \
+    recover_files, remove_files, check_pod_residuals_new, check_pod_sigma, backup_dir, check_ics, edit_ics, \
     GrtOrbdif, GrtClkdif, GrtPodlsq, GrtOi, GrtOrbsp3, GrtAmbfix, multi_run
 
 
@@ -74,6 +74,7 @@ class ProcPod(ProcGen):
             self._config.remove_site(bad_site)
             if bad_sat:
                 logging.warning(f"SATELLITES {' '.join(bad_sat)} are removed")
+                edit_ics(self._config.get_xml_file('ics')[0], bad_sat)
             self._config.sat_rm += bad_sat
             remove_files(self._config, ['clk'])
             logging.info(f"reprocess-{i+1} great_podlsq due to bad stations or satellites")
