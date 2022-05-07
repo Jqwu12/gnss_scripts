@@ -1021,11 +1021,11 @@ def read_daily_upd(files: dict):
     upd_first = {}
     data = []
     ref_sats = {
-        "G":  ["G01", "G05", "G06", "G08", "G30"],
-        "R":  ["R01", "R02", "R03", "R04", "R05"],
+        "G":  ["G05", "G08", "G06", "G01", "G30"],
+        "R":  ["R18", "R02", "R03", "R04", "R05"],
         "E":  ["E01", "E02", "E03", "E04", "E07"],
         "C":  ["C21", "C22", "C23", "C24", "C25"],
-        "C2": ["C08", "C09", "C11", "C13", "C16"]
+        "C2": ["C09", "C08", "C11", "C13", "C16"]
     }
     for mjd, file in files.items():
         try:
@@ -1115,8 +1115,7 @@ def draw_upd(data, figfile="", figtitle="", grid=True, dform="%H:%M", linestyle=
         gs = _sat2sys(sat)
         if gs not in gs_sats.keys():
             gs_sats[gs] = []
-        else:
-            gs_sats[gs].append(sat)
+        gs_sats[gs].append(sat)
     nrow = 2 if len(sats) > 16 else 1
     ncol = 2 if len(sats) > 8 else 1
 

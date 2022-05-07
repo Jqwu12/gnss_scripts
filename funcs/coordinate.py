@@ -32,10 +32,10 @@ def ell2cart(lat, lon, h, ellipsoid = 'GRS80'):
     ellipsoid = _ellipsoid(ellipsoid)
     lat = lat * _np.pi / 180 # in radians
     lon = lon * _np.pi / 180 # in radians
-    N = ellipsoid.a / _np.sqrt(1-ellipsoid.e2 * _np.sin(lat)**2)
+    N = ellipsoid.a / _np.sqrt(1-ellipsoid.e1**2 * _np.sin(lat)**2)
     x = (N + h) * _np.cos(lat) * _np.cos(lon)
     y = (N + h) * _np.cos(lat) * _np.sin(lon)
-    z = ((1-ellipsoid.e2) * N + h) * _np.sin(lat)
+    z = ((1-ellipsoid.e1**2) * N + h) * _np.sin(lat)
     return x,y,z
 
 def cart2ell(x, y, z, ellipsoid = 'GRS80'):

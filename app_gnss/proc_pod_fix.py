@@ -15,7 +15,7 @@ class ProcPodFix(ProcPod):
 
     def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
         super().__init__(config, ndays, kp_dir)
-        self.required_subdir += ['orbdif', 'clkdif', 'ambupd']
+        self.required_subdir += ['orbdif', 'clkdif', 'ambupd', 'ambinp']
         self.required_opt += ['estimator']
         self.required_file += ['rinexo', 'rinexn', 'biabern']
         self.proj_id = 'POD_FIX'
@@ -23,7 +23,9 @@ class ProcPodFix(ProcPod):
     def process_ambfix(self):
         #gsys = ''.join([s for s in self._gsys if s != "R"])
         #self._config.gsys = gsys
+        self._config.intv = 30
         GrtAmbfix(self._config, None, 'ambfix').run()
+        self._config.intv = self._intv
         #self._config.gsys = self._gsys
 
     def process_daily(self):
@@ -32,13 +34,18 @@ class ProcPodFix(ProcPod):
                      f"number of satellites = {len(self._config.all_gnssat)}")
         
         logging.info(f"===> 1st iteration for precise orbit determination")
-        self._config.ambupd = True
+        #self._config.ambupd = True
         with timeblock('Finished fixed POD'):
             self.process_ambfix()
             if self._config.amb_type.upper() == "UD":
                 self._config.carrier_range = True
                 if not self.process_float_pod('AR', True, True):
                     return
+                if "R" in self._gsys:
+                    self.editres(jump=40, edt_amb=True)
+                    logging.info(f"===> 2nd iteration for precise orbit determination")
+                    with timeblock("Finished 2nd POD"):
+                        self.process_float_pod('AR2', True, False)
             else:
                 if not self.process_fix_pod('AR', True, True):
                     return

@@ -496,7 +496,7 @@ class GrtUpdlsq(GrtCmd):
                 elif self.mode == 'WL':
                     root.append(self._config.get_xml_inputs(['rinexo', 'rinexn', 'ambflag', 'biabern']))
                 else:
-                    f_inputs = ['rinexn', 'upd', 'ambupd', 'upd_wl']
+                    f_inputs = ['rinexn', 'ambupd', 'upd_wl']
                     if self._config.carrier_range_out:
                         f_inputs.append('ambflag')
                         if self._config.freq > 2:

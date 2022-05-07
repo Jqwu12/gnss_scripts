@@ -17,7 +17,7 @@ class ProcPod(ProcGen):
 
     def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
         super().__init__(config, ndays, kp_dir)
-        self.required_subdir += ['orbdif', 'clkdif']
+        self.required_subdir += ['orbdif', 'clkdif', 'ambinp']
         self.required_opt += ['estimator']
         self.required_file += ['rinexo', 'rinexn', 'biabern']
         self.proj_id = 'POD'
