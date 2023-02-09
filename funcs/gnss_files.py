@@ -59,7 +59,7 @@ def read_sp3_file(f_sp3):
             continue
         sat, px, py, pz, *_ = line[1:].split()
         data.append({
-            'epoch': epoch.fmjd, 'sod': epoch.sod, 'sat': sat,
+            'epoch': epoch.fmjd, 'mjd': epoch.mjd, 'sod': epoch.sod, 'sat': sat,
             'px': float(px) * 1000, 'py': float(py) * 1000, 'pz': float(pz) * 1000
         })
 

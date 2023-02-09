@@ -92,21 +92,21 @@ class ProcPod(ProcGen):
         if not self.detect_outliers():
             logging.error("podlsq wrong!")
             return False
-        if not check_pod_sigma(self._config, maxsig=200):
+        if not check_pod_sigma(self._config, maxsig=30):
             return False
         self.process_orb(label, eval, prod)
         return True
 
     def process_float_pod(self, label='F2', eval=True, prod=False):
         GrtPodlsq(self._config, 'podlsq').run()
-        if not check_pod_sigma(self._config, maxsig=200):
+        if not check_pod_sigma(self._config, maxsig=30):
             return False
         self.process_orb(label, eval, prod)
         return True
 
     def process_fix_pod(self, label='AR', eval=True, prod=True):
         GrtPodlsq(self._config, 'podlsq_fix', fix_amb=True, use_res_crd=True).run()
-        if not check_pod_sigma(self._config, maxsig=200):
+        if not check_pod_sigma(self._config, maxsig=30):
             return False
         self.process_orb(label, eval, prod)
         return True
@@ -147,7 +147,7 @@ class ProcPod(ProcGen):
                 logging.error('process POD failed! no valid ambflag file')
                 return
             #copy_result_files(self._config, ['recover'], 'F1')
-
+        
         logging.info(f"===> 2nd iteration for precise orbit determination")
         with timeblock("Finished 2nd POD"):
             if not self.process_float_pod('F2', True, False):
@@ -155,7 +155,7 @@ class ProcPod(ProcGen):
             self.editres(bad=40, jump=40, nshort=600)
             #copy_result_files(self._config, ['recover'], 'F2')
 
-        self._config.ambupd = True
+        #self._config.ambupd = True
         logging.info(f"===> 3rd iteration for precise orbit determination")
         with timeblock('Finished 3rd POD'):
             if not self.process_float_pod('F3', True, True):

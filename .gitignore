@@ -10,6 +10,15 @@ app_gnss/site_list_*
 app_gnss/*.ini
 app_gnss/log/*
 app_gnss/__pycache__/*
+app_gnss/config
+app_gnss/config_C
+app_gnss/config_E
+app_gnss/config_G
+app_gnss/site_list
 app_plot/*.ini
+app_plot/pod_mf
+app_plot/rt_pce
 app_plot/log/*
 app_plot/__pycache__/*
+test.py
+eval_orbit.py

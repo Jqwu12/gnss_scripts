@@ -4,7 +4,7 @@ import logging
 import argparse
 from funcs import GnssConfig, GnssTime, gns_sat, hms2sod, read_site_list, MAX_THREAD, timeblock, mkdir, \
     get_grg_wsb, check_turboedit_log, check_brd_orbfit, backup_files, edit_ics, \
-    GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres
+    GrtClockRepair, GrtTurboedit, GrtPreedit, GrtOi, GrtOrbfit, GrtEditres, multi_run
 
 
 def basic_args(description: str, config: str):
@@ -233,24 +233,26 @@ class ProcGen:
         return True
 
     def editres(self, bad=80, jump=80, nshort=600, edt_amb=False):
-        kwargs = {'nmp': self.nthread, 'bad': bad, 'jump': jump, 'nshort': nshort, 'edt_amb': edt_amb}
+        kwargs = {'nmp': 1, 'bad': bad, 'jump': jump, 'nshort': nshort, 'edt_amb': edt_amb}
+        cmds = []
         if self._config.obs_comb == 'IF':
-            GrtEditres(self._config, 'editres12', mode='L12', freq='LC12', **kwargs).run()
+            cmds.extend(GrtEditres(self._config, 'editres12', mode='L12', freq='LC12', **kwargs).form_cmd())
             if self._config.freq > 2:
-                GrtEditres(self._config, 'editres13', mode='L13', freq='LC13', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres13', mode='L13', freq='LC13', **kwargs).form_cmd())
             if self._config.freq > 3:
-                GrtEditres(self._config, 'editres14', mode='L14', freq='LC14', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres14', mode='L14', freq='LC14', **kwargs).form_cmd())
             if self._config.freq > 4:
-                GrtEditres(self._config, 'editres15', mode='L15', freq='LC15', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres15', mode='L15', freq='LC15', **kwargs).form_cmd())
         else:
-            GrtEditres(self._config, 'editres01', mode='L12', freq='L1', **kwargs).run()
-            GrtEditres(self._config, 'editres02', mode='L12', freq='L2', **kwargs).run()
+            cmds.extend(GrtEditres(self._config, 'editres01', mode='L12', freq='L1', **kwargs).form_cmd())
+            cmds.extend(GrtEditres(self._config, 'editres02', mode='L12', freq='L2', **kwargs).form_cmd())
             if self._config.freq > 2:
-                GrtEditres(self._config, 'editres03', mode='L13', freq='L3', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres03', mode='L13', freq='L3', **kwargs).form_cmd())
             if self._config.freq > 3:
-                GrtEditres(self._config, 'editres04', mode='L14', freq='L4', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres04', mode='L14', freq='L4', **kwargs).form_cmd())
             if self._config.freq > 4:
-                GrtEditres(self._config, 'editres05', mode='L15', freq='L5', **kwargs).run()
+                cmds.extend(GrtEditres(self._config, 'editres05', mode='L15', freq='L5', **kwargs).form_cmd())
+        multi_run(cmds, "editres", self.nthread)
         self.basic_check(files=['ambflag'])
 
     def process_daily(self):

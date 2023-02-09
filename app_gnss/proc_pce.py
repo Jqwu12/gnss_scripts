@@ -4,7 +4,7 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import GnssConfig, copy_result_files, GrtClkdif, GrtPcelsq, GrtAmbfix
+from funcs import GnssConfig, copy_result_files, GrtClkdif, GrtPcelsq, GrtAmbfix, read_site_list
 
 
 class ProcPce(ProcGen):
@@ -39,7 +39,7 @@ class ProcPce(ProcGen):
 
     def generate_products(self, label=''):
         f_clk0 = self._config.get_xml_file('satclk', check=True)
-        f_clk1 = self._config.get_xml_file('clk_out', check=False)
+        f_clk1 = self._config.get_xml_file('grtclk', sec="output_files")
         if f_clk0:
             shutil.copy(f_clk0[0], f_clk1[0])
         if label and os.path.isfile(f_clk1[0]):
@@ -49,8 +49,9 @@ class ProcPce(ProcGen):
         logging.info(f"------------------------------------------------------------------------")
         logging.info(f"Everything is ready: number of stations = {len(self._config.site_list)}, "
                      f"number of satellites = {len(self._config.all_gnssat)}")
+
         # self._config.crd_constr = 'FIX'
-        GrtPcelsq(self._config, 'pcelsq').run()
+        GrtPcelsq(self._config, 'pcelsq', fix_amb=False).run()
         self.clkdif('F')
         self.generate_products('F')
 

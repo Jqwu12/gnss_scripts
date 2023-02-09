@@ -113,7 +113,7 @@ def gns_sat(gsys, sats_rm=None) -> list:
         return _BDS_SAT
     elif gsys == 'GAL':
         _GAL_SAT = [f"E{i:0>2d}" for i in range(1, 37)]
-        _GAL_SAT_EXC = ['E20', 'E22', 'E06', 'E10', 'E16', 'E17', 'E23', 'E28', 'E29', 'E32', 'E34', 'E35']
+        _GAL_SAT_EXC = ['E20', 'E22', 'E06', 'E16', 'E17', 'E23', 'E28', 'E29', 'E32', 'E35']
         _GAL_SAT_EXC.extend(sats_rm)
         _GAL_SAT = list(set(_GAL_SAT).difference(set(_GAL_SAT_EXC)))
         _GAL_SAT.sort()

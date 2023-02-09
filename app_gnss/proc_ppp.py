@@ -4,7 +4,7 @@ import shutil
 import logging
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from proc_gen import ProcGen
-from funcs import GnssConfig, GrtPpplsq
+from funcs import GnssConfig, GrtPpplsq, GrtAmbfix
 
 
 class ProcPPP(ProcGen):
@@ -14,7 +14,7 @@ class ProcPPP(ProcGen):
 
     def __init__(self, config: GnssConfig, ndays=1, kp_dir=False):
         super().__init__(config, ndays, kp_dir)
-        self.required_subdir += ['enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res']
+        self.required_subdir += ['enu', 'flt', 'ppp', 'ratio', 'ambupd', 'res', 'ambcon']
         self.required_opt += ['estimator']
         self.required_file += ['rinexo', 'rinexn', 'rinexc', 'sp3', 'biabern']
         self.proj_id = 'PPP'
@@ -47,9 +47,12 @@ class ProcPPP(ProcGen):
 
         # self._config.obs_comb = 'IF'
         # self._config.copy_sys_data()
-        # self._config.carrier_range = True
+        #self._config.carrier_range = False
         self.process_ppp(freq=2, fix=False)
-        # self.process_ppp(freq=2, fix=True)
+        self.process_ppp(freq=2, fix=True)
+        # self._config.carrier_range = True
+        # self.process_ppp(freq=2, fix=False)
+        #self.process_ppp(freq=2, fix=True)
         # self.process_ppp(freq=3, fix=False)
         # self.process_ppp(freq=3, fix=True)
 

@@ -298,7 +298,7 @@ def read_orbdif(file):
                 d_3d = math.sqrt(da ** 2 + dc ** 2 + dr ** 2)
                 d_1d = d_3d / math.sqrt(3)
                 data.append({
-                    'date': td, 'sat': sats[isat], 'gns': gns_name(sats[isat][0]), 'da': da, 'dc': dc, 'dr': dr,
+                    'date': td, 'mjd':mjd, 'sod': sod, 'sat': sats[isat], 'gns': gns_name(sats[isat][0]), 'da': da, 'dc': dc, 'dr': dr,
                     '3d': d_3d, '1d': d_1d
                 })
 
@@ -1098,7 +1098,7 @@ def read_epo_upd(file):
         elif len(line) >= 37:
             sat, val, sig, nobs, *_ = line.split()
             data.append({
-                'date': cal_time, 'sat': sat, 'upd': float(val), 'sig': float(sig),
+                'date': cal_time, 'mjd': float(mjd), 'sod': float(sod), 'sat': sat, 'upd': float(val), 'sig': float(sig),
                 'nobs': int(nobs), 'sys': gns_name(sat[0])
             })
 

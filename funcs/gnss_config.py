@@ -269,6 +269,20 @@ class GnssConfig:
         self.config.set('process_scheme', 'ultra_sp3', str(value))
     
     @property
+    def ifcb_model(self) -> bool:
+        return self.config.get('process_scheme', 'ifcb_model', fallback='COR').upper()
+    
+    @ifcb_model.setter
+    def ifcb_model(self, value: str):
+        if not isinstance(value, str):
+            raise TypeError('Expected a string')
+        self.config.set('process_scheme', 'ifcb_model', value)
+
+    @property
+    def ifb_model(self) -> bool:
+        return self.config.get('process_scheme', 'ifb_model', fallback='NONE').upper()
+    
+    @property
     def ext_ambflag(self) -> bool:
         return self.config.getboolean('process_scheme', 'ext_ambflag', fallback=False)
 
@@ -293,7 +307,11 @@ class GnssConfig:
         if not isinstance(value, bool):
             raise TypeError('Expected a bool')
         self.config.set('process_scheme', 'ambupd', str(value))
-
+    
+    @property
+    def sat_pcv(self) -> bool:
+        return self._config.getboolean('process_scheme', 'sat_pcv', fallback=False)
+    
     def set_process(self, **kwargs):
         """ Update any process item in config """
         for key, val in kwargs.items():
@@ -356,6 +374,13 @@ class GnssConfig:
     def gnsfreq(self, gsys) -> int:
         """ freq of one system """
         return min(int(self.freq), len(self.band[gns_name(gsys)]))
+    
+    def gnsband(self, gsys) -> list:
+        """ band of one system """
+        gs = gns_name(gsys)
+        if gs not in self.gsystem:
+            return []
+        return [str(self.band[gs][i]) for i in range(self.gnsfreq(gs))]
 
     def gnssat(self, gsys) -> list:
         if gsys not in self.gsystem:
@@ -604,18 +629,20 @@ class GnssConfig:
     def file_name(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False) -> str:
         return self._file_name(f_type, cf_vars, sec, check, quiet)
 
-    def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False):
+    def _daily_file(self, f_type, cf_vars=None, sec='process_files', check=False, quiet=False, extend=True):
         if cf_vars is None:
             cf_vars = {}
-        if f_type == 'sp3':
-            t_beg = self.beg_time - 5400
-            t_end = self.end_time + 5400
-        elif f_type == 'rinexc':
-            t_beg = self.beg_time
-            t_end = self.end_time + 5400
-        else:
-            t_beg = self.beg_time
-            t_end = self.end_time - 1
+
+        t_beg = self.beg_time
+        t_end = self.end_time - 1
+        if extend:
+            if f_type == 'sp3':
+                t_beg = self.beg_time - 5400
+                t_end = self.end_time + 5400
+            elif f_type == 'rinexc':
+                t_beg = self.beg_time
+                t_end = self.end_time + 5400
+
         end_time = GnssTime(t_end.mjd, 86399.0)
         f_list = []
         while t_beg < end_time:
@@ -627,7 +654,7 @@ class GnssConfig:
         return f_list
 
     def get_xml_file(self, f_type: str, sattype='gns', sec='process_files', check=False,
-                     remove=False, quiet=False) -> list:
+                     remove=False, quiet=False, extend=True) -> list:
         # -------------------------------------------------------------------------------
         # files per site
         if self.is_rec_file(f_type, sec):
@@ -662,18 +689,18 @@ class GnssConfig:
             f_list = []
             if 'gns' in sattype:
                 if not self.ultra_sp3:
-                    f_list.extend(self._daily_file(f_type, {}, sec, check, quiet))
+                    f_list.extend(self._daily_file(f_type, {}, sec, check, quiet, extend))
                 else:
                     t_beg = self.beg_time - 5400
                     step = 1 if self.orb_ac == 'wum' else 6
                     hh = math.floor(math.floor(t_beg.sod / 3600) / step)*step
                     t_ultra = GnssTime(t_beg.mjd, hh*3600)
-                    f_list.append(self._file_name('usp3', t_ultra.config_timedic(), sec, check, quiet))
+                    f_list.append(self._file_name('usp3', t_ultra.config_timedic(), sec, check, quiet, extend))
             if 'leo' in sattype:
-                f_list.extend(self.get_xml_file('kin', 'leo', sec, check, quiet))
+                f_list.extend(self.get_xml_file('kin', 'leo', sec, check, quiet, extend))
             return [f for f in f_list if f]
         elif f_type in ['rinexn', 'rinexc', 'ssrclk']:
-            return self._daily_file(f_type, {}, sec, check, quiet)
+            return self._daily_file(f_type, {}, sec, check, quiet, extend)
         elif f_type == 'clk':
             fs = [self._file_name('satclk', {}, sec, check), self._file_name('recclk', {}, sec, check, quiet)]
             return [f for f in fs if f]
@@ -750,8 +777,8 @@ class GnssConfig:
             return [f] if f else []
     
     def get_xml_file_str(self, f_type: str, sattype='gns', sec='process_files', check=False,
-                    remove=False, quiet=False) -> str:
-        return ' '.join(self.get_xml_file(f_type, sattype, sec, check, remove, quiet))
+                    remove=False, quiet=False, extend=True) -> str:
+        return ' '.join(self.get_xml_file(f_type, sattype, sec, check, remove, quiet, extend))
 
     def remove_ambflag_file(self, sites: List[str]):
         for f_type in ['ambflag', 'ambflag13', 'ambflag14', 'ambflag15']:
@@ -785,11 +812,15 @@ class GnssConfig:
         """ copy source_files to process_files """
         f_rst = []
         for f_type in self.config.options('source_files'):
-            if f_type in ['upd_ewl25', 'upd_ewl24', 'upd_ewl', 'upd_wl', 'upd_nl'] and self.upd_mode != 'UPD':
+            if self.upd_mode == 'OSB' and f_type.startswith('upd'):
+                continue
+            if self.upd_mode == 'IRC' and self.orb_ac in ['grm', 'grg'] and f_type.startswith('upd'):
+                continue
+            if self.upd_mode == 'IRC' and f_type == 'upd_nl':
                 continue
             if (f_type == 'upd_ewl25' and self.freq < 5) or (f_type == 'upd_ewl24' and self.freq < 4) or (f_type == 'upd_ewl' and self.freq < 3):
                 continue
-            if f_type == 'ifcb' and (self.freq < 3 or 'G' not in self.gsys):
+            if f_type == 'ifcb' and ('G' not in self.gsys or '5' not in self.gnsband('G')) and ('R' not in self.gsys or '3' not in self.gnsband('R')):
                 continue
             if not self.ext_ambflag and f_type.startswith('ambflag'):
                 continue
@@ -824,8 +855,8 @@ class GnssConfig:
                 logging.info(f"files copied to work directory: {', '.join(f_rst)}")
 
     def set_ref_clk(self, mode='sat', sats=None):
-        ref_sats = ['G01', 'G06', 'G08', 'G15', 'E01', 'E02', 'E03', 'C21', 'C22', 'C25', 'C08', 'C11', 'R01', 'R02', 'R05']
-        ref_sites = ['ptbb', 'brux', 'twtf', 'mgue', 'hob2', 'nrc1']
+        ref_sats = ['G11', 'G04', 'G08', 'G15', 'E01', 'E02', 'E03', 'C21', 'C22', 'C25', 'C08', 'C11', 'R01', 'R02', 'R05']
+        ref_sites = ['ptbb', 'brux', 'twtf', 'mgue', 'hob2', 'nrc1', 'algo']
         sat_list = self.all_gnssat if sats is None else [s for s in self.all_gnssat if s in sats]
         if mode == 'sat':
             for sat in ref_sats:
@@ -876,8 +907,7 @@ class GnssConfig:
             esat = ET.SubElement(elem, 'sat')
             esat.text = ' '.join(gns_sat(gs, self.sat_rm))
             eband = ET.SubElement(elem, 'band')
-            eband.text = ' '.join([str(b) for b in self.band[gs]])
-            eband.text = ' '.join([str(self.band[gs][i]) for i in range(self.gnsfreq(gs))])
+            eband.text = ' '.join(self.gnsband(gs))
             efreq = ET.SubElement(elem, 'freq')
             efreq.text = ' '.join([str(f) for f in range(1, self.gnsfreq(gs) + 1)])
             elems.append(elem)
@@ -919,18 +949,34 @@ class GnssConfig:
                 proc_dict[opt] = self.config.get('process_scheme', opt)
 
         proc = ET.Element('process', attrib=proc_dict)
+        if self.freq > 2:
+            elem = ET.SubElement(proc, 'ifcb_model')
+            elem.text = self.ifcb_model
+            elem = ET.SubElement(proc, 'ifb_model')
+            elem.text = self.ifb_model
         if not self.config.getboolean('process_scheme', 'trimcor', fallback=True):
             elem = ET.SubElement(proc, 'trimcor')
             elem.text = 'false'
+        # PCO estimation part
+        if self.sat_pcv:
+            pcv = ET.SubElement(proc, 'sat_pcv', {'est': 'true'})
+            pcv_opts = ['pco_est', 'sig_init_pcox', 'sig_init_pcoy', 'sig_init_pcoz']
+            for opt in pcv_opts:
+                elem = ET.SubElement(pcv, opt)
+                elem.text = self.config.get('process_scheme', opt, fallback='')
+            elem = ET.SubElement(pcv, 'sat')
+            elem.text = self.config.get('process_scheme', 'pcv_sat', fallback='')
+            elem = ET.SubElement(pcv, 'freq')
+            elem.text = self.config.get('process_scheme', 'pcv_freq', fallback='')
         return proc
 
-    def get_xml_inputs(self, fs: List[str], check=True, sattype='gns') -> ET.Element:
+    def get_xml_inputs(self, fs: List[str], check=True, sattype='gns', extend=True) -> ET.Element:
         inps = ET.Element('inputs')
         for f in fs:
             name = f
             if sattype == 'leo' and f == 'ics':
                 name = 'iceleo'
-            elif f == 'pso':
+            elif f == 'pso' or f == 'grtsp3':
                 name = 'sp3'
             elif f == 'clk':
                 name = 'rinexc'
@@ -939,7 +985,7 @@ class GnssConfig:
             elif f.startswith('upd'):
                 name = 'upd'
             elem = ET.SubElement(inps, name)
-            elem.text = self.get_xml_file_str(f, sattype=sattype, sec='process_files', check=check)
+            elem.text = self.get_xml_file_str(f, sattype=sattype, sec='process_files', check=check, extend=extend)
         return inps
     
     def get_xml_outputs(self, fs: List[str], check=False, sattype='gns', verb="0", log=None) -> ET.Element:
@@ -977,7 +1023,7 @@ class GnssConfig:
         else:
             ET.SubElement(tb, 'amb_output', attrib={'valid': 'true'})
             ET.SubElement(tb, 'ephemeris', attrib={'valid': 'true'})
-            ET.SubElement(tb, 'check_pc', attrib={'pc_limit': '250', 'valid': 'false' if isleo else 'true'})
+            ET.SubElement(tb, 'check_pc', attrib={'pc_limit': '250', 'valid': 'false' if isleo else 'false'})
             ET.SubElement(tb, 'check_mw', attrib={'mw_limit': '4', 'valid': 'true'})
             ET.SubElement(tb, 'check_gf', attrib={'gf_limit': '1', 'gf_rms_limit': '2', 'valid': 'true'})
             ET.SubElement(tb, 'check_sf', attrib={'sf_limit': '1', 'valid': 'false'})

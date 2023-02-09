@@ -263,11 +263,21 @@ class GrtOrbsp3(GrtOi):
 class GrtOrbfit(GrtCmd):
     grt_app = 'great_orbfit'
 
+    def __init__(self, config, label=None, stop=True, sp3=False, trans='', extend=False):
+        super().__init__(config, label, stop)
+        self.sp3 = sp3
+        self.trans = trans
+        self.extend = extend
+
     def form_xml(self):
         root = ET.Element('config')
         root.append(self._config.get_xml_gen(['sys', 'intv']))
         root.extend(self._config.get_xml_gns())
-        root.append(self._config.get_xml_inputs(['orb', 'rinexn', 'ics', 'poleut1']))
+        orbdif = ET.SubElement(root, 'orbdif')
+        elem = ET.SubElement(orbdif, 'trans')
+        elem.text = self.trans
+        f_inps = ['orb', 'sp3' if self.sp3 else 'rinexn', 'ics', 'poleut1']
+        root.append(self._config.get_xml_inputs(f_inps, extend=self.extend))
         root.append(self._config.get_xml_outputs(['ics', 'orbfit']))
         return root
 
@@ -541,8 +551,6 @@ class GrtAmbfix(GrtCmd):
         elem = ET.SubElement(amb, 'amb_type')
         elem.text = self.mode
         root.append(amb)
-        proc = self._config.get_xml_process()
-        proc.set('ambfix', 'true')
         # <inputs>
         f_inps = []
         if self._config.wl_mode.upper() == 'AMB':
@@ -553,6 +561,9 @@ class GrtAmbfix(GrtCmd):
             f_inps = ['biabern', 'rinexn', 'recover']
             if self._config.obs_comb == "IF":
                 f_inps.append('rinexo')
+            if ("G" in self._config.gsys and '5' in self._config.gnsband('G')) \
+                or ("R" in self._config.gsys and '3' in self._config.gnsband('R')):
+                f_inps.append('ifcb')
         if self.mode != "DD":
             f_inps.append('upd')
         root.append(self._config.get_xml_inputs(f_inps))
@@ -563,7 +574,7 @@ class GrtAmbfix(GrtCmd):
 class GrtPodlsq(GrtCmd):
     grt_app = 'great_podlsq'
     f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'orb', 
-              'ics', 'blq', 'satpars', 'rinexn', 'clk', 'mwobs_dir']
+              'ics', 'blq', 'satpars', 'rinexn', 'clk']
     f_outs = ['ics', 'satclk', 'recclk', 'recover', 'ambupd', 'ambinp']
 
     def __init__(self, config, label=None, stop=True, str_args='', fix_amb=False, use_res_crd=False):
@@ -616,22 +627,30 @@ class GrtPodlsq(GrtCmd):
         # proc.set('sysbias_model', 'ISB+CON')
         proc.set('lsq_buffer_size', '500')
         elem = ET.SubElement(proc, 'ifb_model')
-        elem.text = 'EST_REC_IFB' if self._config.obs_comb == 'UC' else 'NONE'
+        #elem.text = 'EST_REC_IFB' if self._config.obs_comb == 'UC' else 'NONE'
+        elem.text = 'EST_REC_IFB'
         return proc
 
     def xml_inputs(self):
         f_inps = list(self.f_inps) # copy a new list
-        if 'G' in self._config.gsys and self._config.freq > 2:
+        if ('G' in self._config.gsys and '5' in self._config.gnsband('G')) \
+            or ("R" in self._config.gsys and '3' in self._config.gnsband('R')) \
+            and self._config.ifcb_model != 'EST':
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
         if '-brdm' in self.str_args:
             f_inps.remove('clk')
+        if self._config.carrier_range:
+            f_inps.append('upd')
         return self._config.get_xml_inputs(f_inps)
 
     def xml_outputs(self):
         f_log = self.xml.replace(".xml", ".log")
-        return self._config.get_xml_outputs(self.f_outs, log=f_log)
+        f_outs = self.f_outs
+        if self._config.ifcb_model == 'EST':
+            f_outs.append('ifcb')
+        return self._config.get_xml_outputs(f_outs, log=f_log)
 
     def form_xml(self):
         root = ET.Element('config')
@@ -669,7 +688,9 @@ class GrtPodleo(GrtPodlsq):
 
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern', 'clk', 'attitude', 'satpars']
-        if 'G' in self._config.gsys and self._config.freq > 2:
+        if ('G' in self._config.gsys and '5' in self._config.gnsband('G')) \
+            or ("R" in self._config.gsys and '3' in self._config.gnsband('R')) \
+            and self._config.ifcb_model != 'EST':
             f_inps.append('ifcb')
         if self.fix_amb:
             f_inps.append('ambcon')
@@ -753,7 +774,8 @@ class GrtPpplsq(GrtPodlsq):
     def xml_inputs(self):
         f_inps = ['rinexo', 'DE', 'poleut1', 'leapsecond', 'atx', 'biabern',
                   'rinexn', 'sp3', 'rinexc', 'blq']
-        if 'G' in self._config.gsys and self._config.freq > 2:
+        if ('G' in self._config.gsys and '5' in self._config.gnsband('G')) \
+            or ("R" in self._config.gsys and '3' in self._config.gnsband('R')):
             f_inps.append('ifcb')
         if self._config.carrier_range:
             f_inps.append('upd')

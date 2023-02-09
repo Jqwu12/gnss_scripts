@@ -23,15 +23,17 @@ class ProcUpd(ProcGen):
         self.est_ifcb = False
 
     def process_ifcb(self):
-        if self._config.freq < 3 or 'G' not in self._config.gsys:
+        gsys = [s for s in self._config.gsys if s in 'GR']
+        if self._config.freq < 3 or not gsys:
             return
         # if no ifcb file in current dir, run ifcb estimation
         if not self._config.get_xml_file('ifcb', check=True):
             with timeblock('Finished IFCB estimation'):
-                self._config.gsys = 'G'
                 obs_comb = self._config.obs_comb
                 self._config.obs_comb = "IF"
-                GrtUpdlsq(self._config, mode='IFCB', label='ifcb').run()
+                for gs in gsys:
+                    self._config.gsys = gs  
+                    GrtUpdlsq(self._config, mode='IFCB', label=f'ifcb_{gs}').run()
                 self._config.gsys = self._gsys
                 self._config.obs_comb = obs_comb
                 self.est_ifcb = True
@@ -178,7 +180,6 @@ class ProcUpd(ProcGen):
             logging.info(f"===> Merge UPD: {' '.join(upd_results)}")
             merge_upd_all(self._config, self._gsys, upd_results)
 
-        self.upd_results = {'upd_nl', 'upd_wl'}
         self.save_results(self.upd_results)
 
 
